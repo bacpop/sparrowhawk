@@ -1,0 +1,95 @@
+cmake_minimum_required(VERSION 3.19)
+project(sparrowhawk)
+set(CMAKE_CXX_STANDARD 14)
+cmake_policy(SET CMP0104 OLD) # Can't get CUDA_ARCHITECTURES to work with NEW
+
+# Variable definitions
+set(TARGET_NAME sparrowhawk)
+add_compile_definitions(PYTHON_EXT)
+
+# Add -O0 to remove optimizations when using gcc
+IF(CMAKE_COMPILER_IS_GNUCC)
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+ENDIF(CMAKE_COMPILER_IS_GNUCC)
+
+if(UNIX AND NOT APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS")
+    set(CMAKE_LD_FLAGS "${CMAKE_LDFLAGS} -Wl,--as-needed")
+endif()
+
+# Set paths for non standard lib/ and include/ locations
+if(DEFINED ENV{CONDA_PREFIX})
+    include_directories($ENV{CONDA_PREFIX}/include)
+    link_directories($ENV{CONDA_PREFIX}/lib)
+    link_directories($ENV{CONDA_PREFIX}/lib/intel64)
+endif()
+
+# Add libraries
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+find_package(pybind11 REQUIRED)
+#find_package(OpenMP) # This links system openmp if present - conda sorts out rpath but take care
+
+# Define python library target
+add_library("${TARGET_NAME}" MODULE)
+
+# Check for CUDA and compiles GPU library
+enable_language(CUDA)
+
+# PIC/relocatable-device-code needed as this is linked by gcc later
+# -Xptxas -dlcm=ca turns cache on, but not needed in recent nvcc versions
+# --cudart static: static linking of the CUDA libraries
+# -gencode arch=compute_35 etc compiles for each (minimum) device version listed (v3.5, v5.0, v7.5)
+set(CUDA_OPTS "-Xcompiler -fPIC -Xptxas -dlcm=ca --relocatable-device-code=true --expt-relaxed-constexpr")
+# Turn on link time optimisation if available
+if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER 11.0)
+    string(APPEND CUDA_OPTS " -dlto -arch=sm_86")
+else()
+    string(APPEND CUDA_OPTS " -gencode arch=compute_70,code=sm_70 -gencode arch=compute_75,code=sm_75")
+endif()
+if(CMAKE_BUILD_TYPE MATCHES DEBUG)
+    string(APPEND CUDA_OPTS " -G")
+endif()
+set(CMAKE_CUDA_FLAGS "${CUDA_OPTS}")
+
+add_library("${TARGET_NAME}_CUDA" OBJECT src/gpu/dist.cu src/gpu/sketch.cu)
+set_property(TARGET "${TARGET_NAME}_CUDA"
+                PROPERTY POSITION_INDEPENDENT_CODE ON
+                CUDA_SEPARABLE_COMPILATION ON
+                CUDA_RESOLVE_DEVICE_SYMBOLS ON   # try and ensure device link with nvcc
+                CUDA_VISIBILITY_PRESET "hidden"
+                CUDA_RUNTIME_LIBRARY Static)
+            #CUDA_ARCHITECTURES OFF) # set off as done explicitly above (due to dlto complexities)
+# CPU code/gcc compiled code needed by cuda lib
+target_sources("${TARGET_NAME}" PRIVATE src/gpu/gpu_api.cpp)
+
+
+# Compile CPU library
+target_sources("${TARGET_NAME}" PRIVATE src/sketchlib_bindings.cpp
+                                    src/dist/dist.cpp
+                                    src/dist/matrix_ops.cpp
+                                    src/reference.cpp
+                                    src/sketch/seqio.cpp
+                                    src/sketch/countmin.cpp
+                                    src/sketch/sketch.cpp
+                                    src/database/database.cpp
+                                    src/api.cpp
+                                    src/dist/linear_regression.cpp
+                                    src/random/rng.cpp
+                                    src/random/random_match.cpp)
+set_target_properties("${TARGET_NAME}" PROPERTIES
+    CXX_VISIBILITY_PRESET "hidden"
+    INTERPROCEDURAL_OPTIMIZATION TRUE
+    PREFIX "${PYTHON_MODULE_PREFIX}"
+    SUFFIX "${PYTHON_MODULE_EXTENSION}"
+)
+
+# Link libraries
+target_link_libraries("${TARGET_NAME}" PRIVATE "${TARGET_NAME}_CUDA")
+set_property(TARGET "${TARGET_NAME}" PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+#set_property(TARGET "${TARGET_NAME}" PROPERTY CUDA_ARCHITECTURES OFF)
+target_link_libraries("${TARGET_NAME}" PRIVATE pybind11::module
+                                               z gomp m dl)
+#if(OpenMP_CXX_FOUND)
+#    target_link_libraries("${TARGET_NAME}" PRIVATE OpenMP::OpenMP_CXX)
+#endif()

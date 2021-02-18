@@ -1,0 +1,13 @@
+name: pp_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python
+  - pip
+  - cmake >= 3.19
+  - pybind11
+  - zlib
+  - cudatoolkit-dev
+  - libgomp
