@@ -17,6 +17,8 @@
 #include <string.h>
 #include "kseq.h"
 
+namespace sparrowhawk {
+
 class SeqBuf
 {
 public:
@@ -65,3 +67,5 @@ private:
   bool end;
   bool _reads;
 };
+
+}

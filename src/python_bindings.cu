@@ -19,9 +19,9 @@ PYBIND11_MODULE(sparrowhawk, m)
   m.doc() = "Microbial genome assembly using CUDA";
 
   // Exported functions
-  m.def("deviceInfo", &deviceInfo, "Get information about available GPUs");
+  m.def("deviceInfo", &device_info, "Get information about available GPUs");
 
-  m.def("makeDBG", &makeDBG, "Make a DBG at a given k-mer length fro sequence reads",
+  m.def("makeDBG", &make_dbg, "Make a DBG at a given k-mer length fro sequence reads",
         py::arg("fwd"),
         py::arg("rev"),
         py::arg("k"),
@@ -29,7 +29,7 @@ PYBIND11_MODULE(sparrowhawk, m)
         py::arg("num_threads") = 1,
         py::arg("device_id") = 0);
 
-  m.def("assembleReads", &assembleReads, "Assemble contigs from sequence reads",
+  m.def("assembleReads", &assemble_reads, "Assemble contigs from sequence reads",
         py::arg("fwd"),
         py::arg("rev"),
         py::arg("klist"),

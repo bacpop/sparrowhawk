@@ -13,6 +13,10 @@
 
 #include "cuda.cuh"
 
+namespace sparrowhawk {
+
+namespace nthash {
+
 // offset for the complement base in the random seeds table
 const uint8_t cpOff = 0x07;
 
@@ -458,4 +462,7 @@ void copyNtHashTablesToDevice() {
   CUDA_CALL(cudaMemcpyToSymbolAsync(d_msTab33r, d_addr_msTab33r,
                                     256 * sizeof(uint64_t *)));
   CUDA_CALL(cudaDeviceSynchronize());
+}
+
+}
 }

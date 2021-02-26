@@ -1,3 +1,11 @@
+#pragma once
+
+#include <vector>
+
+#include "seqio.hpp"
+
+namespace sparrowhawk {
+
 class device_reads
 {
 public:
@@ -31,5 +39,4 @@ private:
   size_t _read_stride;
 };
 
-
-
+}

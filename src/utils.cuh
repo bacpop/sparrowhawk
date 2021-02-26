@@ -1,9 +1,8 @@
-/*
- *
- * utils.cu
- * CUDA utility functions
- *
- */
+#pragma once
+
+namespace sparrowhawk {
+
+namespace utils {
 
 const int warp_size = 32;
 const int progress_bitshift = 10;
@@ -39,22 +38,11 @@ void report_progress(volatile int *blocks_complete, size_t total) {
   }
 }
 
-// Initialise device and return info on its memory
-std::tuple<size_t, size_t, size_t> initialise_device(const int device_id) {
-  CUDA_CALL(cudaSetDevice(device_id));
-
-  size_t mem_free = 0;
-  size_t mem_total = 0;
-  CUDA_CALL(cudaMemGetInfo(&mem_free, &mem_total));
-  int shared_size = 0;
-  CUDA_CALL(cudaDeviceGetAttribute(
-      &shared_size, cudaDevAttrMaxSharedMemoryPerBlock, device_id));
-  return (
-      std::make_tuple(mem_free, mem_total, static_cast<size_t>(shared_size)));
-}
-
 // Gives strides aligned to the warp size (32)
 inline size_t warpPad(const size_t stride)
 {
   return (stride + (stride % warp_size ? warp_size - stride % warp_size : 0));
+}
+
+}
 }
