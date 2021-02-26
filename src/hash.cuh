@@ -1,18 +1,175 @@
-
 /*
  *
- * sketch.cu
- * CUDA version of bindash sketch method
+ * nthash
+ * Author: Hamid Mohamadi
+ * Genome Sciences Centre,
+ * British Columbia Cancer Agency
  *
+ * Modified for CUDA by John Lees (2021)
  */
+#pragma once
 
 #include <stdint.h>
 
 #include "cuda.cuh"
-#include "gpu.hpp"
 
-// nthash
-#include "sketch/nthash_tables.hpp"
+// offset for the complement base in the random seeds table
+const uint8_t cpOff = 0x07;
+
+// shift for gerenerating multiple hash values
+const int multiShift = 27;
+
+// seed for gerenerating multiple hash values
+static const uint64_t multiSeed = 0x90b45d39fb6da1fa;
+
+// 64-bit random seeds corresponding to bases and their complements
+static const uint64_t seedA = 0x3c8bfbb395c60474;
+static const uint64_t seedC = 0x3193c18562a02b4c;
+static const uint64_t seedG = 0x20323ed082572324;
+static const uint64_t seedT = 0x295549f54be24456;
+static const uint64_t seedN = 0x0000000000000000;
+
+static const uint64_t seedTab[256] = {
+    seedN, seedT, seedN, seedG, seedA, seedA, seedN, seedC, // 0..7
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 8..15
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 16..23
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 24..31
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 32..39
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 40..47
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 48..55
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 56..63
+    seedN, seedA, seedN, seedC, seedN, seedN, seedN, seedG, // 64..71
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 72..79
+    seedN, seedN, seedN, seedN, seedT, seedT, seedN, seedN, // 80..87
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 88..95
+    seedN, seedA, seedN, seedC, seedN, seedN, seedN, seedG, // 96..103
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 104..111
+    seedN, seedN, seedN, seedN, seedT, seedT, seedN, seedN, // 112..119
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 120..127
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 128..135
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 136..143
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 144..151
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 152..159
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 160..167
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 168..175
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 176..183
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 184..191
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 192..199
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 200..207
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 208..215
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 216..223
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 224..231
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 232..239
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN, // 240..247
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN  // 248..255
+};
+
+static const uint64_t A33r[33] = {
+    0x195c60474, 0x12b8c08e9, 0x571811d3, 0xae3023a6, 0x15c60474c, 0xb8c08e99, 0x171811d32, 0xe3023a65, 0x1c60474ca, 0x18c08e995, 0x11811d32b, 0x3023a657, 0x60474cae, 0xc08e995c, 0x1811d32b8, 0x1023a6571, 0x474cae3, 0x8e995c6, 0x11d32b8c, 0x23a65718, 0x474cae30, 0x8e995c60, 0x11d32b8c0, 0x3a657181, 0x74cae302, 0xe995c604, 0x1d32b8c08, 0x1a6571811, 0x14cae3023, 0x995c6047, 0x132b8c08e, 0x6571811d, 0xcae3023a};
+
+static const uint64_t A31l[31] = {
+    0x3c8bfbb200000000, 0x7917f76400000000, 0xf22feec800000000, 0xe45fdd9200000000, 0xc8bfbb2600000000, 0x917f764e00000000, 0x22feec9e00000000, 0x45fdd93c00000000, 0x8bfbb27800000000, 0x17f764f200000000, 0x2feec9e400000000, 0x5fdd93c800000000, 0xbfbb279000000000, 0x7f764f2200000000, 0xfeec9e4400000000, 0xfdd93c8a00000000, 0xfbb2791600000000, 0xf764f22e00000000, 0xeec9e45e00000000, 0xdd93c8be00000000, 0xbb27917e00000000, 0x764f22fe00000000, 0xec9e45fc00000000, 0xd93c8bfa00000000, 0xb27917f600000000, 0x64f22fee00000000, 0xc9e45fdc00000000, 0x93c8bfba00000000, 0x27917f7600000000, 0x4f22feec00000000, 0x9e45fdd800000000};
+
+static const uint64_t C33r[33] = {
+    0x162a02b4c, 0xc5405699, 0x18a80ad32, 0x115015a65, 0x2a02b4cb, 0x54056996, 0xa80ad32c, 0x15015a658, 0xa02b4cb1, 0x140569962, 0x80ad32c5, 0x1015a658a, 0x2b4cb15, 0x569962a, 0xad32c54, 0x15a658a8, 0x2b4cb150, 0x569962a0, 0xad32c540, 0x15a658a80, 0xb4cb1501, 0x169962a02, 0xd32c5405, 0x1a658a80a, 0x14cb15015, 0x9962a02b, 0x132c54056, 0x658a80ad, 0xcb15015a, 0x1962a02b4, 0x12c540569, 0x58a80ad3, 0xb15015a6};
+
+static const uint64_t C31l[31] = {
+    0x3193c18400000000, 0x6327830800000000, 0xc64f061000000000, 0x8c9e0c2200000000, 0x193c184600000000, 0x3278308c00000000, 0x64f0611800000000, 0xc9e0c23000000000, 0x93c1846200000000, 0x278308c600000000, 0x4f06118c00000000, 0x9e0c231800000000, 0x3c18463200000000, 0x78308c6400000000, 0xf06118c800000000, 0xe0c2319200000000, 0xc184632600000000, 0x8308c64e00000000, 0x6118c9e00000000, 0xc23193c00000000, 0x1846327800000000, 0x308c64f000000000, 0x6118c9e000000000, 0xc23193c000000000, 0x8463278200000000, 0x8c64f0600000000, 0x118c9e0c00000000, 0x23193c1800000000, 0x4632783000000000, 0x8c64f06000000000, 0x18c9e0c200000000};
+
+static const uint64_t G33r[33] = {
+    0x82572324, 0x104ae4648, 0x95c8c91, 0x12b91922, 0x25723244, 0x4ae46488, 0x95c8c910, 0x12b919220, 0x57232441, 0xae464882, 0x15c8c9104, 0xb9192209, 0x172324412, 0xe4648825, 0x1c8c9104a, 0x191922095, 0x12324412b, 0x46488257, 0x8c9104ae, 0x11922095c, 0x324412b9, 0x64882572, 0xc9104ae4, 0x1922095c8, 0x124412b91, 0x48825723, 0x9104ae46, 0x122095c8c, 0x4412b919, 0x88257232, 0x1104ae464, 0x2095c8c9, 0x412b9192};
+
+static const uint64_t G31l[31] = {
+    0x20323ed000000000, 0x40647da000000000, 0x80c8fb4000000000, 0x191f68200000000, 0x323ed0400000000, 0x647da0800000000, 0xc8fb41000000000, 0x191f682000000000, 0x323ed04000000000, 0x647da08000000000, 0xc8fb410000000000, 0x91f6820200000000, 0x23ed040600000000, 0x47da080c00000000, 0x8fb4101800000000, 0x1f68203200000000, 0x3ed0406400000000, 0x7da080c800000000, 0xfb41019000000000, 0xf682032200000000, 0xed04064600000000, 0xda080c8e00000000, 0xb410191e00000000, 0x6820323e00000000, 0xd040647c00000000, 0xa080c8fa00000000, 0x410191f600000000, 0x820323ec00000000, 0x40647da00000000, 0x80c8fb400000000, 0x10191f6800000000};
+
+static const uint64_t T33r[33] = {
+    0x14be24456, 0x97c488ad, 0x12f89115a, 0x5f1222b5, 0xbe24456a, 0x17c488ad4, 0xf89115a9, 0x1f1222b52, 0x1e24456a5, 0x1c488ad4b, 0x189115a97, 0x11222b52f, 0x24456a5f, 0x488ad4be, 0x9115a97c, 0x1222b52f8, 0x4456a5f1, 0x88ad4be2, 0x1115a97c4, 0x22b52f89, 0x456a5f12, 0x8ad4be24, 0x115a97c48, 0x2b52f891, 0x56a5f122, 0xad4be244, 0x15a97c488, 0xb52f8911, 0x16a5f1222, 0xd4be2445, 0x1a97c488a, 0x152f89115, 0xa5f1222b};
+
+static const uint64_t T31l[31] = {
+    0x295549f400000000, 0x52aa93e800000000, 0xa55527d000000000, 0x4aaa4fa200000000, 0x95549f4400000000, 0x2aa93e8a00000000, 0x55527d1400000000, 0xaaa4fa2800000000, 0x5549f45200000000, 0xaa93e8a400000000, 0x5527d14a00000000, 0xaa4fa29400000000, 0x549f452a00000000, 0xa93e8a5400000000, 0x527d14aa00000000, 0xa4fa295400000000, 0x49f452aa00000000, 0x93e8a55400000000, 0x27d14aaa00000000, 0x4fa2955400000000, 0x9f452aa800000000, 0x3e8a555200000000, 0x7d14aaa400000000, 0xfa29554800000000, 0xf452aa9200000000, 0xe8a5552600000000, 0xd14aaa4e00000000, 0xa295549e00000000, 0x452aa93e00000000, 0x8a55527c00000000, 0x14aaa4fa00000000};
+
+static const uint64_t N33r[33] = {
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN,
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN,
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN,
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN,
+    seedN};
+
+static const uint64_t N31l[31] = {
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN,
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN,
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN, seedN,
+    seedN, seedN, seedN, seedN, seedN, seedN, seedN};
+
+static const uint64_t *msTab33r[256] = {
+    N33r, T33r, N33r, G33r, A33r, A33r, N33r, C33r, // 0..7
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 8..15
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 16..23
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 24..31
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 32..39
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 40..47
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 48..55
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 56..63
+    N33r, A33r, N33r, C33r, N33r, N33r, N33r, G33r, // 64..71
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 72..79
+    N33r, N33r, N33r, N33r, T33r, T33r, N33r, N33r, // 80..87
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 88..95
+    N33r, A33r, N33r, C33r, N33r, N33r, N33r, G33r, // 96..103
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 104..111
+    N33r, N33r, N33r, N33r, T33r, T33r, N33r, N33r, // 112..119
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 120..127
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 128..135
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 136..143
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 144..151
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 152..159
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 160..167
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 168..175
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 176..183
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 184..191
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 192..199
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 200..207
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 208..215
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 216..223
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 224..231
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 232..239
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r, // 240..247
+    N33r, N33r, N33r, N33r, N33r, N33r, N33r, N33r  // 248..255
+};
+
+static const uint64_t *msTab31l[256] = {
+    N31l, T31l, N31l, G31l, A31l, A31l, N31l, C31l, // 0..7
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 8..15
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 16..23
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 24..31
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 32..39
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 40..47
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 48..55
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 56..63
+    N31l, A31l, N31l, C31l, N31l, N31l, N31l, G31l, // 64..71
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 72..79
+    N31l, N31l, N31l, N31l, T31l, T31l, N31l, N31l, // 80..87
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 88..95
+    N31l, A31l, N31l, C31l, N31l, N31l, N31l, G31l, // 96..103
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 104..111
+    N31l, N31l, N31l, N31l, T31l, T31l, N31l, N31l, // 112..119
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 120..127
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 128..135
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 136..143
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 144..151
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 152..159
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 160..167
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 168..175
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 176..183
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 184..191
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 192..199
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 200..207
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 208..215
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 216..223
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 224..231
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 232..239
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l, // 240..247
+    N31l, N31l, N31l, N31l, N31l, N31l, N31l, N31l  // 248..255
+};
 
 // Tables on device
 __constant__ uint64_t d_seedTab[256];
@@ -135,163 +292,8 @@ __device__ inline uint64_t shifthash(const uint64_t hVal, const unsigned k,
   return (tVal);
 }
 
-// parameters - these are currently hard coded based on a short bacterial genome
-const unsigned int table_width_bits = 27; // 2^27 + 1 = 134217729 =~ 134M
-constexpr uint64_t mask{0x7FFFFFF};       // 27 lowest bits ON
-const uint32_t table_width = static_cast<uint32_t>(mask);
-const int hash_per_hash =
-    2; // This should be 2, or the table is likely too narrow
-const int table_rows =
-    4; // Number of hashes, should be a multiple of hash_per_hash
-constexpr size_t table_cells = table_rows * table_width;
-
-// Countmin
-// See countmin.cpp
-GPUCountMin::GPUCountMin()
-    : _table_width_bits(table_width_bits), _mask(mask),
-      _table_width(table_width), _hash_per_hash(hash_per_hash),
-      _table_rows(table_rows), _table_cells(table_cells) {
-  CUDA_CALL(cudaMalloc((void **)&_d_countmin_table,
-                       table_cells * sizeof(unsigned int)));
-  reset();
-}
-
-GPUCountMin::~GPUCountMin() { CUDA_CALL(cudaFree(_d_countmin_table)); }
-
-// Loop variables are global constants defined in gpu.hpp
-__device__ unsigned int add_count_min(unsigned int *d_countmin_table,
-                                      uint64_t hash_val, const int k) {
-  unsigned int min_count = UINT32_MAX;
-  for (int hash_nr = 0; hash_nr < table_rows; hash_nr += hash_per_hash) {
-    uint64_t current_hash = hash_val;
-    for (uint i = 0; i < hash_per_hash; i++) {
-      uint32_t hash_val_masked = current_hash & mask;
-      unsigned int cell_count =
-          atomicInc(d_countmin_table + (hash_nr + i) * table_width +
-                        hash_val_masked,
-                    UINT32_MAX) +
-          1;
-      if (cell_count < min_count) {
-        min_count = cell_count;
-      }
-      current_hash = current_hash >> table_width_bits;
-    }
-    hash_val = shifthash(hash_val, k, hash_nr / 2);
-  }
-  return (min_count);
-}
-
-void GPUCountMin::reset() {
-  CUDA_CALL(
-      cudaMemset(_d_countmin_table, 0, table_cells * sizeof(unsigned int)));
-}
-
-// bindash functions
-const uint64_t SIGN_MOD = (1ULL << 61ULL) - 1ULL;
-
-// countmin and binsign
-__device__ void binhash(uint64_t *signs, unsigned int *countmin_table,
-                        const uint64_t hash, const uint64_t binsize,
-                        const int k, const uint16_t min_count) {
-  uint64_t sign = hash % SIGN_MOD;
-  uint64_t binidx = sign / binsize;
-  // printf("binidx:%llu sign:%llu\n", binidx, sign);
-
-  // Only consider if the bin is yet to be filled, or is min in bin
-  if (signs[binidx] == UINT64_MAX || sign < signs[binidx]) {
-    if (add_count_min(countmin_table, hash, k) >= min_count) {
-      signs[binidx] = sign;
-    }
-  }
-  __syncwarp();
-}
-
-// hash iterator object
-__global__ void process_reads(char *read_seq, const size_t n_reads,
-                              const size_t read_length,
-                              const size_t read_stride, const int k,
-                              uint64_t *signs, const uint64_t binsize,
-                              unsigned int *countmin_table, const bool use_rc,
-                              const uint16_t min_count,
-                              volatile int *blocks_complete) {
-  int read_index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (read_index < n_reads) {
-    uint64_t fhVal, rhVal, hVal;
-
-    // Load reads in block into shared memory
-    extern __shared__ char read_shared[];
-    for (int base_idx = 0; base_idx < read_length; base_idx++) {
-      read_shared[threadIdx.x + base_idx * blockDim.x] =
-          read_seq[read_index + base_idx * read_stride];
-    }
-    __syncthreads();
-
-    // Get first valid k-mer
-    if (use_rc) {
-      NTC64(read_shared, k, fhVal, rhVal, hVal, blockDim.x);
-      binhash(signs, countmin_table, hVal, binsize, k, min_count);
-    } else {
-      NT64(read_shared, k, fhVal, blockDim.x);
-      binhash(signs, countmin_table, hVal, binsize, k, min_count);
-    }
-
-    // Roll through remaining k-mers in the read
-    for (int pos = 0; pos < read_length - k; pos++) {
-      fhVal = NTF64(fhVal, k, read_shared[pos * blockDim.x],
-                    read_shared[(pos + k) * blockDim.x]);
-      if (use_rc) {
-        rhVal = NTR64(rhVal, k, read_shared[pos * blockDim.x],
-                      read_shared[(pos + k) * blockDim.x]);
-        hVal = (rhVal < fhVal) ? rhVal : fhVal;
-        binhash(signs, countmin_table, hVal, binsize, k, min_count);
-      } else {
-        binhash(signs, countmin_table, fhVal, binsize, k, min_count);
-      }
-    }
-
-    // update progress meter
-    update_progress(read_index, n_reads, blocks_complete);
-    __syncwarp();
-  }
-}
-
-// Writes a progress meter using the device int which keeps
-// track of completed jobs
-void reportSketchProgress(volatile int *blocks_complete, int k,
-                          long long n_reads) {
-  long long progress_blocks = 1 << progressBitshift;
-  int now_completed = 0;
-  float kern_progress = 0;
-  if (n_reads > progress_blocks) {
-    while (now_completed < progress_blocks - 1) {
-      if (*blocks_complete > now_completed) {
-        now_completed = *blocks_complete;
-        kern_progress = now_completed / (float)progress_blocks;
-        fprintf(stderr, "%ck = %d (%.1lf%%)", 13, k, kern_progress * 100);
-      } else {
-        usleep(1000);
-      }
-    }
-  }
-}
-
-DeviceReads::DeviceReads(const SeqBuf &seq_in, const size_t n_threads)
-    : n_reads(seq_in.n_full_seqs()), read_length(seq_in.max_length()),
-      read_stride(seq_in.n_full_seqs_padded()) {
-
-  std::vector<char> flattened_reads = seq_in.as_square_array(n_threads);
-  CUDA_CALL(
-      cudaMalloc((void **)&d_reads, flattened_reads.size() * sizeof(char)));
-  CUDA_CALL(cudaMemcpy(d_reads, flattened_reads.data(),
-                       flattened_reads.size() * sizeof(char),
-                       cudaMemcpyDefault));
-}
-
-DeviceReads::~DeviceReads() { CUDA_CALL(cudaFree(d_reads)); }
-
 void copyNtHashTablesToDevice() {
-  CUDA_CALL(
-      cudaMemcpyToSymbolAsync(d_seedTab, seedTab, 256 * sizeof(uint64_t)));
+  CUDA_CALL(cudaMemcpyToSymbolAsync(d_seedTab, seedTab, 256 * sizeof(uint64_t)));
   CUDA_CALL(cudaMemcpyToSymbolAsync(d_A33r, A33r, 33 * sizeof(uint64_t)));
   CUDA_CALL(cudaMemcpyToSymbolAsync(d_A31l, A31l, 31 * sizeof(uint64_t)));
   CUDA_CALL(cudaMemcpyToSymbolAsync(d_C33r, C33r, 33 * sizeof(uint64_t)));
@@ -305,7 +307,7 @@ void copyNtHashTablesToDevice() {
   CUDA_CALL(cudaDeviceSynchronize());
 
   uint64_t *A33r_ptr, *A31l_ptr, *C33r_ptr, *C31l_ptr, *G33r_ptr, *G31l_ptr,
-      *T33r_ptr, *T31l_ptr, *N33r_ptr, *N31l_ptr;
+           *T33r_ptr, *T31l_ptr, *N33r_ptr, *N31l_ptr;
   CUDA_CALL(cudaGetSymbolAddress((void **)&A33r_ptr, d_A33r));
   CUDA_CALL(cudaGetSymbolAddress((void **)&A31l_ptr, d_A31l));
   CUDA_CALL(cudaGetSymbolAddress((void **)&C33r_ptr, d_C33r));
@@ -456,52 +458,4 @@ void copyNtHashTablesToDevice() {
   CUDA_CALL(cudaMemcpyToSymbolAsync(d_msTab33r, d_addr_msTab33r,
                                     256 * sizeof(uint64_t *)));
   CUDA_CALL(cudaDeviceSynchronize());
-}
-
-// main function called here returns signs vector - rest can be done by
-// sketch.cpp
-std::vector<uint64_t>
-get_signs(DeviceReads &reads, // use seqbuf.as_square_array() to get this
-          GPUCountMin &countmin, const int k, const bool use_rc,
-          const uint16_t min_count, const uint64_t binsize,
-          const uint64_t nbins) {
-  // Progress meter
-  volatile int *blocks_complete;
-  CUDA_CALL(cudaMallocManaged(&blocks_complete, sizeof(int)));
-  *blocks_complete = 0;
-
-  // Set countmin to zero (already on device)
-  countmin.reset();
-
-  // Signs
-  std::vector<uint64_t> signs(nbins, UINT64_MAX);
-  uint64_t *d_signs;
-  CUDA_CALL(cudaMalloc((void **)&d_signs, nbins * sizeof(uint64_t)));
-  CUDA_CALL(cudaMemcpy(d_signs, signs.data(), nbins * sizeof(uint64_t),
-                       cudaMemcpyDefault));
-
-  // Run process_read kernel
-  //      This runs nthash on read sequence at all k-mer lengths
-  //      Check vs signs and countmin on whether to add each
-  //      (get this working for a single k-mer length first)
-  const size_t blockSize = 64;
-  const size_t blockCount = (reads.count() + blockSize - 1) / blockSize;
-  process_reads<<<blockCount, blockSize,
-                  reads.length() * blockSize * sizeof(char)>>>(
-      reads.read_ptr(), reads.count(), reads.length(), reads.stride(), k,
-      d_signs, binsize, countmin.get_table(), use_rc, min_count,
-      blocks_complete);
-
-  CUDA_CALL(cudaGetLastError());
-  reportSketchProgress(blocks_complete, k, reads.count());
-
-  // Copy signs back from device
-  CUDA_CALL(cudaDeviceSynchronize());
-  CUDA_CALL(cudaMemcpy(signs.data(), d_signs, nbins * sizeof(uint64_t),
-                       cudaMemcpyDefault));
-  CUDA_CALL(cudaFree(d_signs));
-
-  fprintf(stderr, "%ck = %d (100%%)", 13, k);
-
-  return (signs);
 }

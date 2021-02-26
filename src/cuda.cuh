@@ -26,15 +26,3 @@ static void HandleCUDAError(const char *file, int line,
 }
 
 #define CUDA_CALL(err) (HandleCUDAError(__FILE__, __LINE__, err))
-
-// Use atomic add to update a counter, so progress works regardless of
-// dispatch order
-__device__ inline void update_progress(long long count, long long total,
-                                       volatile int *blocks_complete) {
-  // Progress indicator
-  // The >> progressBitshift is a divide by 1024 - update roughly every 0.1%
-  if (count % (total >> progressBitshift) == 0) {
-    atomicAdd((int *)blocks_complete, 1);
-    __threadfence_system();
-  }
-}
