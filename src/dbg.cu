@@ -40,6 +40,9 @@ __global__ void count_kmers(char *read_seq,
     extern __shared__ char read_shared[];
     auto block = cooperative_groups::this_thread_block();
 
+    // TODO: see code in pp-sketchlib to fix this
+    // TODO: If we never use read_seq again, it doesn't need to be interleaved
+    // as it will just be loaded directly here
     cuda::pipeline pipe;
     for (int base_idx = 0; base_idx < read_length; base_idx++) {
       memcpy_async(read_shared[threadIdx.x + base_idx * blockDim.x],
