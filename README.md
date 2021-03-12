@@ -1,4 +1,4 @@
-# sparrowhawk <img src='sparrowhawk_logo.png' align="right" height="139" />
+# sparrowhawk <img src='sparrowhawk_logo.png' align="right" height="500" />
 
 DBG building and traversal using CUDA
 
