@@ -1,0 +1,39 @@
+[package]
+name = "sparrowhawk"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# i/o
+needletail = { version = "0.6.3", features = ["compression"] }
+serde = { version = "1.0.219", features = ["derive"] }
+# data structures
+ahash = "0.8.11"
+num-traits = "0.2.19"
+# logging
+log = "0.4.27"
+simple_logger = { version = "5.0.0", features = ["stderr"] }
+indicatif = { version = "0.17.11", features = ["rayon"]}
+# cli
+clap = { version = "4.5.35", features = ["derive"] }
+regex = "1.11.1"
+# parallelisation
+rayon = "1.10.0"
+num_cpus = "1.16.0"
+
+nohash-hasher = "0.2.0"
+stacker = "0.1.20"
+# statistical = "1.0.0"
+
+plotters = "0.3.7"
+project-root = "0.2.2"
+petgraph = "0.8.1"
+
+bnum = {version = "0.13.0", features = ["serde", "numtraits"] }
+
+[dev-dependencies]
+# testing
+pretty_assertions = "1.4.1"
+stacker = "0.1.20"
