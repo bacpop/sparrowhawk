@@ -5,9 +5,15 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+wasm = ["dep:js-sys", "dep:wasm-bindgen", "dep:simple-error", "dep:console_error_panic_hook", "dep:wasm-bindgen-file-reader", "dep:seq_io", "dep:flate2", "dep:web-sys", "dep:getrandom"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 # i/o
-needletail = { version = "0.6.3", features = ["compression"] }
+needletail = { version = "0.6.3", default-features = false, features = ["flate2", "xz2", "zstd"] }
 serde = { version = "1.0.219", features = ["derive"] }
 # data structures
 ahash = "0.8.11"
@@ -33,7 +39,22 @@ petgraph = "0.8.1"
 
 bnum = {version = "0.13.0", features = ["serde", "numtraits"] }
 
+# WebAssembly
+js-sys                   = {version = "0.3.51", optional = true}
+wasm-bindgen             = {version = "0.2"   , optional = true}
+simple-error             = {version = "0.2"   , optional = true}
+console_error_panic_hook = {version = "0.1.7" , optional = true}
+wasm-bindgen-file-reader = {version = "1"     , optional = true}
+seq_io                   = {version = "0.3.2" , optional = true}
+flate2                   = {version = "1.0"   , optional = true}
+getrandom                = {version = "0.2" , optional = true, features = ["js"]}
+web-sys                  = {version = "0.3.77", optional = true, features = ["Blob", "console", "Document", "Element", "HtmlCanvasElement", "HtmlImageElement", "Response", "Window"]}
+
 [dev-dependencies]
 # testing
 pretty_assertions = "1.4.1"
 stacker = "0.1.20"
+
+
+[profile.release]
+lto = true

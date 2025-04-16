@@ -45,6 +45,21 @@ use crate::cli::*;
 pub mod io_utils;
 use crate::io_utils::*;
 
+
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+#[cfg(feature = "wasm")]
+use wasm_bindgen_file_reader::WebSysFile;
+#[cfg(feature = "wasm")]
+extern crate console_error_panic_hook;
+#[cfg(feature = "wasm")]
+pub mod fastx_wasm;
+#[cfg(feature = "wasm")]
+use crate::graph_works::Contigs;
+
+
+
+
 // use std::process::exit;
 
 
@@ -92,7 +107,9 @@ impl fmt::Display for QualOpts {
     }
 }
 
+
 #[doc(hidden)]
+#[cfg(not(feature = "wasm"))]
 pub fn main() {
     let args = cli_args();
     if args.verbose {
@@ -207,4 +224,128 @@ pub fn main() {
 
     eprintln!("Sparrowhawk done in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
     log::info!("Finishing program!");
+}
+
+
+#[cfg(feature = "wasm")]
+pub fn main() {
+    panic!("You've compiled Sparrowhawk for WebAssembly support, you cannot use it as a normal binary anymore!");
+}
+
+
+// ===================================== WebAssembly stuff follows
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+pub fn init_panic_hook() {
+    console_error_panic_hook::set_once();
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+pub struct AssemblyHelper {
+    contigs : Contigs,
+    // graph   : String,
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+impl AssemblyHelper {
+    pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8) -> Self {
+        let mut timevec = Vec::new();
+        timevec.push(Instant::now());
+        if cfg!(debug_assertions) {
+            init_panic_hook();
+        }
+
+        let mut wf1 = WebSysFile::new(file1);
+        let mut wf2 = WebSysFile::new(file2);
+
+        // Read input
+        let quality = QualOpts {
+            min_count: min_count,
+            min_qual:  min_qual,
+        };
+
+        log::info!("Beginning processing");
+        timevec.push(Instant::now());
+
+        let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
+        let theseq : Vec<u64>;
+        let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
+
+        let outcontigs : Contigs;
+
+        if k % 2 == 0 {
+            panic!("Support for even k-mer lengths not implemented");
+
+        } else if k < 3 {
+            panic!("kmer length too small (min. 3)");
+
+        } else if k <= 32 {
+            log::info!("k={}: using 64-bit representation", k);
+            let thedict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
+            (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality, &mut timevec);
+            drop(theseq);
+            outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut timevec, None);
+
+            // Save as fasta
+            // save_functions::save_as_fasta::<u64>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
+
+        } else if k <= 64 {
+            log::info!("k={}: using 128-bit representation", k);
+            let thedict : HashMap::<u64, u128, BuildHasherDefault<NoHashHasher<u64>>>;
+            (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality, &mut timevec);
+            drop(theseq);
+
+            outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut timevec, None);
+
+            // Save as fasta
+            // save_functions::save_as_fasta::<u128>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
+
+        } else if k <= 128 {
+            log::info!("k={}: using 256-bit representation", k);
+
+            let thedict : HashMap::<u64, U256, BuildHasherDefault<NoHashHasher<u64>>>;
+            (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality, &mut timevec);
+            drop(theseq);
+
+            outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut timevec, None);
+
+            // Save as fasta
+            // save_functions::save_as_fasta::<U256>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
+
+        } else if k <= 256 {
+            log::info!("k={}: using 512-bit representation", k);
+
+            let thedict : HashMap::<u64, U512, BuildHasherDefault<NoHashHasher<u64>>>;
+            (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality, &mut timevec);
+            drop(theseq);
+
+            outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut timevec, None);
+
+            // Save as fasta
+            // save_functions::save_as_fasta::<U512>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
+
+        } else {
+            panic!("kmer length larger than 256 currently not supported.");
+        }
+
+        timevec.push(Instant::now());
+
+        eprintln!("Sparrowhawk done in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+        log::info!("Finishing program!");
+
+
+        Self {
+            contigs : outcontigs,
+        }
+    }
 }
