@@ -300,11 +300,11 @@ impl AssemblyHelper {
             min_qual:  min_qual,
         };
 
-        loG("Checking requested threads and creating pool if needed", Some("info"));
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(8)
-            .build_global()
-            .unwrap();
+        // loG("Checking requested threads and creating pool if needed", Some("info"));
+        // rayon::ThreadPoolBuilder::new()
+        //     .num_threads(8)
+        //     .build_global()
+        //     .unwrap();
         loG("Beginning processing", Some("info"));
 
         let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
