@@ -61,32 +61,32 @@ use crate::graph_works::Contigs;
 
 
 #[cfg(feature = "wasm")]
-pub fn loG(text : string, typ : Option<string>) {
+pub fn loG(text : &str, typ : Option<&str>) {
     if typ.is_some() {
-        log("Sparrowhawk::" + typ.unwrap() + "::" + text);
+        log((String::from("Sparrowhawk::") + typ.unwrap() + "::" + text).as_str());
     } else {
         log(text);
     }
 }
 
 #[cfg(not(feature = "wasm"))]
-pub fn loG(text : string, typ : Option<string>) {
+pub fn loG(text : &str, typ : Option<&str>) {
     if let Some(realtyp) = typ {
         if realtyp == "info" {
-            log::info!(text);
+            log::info!("{}", text);
         } else if realtyp == "debug" {
-            log::debug!(text);
+            log::debug!("{}", text);
         } else if realtyp == "trace" {
-            log::trace!(text);
+            log::trace!("{}", text);
         } else if realtyp == "warn" {
-            log::warn!(text);
+            log::warn!("{}", text);
         } else if realtyp == "error" {
-            log::error!(text);
+            log::error!("{}", text);
         } else {
-            log::off!(text);
+            println!("{}", text);
         }
     } else {
-        println!(text);
+        println!("{}", text);
     }
 }
 
@@ -320,7 +320,7 @@ impl AssemblyHelper {
             panic!("kmer length too small (min. 3)");
 
         } else if k <= 32 {
-            loG(format!("k={}: using 64-bit representation", k), Some("info"));
+            loG(format!("k={}: using 64-bit representation", k).as_str(), Some("info"));
             let thedict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality);
             drop(theseq);
@@ -330,7 +330,7 @@ impl AssemblyHelper {
             // save_functions::save_as_fasta::<u64>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
 
         } else if k <= 64 {
-            loG(format!("k={}: using 128-bit representation", k), Some("info"));
+            loG(format!("k={}: using 128-bit representation", k).as_str(), Some("info"));
             let thedict : HashMap::<u64, u128, BuildHasherDefault<NoHashHasher<u64>>>;
             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality);
             drop(theseq);
@@ -341,7 +341,7 @@ impl AssemblyHelper {
             // save_functions::save_as_fasta::<u128>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
 
         } else if k <= 128 {
-            loG(format!("k={}: using 256-bit representation", k), Some("info"));
+            loG(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
 
             let thedict : HashMap::<u64, U256, BuildHasherDefault<NoHashHasher<u64>>>;
             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality);
@@ -353,7 +353,7 @@ impl AssemblyHelper {
             // save_functions::save_as_fasta::<U256>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
 
         } else if k <= 256 {
-            loG(format!("k={}: using 512-bit representation", k), Some("info"));
+            loG(format!("k={}: using 512-bit representation", k).as_str(), Some("info"));
 
             let thedict : HashMap::<u64, U512, BuildHasherDefault<NoHashHasher<u64>>>;
             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality);

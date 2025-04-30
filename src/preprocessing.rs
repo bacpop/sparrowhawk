@@ -292,8 +292,8 @@ where
             outvec.push( (hc, hnc, b) );
             let testkm = outdict.entry(hc).or_insert(km);
             if *testkm != km {
-                loG(format!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc), Some("warn"));
-                loG(format!("{:#0258b}\n{:#0258b}", *testkm, km), Some("warn"));
+                loG(format!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+                loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
             }
             // } else {
             //     println!("\n\t\t- NOT COLLISIONS!!!");
@@ -304,8 +304,8 @@ where
                 outvec.push( (hc, hnc, b) );
                 let testkm = outdict.entry(hc).or_insert(km);
                 if *testkm != km {
-                    loG(format!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc), Some("warn"));
-                    loG(format!("{:#0258b}\n{:#0258b}", *testkm, km), Some("warn"));
+                    loG(format!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+                    loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
                 }
                 // } else {
                 //     println!("\n\t\t- NOT COLLISIONS!!!");
@@ -355,8 +355,8 @@ where
             outvec.push( (hc, hnc, b) );
             let testkm = outdict.entry(hc).or_insert(km);
             if *testkm != km {
-                loG(format!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc), Some("warn"));
-                loG(format!("{:#0258b}\n{:#0258b}", *testkm, km), Some("warn"));
+                loG(format!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+                loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
             }
             // } else {
             //     println!("\n\t\t- NOT COLLISIONS!!!");
@@ -367,8 +367,8 @@ where
                 outvec.push( (hc, hnc, b) );
                 let testkm = outdict.entry(hc).or_insert(km);
                 if *testkm != km {
-                    loG(format!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc), Some("warn"));
-                    loG(format!("{:#0258b}\n{:#0258b}", *testkm, km), Some("warn"));
+                    loG(format!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+                    loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
                 }
                 // } else {
                 //     println!("\n\t\t- NOT COLLISIONS!!!");
@@ -391,7 +391,7 @@ where
     }
 
     loG("Finished getting kmers from the second file", Some("info"));
-    loG(format!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord), Some("debug"));
+    loG(format!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord).as_str(), Some("debug"));
 
 
     (theseq, outdict, minmaxdict)
@@ -564,7 +564,7 @@ fn get_map_for_wasm(
     }
     plotvec.shrink_to_fit();
 
-    loG(format!("Good kmers {}", tmpcounter), Some("debug"));
+    loG(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
     outdict
 }
 
