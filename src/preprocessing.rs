@@ -21,6 +21,7 @@ use super::bit_encoding::{encode_base, rc_base};
 use crate::io_utils::any_fastq;
 use crate::bit_encoding::UInt;
 use crate::kmer::Kmer;
+use crate::loG;
 
 
 /// Tuple for name and fasta or paired fastq input
@@ -261,10 +262,10 @@ where
 {
     let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
-    log::info!("Getting kmers from first file. Creating reader...");
+    loG("Getting kmers from first file. Creating reader...", Some("info"));
     let mut reader = open_fastq(file1);
 
-    log::info!("Entering while loop...");
+    loG("Entering while loop...", Some("info"));
 
 //     let maxkmers = 200;
 //     let mut numkmers = 0;
@@ -291,8 +292,8 @@ where
             outvec.push( (hc, hnc, b) );
             let testkm = outdict.entry(hc).or_insert(km);
             if *testkm != km {
-                println!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
-                println!("{:#0258b}\n{:#0258b}", *testkm, km);
+                loG(format!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc), Some("warn"));
+                loG(format!("{:#0258b}\n{:#0258b}", *testkm, km), Some("warn"));
             }
             // } else {
             //     println!("\n\t\t- NOT COLLISIONS!!!");
@@ -303,8 +304,8 @@ where
                 outvec.push( (hc, hnc, b) );
                 let testkm = outdict.entry(hc).or_insert(km);
                 if *testkm != km {
-                    println!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
-                    println!("{:#0258b}\n{:#0258b}", *testkm, km);
+                    loG(format!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc), Some("warn"));
+                    loG(format!("{:#0258b}\n{:#0258b}", *testkm, km), Some("warn"));
                 }
                 // } else {
                 //     println!("\n\t\t- NOT COLLISIONS!!!");
@@ -318,7 +319,7 @@ where
 //         if numkmers >= maxkmers {itrecord += rl as u32;break};
         itrecord += rl as u32;
     }
-    log::info!("Finished getting kmers from first file. Starting with the second...");
+    loG("Finished getting kmers from first file. Starting with the second...", Some("info"));
 //     numkmers = 0;
 
     let mut reader = open_fastq(file2);
@@ -354,8 +355,8 @@ where
             outvec.push( (hc, hnc, b) );
             let testkm = outdict.entry(hc).or_insert(km);
             if *testkm != km {
-                println!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
-                println!("{:#0258b}\n{:#0258b}", *testkm, km);
+                loG(format!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc), Some("warn"));
+                loG(format!("{:#0258b}\n{:#0258b}", *testkm, km), Some("warn"));
             }
             // } else {
             //     println!("\n\t\t- NOT COLLISIONS!!!");
@@ -366,8 +367,8 @@ where
                 outvec.push( (hc, hnc, b) );
                 let testkm = outdict.entry(hc).or_insert(km);
                 if *testkm != km {
-                    println!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
-                    println!("{:#0258b}\n{:#0258b}", *testkm, km);
+                    loG(format!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc), Some("warn"));
+                    loG(format!("{:#0258b}\n{:#0258b}", *testkm, km), Some("warn"));
                 }
                 // } else {
                 //     println!("\n\t\t- NOT COLLISIONS!!!");
@@ -389,8 +390,8 @@ where
         theseq.push(tmpu64);
     }
 
-    log::info!("Finished getting kmers from the second file");
-    println!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
+    loG("Finished getting kmers from the second file", Some("info"));
+    loG(format!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord), Some("debug"));
 
 
     (theseq, outdict, minmaxdict)
@@ -563,7 +564,7 @@ fn get_map_for_wasm(
     }
     plotvec.shrink_to_fit();
 
-    println!("Good kmers {}", tmpcounter);
+    loG(format!("Good kmers {}", tmpcounter), Some("debug"));
     outdict
 }
 
@@ -635,17 +636,16 @@ pub fn preprocessing_for_wasm<IntT>(
     file2:    &mut WebSysFile,
     k:         usize,
     qual:     &QualOpts,
-    timevec:  &mut Vec<Instant>,
 ) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u64>, HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>)
 where
     IntT: for<'a> UInt<'a>,
 {
     // Build indexes
-    log::info!("Starting preprocessing with k = {k}");
+    loG("Starting preprocessing with k = {k}", Some("info"));
 
 
     // First, we want to fill our mega-vector with all k-mers from both paired-end reads
-    log::info!("Filling vector");
+    loG("Filling vector", Some("info"));
 
     let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
     let (theseq, thedict, maxmindict) = get_kmers_from_both_files_wasm::<IntT>(file1,
@@ -654,27 +654,23 @@ where
         qual,
         &mut tmpvec);
 
-    timevec.push(Instant::now());
-    log::info!("Kmers extracted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+    loG("Kmers extracted", Some("info"));
 
 
     // Then, we want to sort it according to the hash
-    println!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
-    log::info!("Sorting vector");
+    // println!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
+    loG("Sorting vector", Some("info"));
     tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-    timevec.push(Instant::now());
-    log::info!("Kmers sorted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+    loG("Kmers sorted.", Some("info"));
 
 
     // Then, do a counting of everything and save the results in a dictionary and return it
-    timevec.push(Instant::now());
-    log::info!("Counting k-mers");
+    loG("Counting k-mers", Some("info"));
     let themap = get_map_for_wasm(&tmpvec, qual.min_count);
     drop(tmpvec);
 
-    timevec.push(Instant::now());
-    log::info!("Kmers counted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+    loG("Kmers counted.", Some("info"));
 
     (themap, theseq, thedict, maxmindict)
 }

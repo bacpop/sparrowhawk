@@ -47,7 +47,7 @@ console_error_panic_hook = {version = "0.1.7" , optional = true}
 wasm-bindgen-file-reader = {version = "1"     , optional = true}
 seq_io                   = {version = "0.3.2" , optional = true}
 flate2                   = {version = "1.0"   , optional = true}
-getrandom                = {version = "0.2" , optional = true, features = ["js"]}
+getrandom                = {version = "0.2"   , optional = true, features = ["js"]}
 web-sys                  = {version = "0.3.77", optional = true, features = ["Blob", "console", "Document", "Element", "HtmlCanvasElement", "HtmlImageElement", "Response", "Window"]}
 
 [dev-dependencies]

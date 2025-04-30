@@ -216,8 +216,8 @@ impl Assemble for BasicAsm {
         println!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0);
         println!("Number of edges {}", (nedges as f64) / (2 as f64));
 
-        timevec.push(Instant::now());
-        log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+        // timevec.push(Instant::now());
+        // log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
         indict.iter().for_each(|(h, hi)| {
             let himutref = hi.borrow();
