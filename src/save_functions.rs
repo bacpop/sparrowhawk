@@ -9,7 +9,7 @@ use super::io_utils::*;
 
 use crate::bit_encoding::UInt;
 use crate::graph_works::Contigs;
-
+use crate::loG;
 
 
 /// Writes the contig sequences and hopefully their average counts/coverage in the future
@@ -130,4 +130,37 @@ where
 
     println!("\tLen.\tMean\tSD\tMedian");
     ingraph.write_fasta(&mut wbuf);
+}
+
+
+/// Stores all the contigs in fasta format, but exports it as JSON for javascript
+#[cfg(feature = "wasm")]
+pub fn save_as_fasta_for_wasm<IntT>(ingraph: &mut Contigs,
+                                    inmap:   &    HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>,
+                                    k:        usize) -> String
+where
+    IntT: for<'a> UInt<'a>, {
+    // First, we write the sequences and the coverages
+    loG("Preparing to export contigs...", Some("info"));
+
+    write_sequences_and_coverages(ingraph, inmap, k);
+
+    loG("Saving in FASTA format as a JSON", Some("info"));
+    // Now, we just write all the contigs. We get our writing buffer with this:
+    let mut out = "".to_string();
+    for i in 0..self.contig_sequences.as_ref().unwrap().len() {
+        out += ">".as_string() + str(i) + "\n";
+
+        tmpcounter = 0;
+        for j in &self.contig_sequences.as_ref().unwrap()[i][..] {
+            out += j;
+            tmpcounter += 1;
+            if tmpcounter >= 80 {
+                out += "\n";
+                tmpcounter = 0;
+            }
+        }
+    }
+
+    out
 }

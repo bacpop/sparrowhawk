@@ -56,6 +56,8 @@ extern crate console_error_panic_hook;
 pub mod fastx_wasm;
 #[cfg(feature = "wasm")]
 use crate::graph_works::Contigs;
+#[cfg(feature = "wasm")]
+use json;
 
 // use std::process::exit;
 
@@ -279,8 +281,8 @@ pub fn init_panic_hook() {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 pub struct AssemblyHelper {
-    contigs : Contigs,
-    // graph   : String,
+    contigs  : Contigs,
+    outfasta : String,
 }
 
 #[cfg(feature = "wasm")]
@@ -311,7 +313,8 @@ impl AssemblyHelper {
         let theseq : Vec<u64>;
         let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
 
-        let outcontigs : Contigs;
+        let mut outcontigs : Contigs;
+        let mut outfasta   : String;
 
         if k % 2 == 0 {
             panic!("Support for even k-mer lengths not implemented");
@@ -324,21 +327,28 @@ impl AssemblyHelper {
             let thedict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality);
             drop(theseq);
+            loG("Preprocessing done!", Some("info"));
+
+            loG("Starting assembly...", Some("info"));
             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
+            loG("Assembly done!", Some("info"));
 
             // Save as fasta
-            // save_functions::save_as_fasta::<u64>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
+            outfasta = save_functions::save_as_fasta_for_wasm::<u64>(&mut outcontigs, &thedict, k); // FASTA file(s)
 
         } else if k <= 64 {
             loG(format!("k={}: using 128-bit representation", k).as_str(), Some("info"));
             let thedict : HashMap::<u64, u128, BuildHasherDefault<NoHashHasher<u64>>>;
             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality);
             drop(theseq);
+            loG("Preprocessing done!", Some("info"));
 
+            loG("Starting assembly...", Some("info"));
             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
+            loG("Assembly done!", Some("info"));
 
             // Save as fasta
-            // save_functions::save_as_fasta::<u128>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
+            outfasta = save_functions::save_as_fasta_for_wasm::<U128>(&mut outcontigs, &thedict, k); // FASTA file(s)
 
         } else if k <= 128 {
             loG(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
@@ -346,23 +356,30 @@ impl AssemblyHelper {
             let thedict : HashMap::<u64, U256, BuildHasherDefault<NoHashHasher<u64>>>;
             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality);
             drop(theseq);
+            loG("Preprocessing done!", Some("info"));
 
+            loG("Starting assembly...", Some("info"));
             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
+            loG("Assembly done!", Some("info"));
 
             // Save as fasta
-            // save_functions::save_as_fasta::<U256>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
+            outfasta = save_functions::save_as_fasta_for_wasm::<U256>(&mut outcontigs, &thedict, k); // FASTA file(s)
 
         } else if k <= 256 {
             loG(format!("k={}: using 512-bit representation", k).as_str(), Some("info"));
 
+            loG("Preprocessing...", Some("info"));
             let thedict : HashMap::<u64, U512, BuildHasherDefault<NoHashHasher<u64>>>;
             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality);
             drop(theseq);
+            loG("Preprocessing done!", Some("info"));
 
+            loG("Starting assembly...", Some("info"));
             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
+            loG("Assembly done!", Some("info"));
 
             // Save as fasta
-            // save_functions::save_as_fasta::<U512>(&mut outcontigs, &thedict, k, None); // FASTA file(s)
+            outfasta = save_functions::save_as_fasta_for_wasm::<U512>(&mut outcontigs, &thedict, k); // FASTA file(s)
 
         } else {
             panic!("kmer length larger than 256 currently not supported.");
@@ -371,7 +388,16 @@ impl AssemblyHelper {
         loG("Sparrowhawk done!", Some("info"));
 
         Self {
-            contigs : outcontigs,
+            contigs  : outcontigs,
+            outfasta : outfasta,
         }
+    }
+
+
+    pub fn get_assembly(self) -> String {
+        let mut results = json::JsonValue::new_array();
+
+        results["outfasta"] = self.outfasta;
+        return results.dump();
     }
 }
