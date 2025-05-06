@@ -348,7 +348,7 @@ impl AssemblyHelper {
             loG("Assembly done!", Some("info"));
 
             // Save as fasta
-            outfasta = save_functions::save_as_fasta_for_wasm::<U128>(&mut outcontigs, &thedict, k); // FASTA file(s)
+            outfasta = save_functions::save_as_fasta_for_wasm::<u128>(&mut outcontigs, &thedict, k); // FASTA file(s)
 
         } else if k <= 128 {
             loG(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
@@ -397,7 +397,8 @@ impl AssemblyHelper {
     pub fn get_assembly(self) -> String {
         let mut results = json::JsonValue::new_array();
 
-        results["outfasta"] = self.outfasta;
+        results["outfasta"] = json::JsonValue::String(self.outfasta);
+
         return results.dump();
     }
 }

@@ -148,12 +148,12 @@ where
     loG("Saving in FASTA format as a JSON", Some("info"));
     // Now, we just write all the contigs. We get our writing buffer with this:
     let mut out = "".to_string();
-    for i in 0..self.contig_sequences.as_ref().unwrap().len() {
-        out += ">".as_string() + str(i) + "\n";
+    for i in 0..ingraph.contig_sequences.as_ref().unwrap().len() {
+        out += (">".to_owned() + i.to_string().as_str() + "\n").as_str();
 
-        tmpcounter = 0;
-        for j in &self.contig_sequences.as_ref().unwrap()[i][..] {
-            out += j;
+        let mut tmpcounter = 0;
+        for j in &ingraph.contig_sequences.as_ref().unwrap()[i][..] {
+            out += j.to_string().as_str();
             tmpcounter += 1;
             if tmpcounter >= 80 {
                 out += "\n";
