@@ -7,7 +7,10 @@ use rayon::prelude::*;
 use std::io::Write;
 use super::io_utils::*;
 
+#[cfg(not(feature = "wasm"))]
 use needletail::parser::write_fasta;
+
+
 // use std::process::exit;
 extern crate petgraph;
 use super::HashInfoSimple;
@@ -162,6 +165,7 @@ impl Contigs {
 
 
     /// Save contigs in a file
+    #[cfg(not(feature = "wasm"))]
     pub fn write_fasta<W: Write>(&self, f: &mut W) {
 //         self.print_coverage_stats();
         for i in 0..self.contig_sequences.as_ref().unwrap().len() {

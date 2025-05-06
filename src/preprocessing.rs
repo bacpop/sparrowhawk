@@ -8,11 +8,17 @@ use std::{collections::HashMap, hash::BuildHasherDefault, cell::*};
 
 use rayon::prelude::*;
 
+#[cfg(not(feature = "wasm"))]
 use indicatif::ProgressIterator;
+
+#[cfg(not(feature = "wasm"))]
 use needletail::parse_fastx_file;
+
 // use std::process::exit;
 
+#[cfg(not(feature = "wasm"))]
 use plotters::prelude::*;
+
 use project_root;
 
 use super::QualOpts;

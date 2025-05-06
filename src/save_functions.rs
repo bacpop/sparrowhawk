@@ -112,6 +112,7 @@ where
 
 
 /// Stores all the contigs as a fasta file
+#[cfg(not(feature = "wasm"))]
 pub fn save_as_fasta<IntT>(ingraph: &mut Contigs,
                                             inmap:   &    HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>,
                                             k:        usize,

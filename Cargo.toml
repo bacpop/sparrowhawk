@@ -6,38 +6,45 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-wasm = ["dep:js-sys", "dep:wasm-bindgen", "dep:simple-error", "dep:console_error_panic_hook", "dep:wasm-bindgen-file-reader", "dep:seq_io", "dep:flate2", "dep:web-sys", "dep:getrandom"]
+default = ["basic"]
+# wasm = ["dep:js-sys", "dep:wasm-bindgen", "dep:simple-error", "dep:console_error_panic_hook", "dep:wasm-bindgen-file-reader", "dep:seq_io", "dep:flate2", "dep:web-sys", "dep:getrandom"]
+wasm = ["js-sys", "wasm-bindgen", "simple-error", "console_error_panic_hook", "wasm-bindgen-file-reader", "seq_io", "flate2", "web-sys", "getrandom",
+        "serde", "ahash", "num-traits", "log", "simple_logger", "clap", "regex", "rayon", "num_cpus", "nohash-hasher",
+        "stacker", "project-root", "petgraph", "bnum"]
+basic = ["needletail", "serde", "ahash", "num-traits", "log", "simple_logger", "indicatif", "clap", "regex", "rayon", "num_cpus", "nohash-hasher",
+         "stacker", "plotters", "project-root", "petgraph", "bnum"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # i/o
-needletail = { version = "0.6.3", default-features = false, features = ["flate2", "xz2", "zstd"] }
-serde = { version = "1.0.219", features = ["derive"] }
+needletail = { version = "0.6.3", default-features = false, features = ["flate2", "xz2", "zstd"], optional = true}
+serde = { version = "1.0.219", features = ["derive"], optional = true}
 # data structures
-ahash = "0.8.11"
-num-traits = "0.2.19"
+ahash = {version = "0.8.11", optional = true}
+num-traits = {version = "0.2.19", optional = true}
 # logging
-log = "0.4.27"
-simple_logger = { version = "5.0.0", features = ["stderr"] }
-indicatif = { version = "0.17.11", features = ["rayon"]}
-# cli
-clap = { version = "4.5.35", features = ["derive"] }
-regex = "1.11.1"
-# parallelisation
-rayon = "1.10.0"
-num_cpus = "1.16.0"
+log = {version = "0.4.27", optional = true}
+simple_logger = { version = "5.0.0", features = ["stderr"], optional = true}
+indicatif = { version = "0.17.11", features = ["rayon"], optional = true}
 
-nohash-hasher = "0.2.0"
-stacker = "0.1.20"
+# cli
+clap = { version = "4.5.35", features = ["derive"], optional = true}
+regex = {version = "1.11.1", optional = true}
+# parallelisation
+rayon = {version = "1.10.0", optional = true}
+num_cpus = {version = "1.16.0", optional = true}
+
+nohash-hasher = {version = "0.2.0", optional = true}
+stacker = {version = "0.1.20", optional = true}
 # statistical = "1.0.0"
 
-plotters = "0.3.7"
-project-root = "0.2.2"
-petgraph = "0.8.1"
+plotters = {version = "0.3.7", optional = true}
+project-root = {version = "0.2.2", optional = true}
+petgraph = {version = "0.8.1", optional = true}
 
-bnum = {version = "0.13.0", features = ["serde", "numtraits"] }
+bnum = {version = "0.13.0", features = ["serde", "numtraits"], optional = true}
 
 # WebAssembly
 js-sys                   = {version = "0.3.51", optional = true}
@@ -58,3 +65,6 @@ stacker = "0.1.20"
 
 [profile.release]
 lto = true
+
+[rust]
+lld = true
