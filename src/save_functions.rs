@@ -148,17 +148,26 @@ where
     loG("Saving in FASTA format as a JSON", Some("info"));
     // Now, we just write all the contigs. We get our writing buffer with this:
     let mut out = "".to_string();
+    let mut tmpvec : Vec<u8> = Vec::with_capacity(80);
+    let mut tmpcounter : usize;
+
     for i in 0..ingraph.contig_sequences.as_ref().unwrap().len() {
         out += (">".to_owned() + i.to_string().as_str() + "\n").as_str();
+        tmpcounter = 0;
+        tmpvec.clear();
 
-        let mut tmpcounter = 0;
         for j in &ingraph.contig_sequences.as_ref().unwrap()[i][..] {
-            out += decode_base(*j).to_string().as_str();
+            tmpvec.push(*j);
             tmpcounter += 1;
             if tmpcounter >= 80 {
-                out += "\n";
+                out += &(String::from_utf8(tmpvec.clone()).unwrap() + "\n");
                 tmpcounter = 0;
+                tmpvec.clear();
             }
+        }
+
+        if !tmpvec.is_empty() {
+            out += &(String::from_utf8(tmpvec.clone()).unwrap() + "\n");
         }
     }
 
