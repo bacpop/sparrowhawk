@@ -7,7 +7,7 @@ use std::{collections::HashMap, hash::BuildHasherDefault};
 use super::io_utils::*;
 // use std::process::exit;
 
-use crate::bit_encoding::UInt;
+use crate::bit_encoding::{UInt, decode_base};
 use crate::graph_works::Contigs;
 use crate::loG;
 
@@ -153,7 +153,7 @@ where
 
         let mut tmpcounter = 0;
         for j in &ingraph.contig_sequences.as_ref().unwrap()[i][..] {
-            out += j.to_string().as_str();
+            out += decode_base(*j).to_string().as_str();
             tmpcounter += 1;
             if tmpcounter >= 80 {
                 out += "\n";
