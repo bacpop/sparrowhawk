@@ -658,6 +658,8 @@ impl AssemblyHelper {
         results["nkmers"] = json::JsonValue::Number(self.preprocessed_data.len().into());
         results["histo"]  = json::JsonValue::Array(self.histovec.iter().map(|x| json::JsonValue::Number((*x).into())).collect());
 
+        loG(results.dump().as_str(), Some("debug"));
+
         return results.dump();
     }
 }
