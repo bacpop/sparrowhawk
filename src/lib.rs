@@ -507,6 +507,8 @@ pub struct AssemblyHelper {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl AssemblyHelper {
+    #[cfg(feature = "wasm")]
+    #[wasm_bindgen]
     pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8) -> Self {
         if cfg!(debug_assertions) {
             init_panic_hook();
@@ -598,6 +600,8 @@ impl AssemblyHelper {
     }
 
 
+    #[cfg(feature = "wasm")]
+    #[wasm_bindgen]
     pub fn assemble(mut self) {
         loG("Starting assembly...", Some("info"));
         let mut outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict, &mut Vec::new(), None);
@@ -630,6 +634,8 @@ impl AssemblyHelper {
     }
 
 
+    #[cfg(feature = "wasm")]
+    #[wasm_bindgen]
     pub fn get_assembly(self) -> String {
         let mut results = json::JsonValue::new_array();
 
@@ -639,6 +645,8 @@ impl AssemblyHelper {
         return results.dump();
     }
 
+    #[cfg(feature = "wasm")]
+    #[wasm_bindgen]
     pub fn get_preprocessing_info(self) -> String {
         let mut results = json::JsonValue::new_array();
 
