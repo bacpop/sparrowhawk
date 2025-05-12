@@ -596,7 +596,12 @@ impl AssemblyHelper {
             outfasta          : "".to_owned(),
         }
     }
+}
 
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+impl AssemblyHelper {
     pub fn assemble(&mut self) {
         loG("Starting assembly...", Some("info"));
         let mut outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict, &mut Vec::new(), None);
@@ -627,8 +632,11 @@ impl AssemblyHelper {
         self.contigs  = outcontigs;
         self.outfasta = outfasta;
     }
+}
 
-
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+impl AssemblyHelper {
     pub fn get_assembly(self) -> String {
         let mut results = json::JsonValue::new_array();
 
@@ -637,11 +645,15 @@ impl AssemblyHelper {
 
         return results.dump();
     }
+}
 
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+impl AssemblyHelper {
     pub fn get_preprocessing_info(self) -> String {
         let mut results = json::JsonValue::new_array();
 
-        results["nkmers"] = json::JsonValue::String(self.preprocessed_data.len().to_string());
+        results["nkmers"] = json::JsonValue::Number(self.preprocessed_data.len().into());
         results["histo"]  = json::JsonValue::Array(self.histovec.iter().map(|x| json::JsonValue::Number((*x).into())).collect());
 
         return results.dump();
