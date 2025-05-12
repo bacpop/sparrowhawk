@@ -279,7 +279,7 @@ where
     let mut theseq   : Vec<u64> = Vec::new();
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
-        put_these_nts_into_an_efficient_vector(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
+        // put_these_nts_into_an_efficient_vector(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
 
         // let rl = seqrec.num_bases();
         let rl = seqrec.seq().len();
@@ -342,7 +342,7 @@ where
     // Filling the seq of the second file!
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
-        put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
+        // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
 //         println!("{}", seqrec.num_bases());
         // let rl = seqrec.num_bases();
         let rl = seqrec.seq().len();
@@ -509,7 +509,7 @@ fn get_map_with_counts_with_hashes_only(
 fn get_map_for_wasm(
     invec:      &Vec<(u64, u64, u8)>,
     min_count:  u16,
-) -> HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>
+) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
 {
     let mut outdict = HashMap::with_hasher(BuildHasherDefault::default());
 
@@ -571,7 +571,7 @@ fn get_map_for_wasm(
     plotvec.shrink_to_fit();
 
     loG(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
-    outdict
+    (outdict, plotvec)
 }
 
 
@@ -642,7 +642,7 @@ pub fn preprocessing_for_wasm<IntT>(
     file2:    &mut WebSysFile,
     k:         usize,
     qual:     &QualOpts,
-) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u64>, HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>)
+) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u64>, Option<HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
 where
     IntT: for<'a> UInt<'a>,
 {
@@ -673,10 +673,10 @@ where
 
     // Then, do a counting of everything and save the results in a dictionary and return it
     loG("Counting k-mers", Some("info"));
-    let themap = get_map_for_wasm(&tmpvec, qual.min_count);
+    let (themap, histovec) = get_map_for_wasm(&tmpvec, qual.min_count);
     drop(tmpvec);
 
     loG("Kmers counted.", Some("info"));
 
-    (themap, theseq, thedict, maxmindict)
+    (themap, theseq, Some(thedict), maxmindict, histovec)
 }
