@@ -332,13 +332,13 @@ where
 
 //     println!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
     // Memory usage optimisations
-    let cseq = theseq.capacity();
-    let lseq = theseq.len();
-    if cseq < 2 * lseq {
-        theseq.reserve_exact(2 * lseq);
-    } else {
-        theseq.shrink_to(2 * lseq);
-    }
+    // let cseq = theseq.capacity();
+    // let lseq = theseq.len();
+    // if cseq < 2 * lseq {
+    //     theseq.reserve_exact(2 * lseq);
+    // } else {
+    //     theseq.shrink_to(2 * lseq);
+    // }
     // Filling the seq of the second file!
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
@@ -389,12 +389,12 @@ where
         itrecord += rl as u32;
     }
 
-    if (itrecord % 32) != 0 {
-        let mut tmpu64 = theseq.pop().unwrap();
-        tmpu64 <<= 2 * (32 - itrecord % 32);
-//         println!("{:#066b}", tmpu64);
-        theseq.push(tmpu64);
-    }
+//     if (itrecord % 32) != 0 {
+//         let mut tmpu64 = theseq.pop().unwrap();
+//         tmpu64 <<= 2 * (32 - itrecord % 32);
+// //         println!("{:#066b}", tmpu64);
+//         theseq.push(tmpu64);
+//     }
 
     loG("Finished getting kmers from the second file", Some("info"));
     loG(format!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord).as_str(), Some("debug"));
