@@ -591,7 +591,7 @@ impl AssemblyHelper {
             seqdict128        : thedict128,
             seqdict256        : thedict256,
             seqdict512        : thedict512,
-            histovec          : Vec::new(),
+            histovec          : histovalues,
             contigs           : Contigs::default(),
             outfasta          : "".to_owned(),
         }
@@ -652,6 +652,8 @@ impl AssemblyHelper {
 impl AssemblyHelper {
     pub fn get_preprocessing_info(self) -> String {
         let mut results = json::JsonValue::new_array();
+
+        loG(format!("{} {}", self.preprocessed_data.len(), self.histovec.len()).as_str(), Some("info"));
 
         results["nkmers"] = json::JsonValue::Number(self.preprocessed_data.len().into());
         results["histo"]  = json::JsonValue::Array(self.histovec.iter().map(|x| json::JsonValue::Number((*x).into())).collect());
