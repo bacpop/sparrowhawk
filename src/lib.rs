@@ -601,6 +601,7 @@ impl AssemblyHelper {
     pub fn assemble(&mut self) {
         loG("Starting assembly...", Some("info"));
         let mut outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict, &mut Vec::new(), None);
+
         loG("Assembly done!", Some("info"));
 
         let mut outfasta   : String;
@@ -630,17 +631,17 @@ impl AssemblyHelper {
     }
 
 
-    pub fn get_assembly(self) -> String {
+    pub fn get_assembly(&self) -> String {
         let mut results = json::JsonValue::new_array();
 
-        results["outfasta"] = json::JsonValue::String(self.outfasta);
-        results["ncontigs"] = json::JsonValue::Number(self.contigs.contig_sequences.unwrap().len().into());
+        results["outfasta"] = json::JsonValue::String(self.outfasta.clone());
+        results["ncontigs"] = json::JsonValue::Number(self.contigs.contig_sequences.as_ref().unwrap().len().into());
 
         return results.dump();
     }
 
 
-    pub fn get_preprocessing_info(self) -> String {
+    pub fn get_preprocessing_info(&self) -> String {
         let mut results = json::JsonValue::new_array();
 
         loG(format!("{} {}", self.preprocessed_data.len(), self.histovec.len()).as_str(), Some("info"));
