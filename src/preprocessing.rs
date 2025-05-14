@@ -262,7 +262,7 @@ fn get_kmers_from_both_files_wasm<IntT>(
     k:         usize,
     qual:      &QualOpts,
     outvec:    &mut Vec<(u64, u64, u8)>,
-) -> (Vec<u64>, HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>)
+) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>)
 where
     IntT: for<'a> UInt<'a>,
 {
@@ -275,13 +275,9 @@ where
 
 //     let maxkmers = 200;
 //     let mut numkmers = 0;
-    let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
-    let mut theseq   : Vec<u64> = Vec::new();
+
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
-        // put_these_nts_into_an_efficient_vector(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
-
-        // let rl = seqrec.num_bases();
         let rl = seqrec.seq().len();
         let kmer_opt = Kmer::<IntT>::new(
             std::borrow::Cow::Borrowed(seqrec.seq()),
@@ -290,7 +286,6 @@ where
             k,
             qual.min_qual,
             true,
-            // &itrecord,
         );
         if let Some(mut kmer_it) = kmer_opt {
 //             numkmers += 1;
@@ -322,8 +317,6 @@ where
 //                 if numkmers >= maxkmers {break};
             }
         }
-//         if numkmers >= maxkmers {itrecord += rl as u32;break};
-        itrecord += rl as u32;
     }
     loG("Finished getting kmers from first file. Starting with the second...", Some("info"));
 //     numkmers = 0;
@@ -332,19 +325,9 @@ where
 
 //     println!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
     // Memory usage optimisations
-    // let cseq = theseq.capacity();
-    // let lseq = theseq.len();
-    // if cseq < 2 * lseq {
-    //     theseq.reserve_exact(2 * lseq);
-    // } else {
-    //     theseq.shrink_to(2 * lseq);
-    // }
     // Filling the seq of the second file!
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
-        // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
-//         println!("{}", seqrec.num_bases());
-        // let rl = seqrec.num_bases();
         let rl = seqrec.seq().len();
         let kmer_opt = Kmer::<IntT>::new(
             std::borrow::Cow::Borrowed(seqrec.seq()),
@@ -353,7 +336,6 @@ where
             k,
             qual.min_qual,
             true,
-            // &itrecord,
         );
         if let Some(mut kmer_it) = kmer_opt {
 //             numkmers += 1;
@@ -386,22 +368,162 @@ where
             }
         }
 //         if numkmers >= maxkmers {itrecord += rl as u32;break};
-        itrecord += rl as u32;
+        // itrecord += rl as u32;
     }
 
-//     if (itrecord % 32) != 0 {
-//         let mut tmpu64 = theseq.pop().unwrap();
-//         tmpu64 <<= 2 * (32 - itrecord % 32);
-// //         println!("{:#066b}", tmpu64);
-//         theseq.push(tmpu64);
-//     }
+    loG("Finished getting kmers from the second file", Some("info"));
+
+
+    (outdict, minmaxdict)
+}
+
+
+#[cfg(feature = "wasm")]
+fn chunked_processing_wasm<IntT>(
+    file1:    &mut WebSysFile,
+    file2:    &mut WebSysFile,
+    k:         usize,
+    qual:      &QualOpts,
+    outvec:    &mut Vec<(u64, u64, u8)>,
+    csize:     usize,
+) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
+where
+    IntT: for<'a> UInt<'a>,
+{
+    loG("Getting kmers from first file. Creating reader...", Some("info"));
+
+    let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
+    let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
+    let mut themap     = HashMap::with_hasher(BuildHasherDefault::default());
+
+    let mut reader = open_fastq(file1);
+    let mut histovec = Vec::new();
+    loG("Entering while loop...", Some("info"));
+
+    let mut i_record = 0;
+
+    while let Some(record) = reader.next() {
+        let seqrec = record.expect("Invalid FASTQ record");
+        let rl = seqrec.seq().len();
+        let kmer_opt = Kmer::<IntT>::new(
+            std::borrow::Cow::Borrowed(seqrec.seq()),
+            rl,
+            Some(seqrec.qual()),
+            k,
+            qual.min_qual,
+            true,
+        );
+        if let Some(mut kmer_it) = kmer_opt {
+            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+            outvec.push( (hc, hnc, b) );
+            outdict.entry(hc).or_insert(km);
+            minmaxdict.entry(hnc).or_insert(hc);
+            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                let (hc, hnc, b, km) = tmptuple;
+                outvec.push( (hc, hnc, b) );
+                outdict.entry(hc).or_insert(km);
+                minmaxdict.entry(hnc).or_insert(hc);
+            }
+        }
+
+        i_record += 1;
+        if i_record >= csize {
+            // Processssssss! And reset.
+            // Either chunk and loose some kmers, or only remove those that are past the limit.
+            loG("Processing chunk. Sorting k-mers...", Some("info"));
+            outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            loG("k-mers sorted. Counting k-mers...", Some("info"));
+            // Then, do a counting of everything and save the results in a dictionary and return it
+
+            let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
+
+            themap.extend(tmpthemap);
+            drop(tmpthemap);
+            histovec.extend(tmphistovec);
+            drop(tmphistovec);
+
+            // Reset
+            outvec.clear();
+            i_record = 0;
+        }
+
+    }
+    loG("Finished getting kmers from first file. Starting with the second...", Some("info"));
+
+    let mut reader = open_fastq(file2);
+
+    // Filling the seq of the second file!
+    while let Some(record) = reader.next() {
+        let seqrec = record.expect("Invalid FASTQ record");
+        // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
+        let rl = seqrec.seq().len();
+        let kmer_opt = Kmer::<IntT>::new(
+            std::borrow::Cow::Borrowed(seqrec.seq()),
+            rl,
+            Some(seqrec.qual()),
+            k,
+            qual.min_qual,
+            true,
+        );
+        if let Some(mut kmer_it) = kmer_opt {
+            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+            outvec.push( (hc, hnc, b) );
+            outdict.entry(hc).or_insert(km);
+            minmaxdict.entry(hnc).or_insert(hc);
+            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                let (hc, hnc, b, km) = tmptuple;
+                outvec.push( (hc, hnc, b) );
+                outdict.entry(hc).or_insert(km);
+                minmaxdict.entry(hnc).or_insert(hc);
+            }
+        }
+
+        i_record += 1;
+        if i_record >= csize {
+            // Processssssss! And reset.
+            // Either chunk and loose some kmers, or only remove those that are past the limit.
+            loG("Processing chunk. Sorting k-mers...", Some("info"));
+            outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            loG("k-mers sorted. Counting k-mers...", Some("info"));
+            // Then, do a counting of everything and save the results in a dictionary and return it
+
+            let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
+
+            themap.extend(tmpthemap);
+            drop(tmpthemap);
+            histovec.extend(tmphistovec);
+            drop(tmphistovec);
+
+            // Reset
+            outvec.clear();
+            i_record = 0;
+        }
+    }
+
+    if i_record >= 0 {
+        // Processssssss! And reset.
+        // Either chunk and loose some kmers, or only remove those that are past the limit.
+        loG("Processing last chunk. Sorting k-mers...", Some("info"));
+        outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        loG("k-mers sorted. Counting k-mers...", Some("info"));
+        // Then, do a counting of everything and save the results in a dictionary and return it
+
+        let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
+
+        themap.extend(tmpthemap);
+        drop(tmpthemap);
+        histovec.extend(tmphistovec);
+        drop(tmphistovec);
+
+        // Reset
+        outvec.clear();
+    }
 
     loG("Finished getting kmers from the second file", Some("info"));
-    loG(format!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord).as_str(), Some("debug"));
 
-
-    (theseq, outdict, minmaxdict)
+    (outdict, minmaxdict, themap, histovec)
 }
+
 
 #[cfg(not(feature = "wasm"))]
 fn get_map_with_counts_with_hashes_only(
@@ -537,14 +659,6 @@ fn get_map_for_wasm(
             } else {
                 plotvec.push(c);
             }
-//             else {
-//                 println!("{}", c);
-//             }
-//             if i > 500 {
-//                 println!("{:?}", outdict);
-//                 println!("{} {} {}", tmphash, c, i);
-//                 exit(1);
-//             }
             tmphash = invec[i].0;
             c = 1;
         } else {
@@ -568,9 +682,8 @@ fn get_map_for_wasm(
     } else {
         plotvec.push(c);
     }
-    plotvec.shrink_to_fit();
 
-    loG(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
+    // loG(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
     (outdict, plotvec)
 }
 
@@ -642,41 +755,61 @@ pub fn preprocessing_for_wasm<IntT>(
     file2:    &mut WebSysFile,
     k:         usize,
     qual:     &QualOpts,
-) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u64>, Option<HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
+    csize:    usize,
+) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Option<HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
 where
     IntT: for<'a> UInt<'a>,
 {
-    // Build indexes
-    loG("Starting preprocessing with k = {k}", Some("info"));
+    if csize <= 0 {
+        // Build indexes
+        loG("Starting preprocessing with k = {k}", Some("info"));
+
+        // First, we want to fill our mega-vector with all k-mers from both paired-end reads
+        loG("Filling vector", Some("info"));
+
+        let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
+        let (thedict, maxmindict) = get_kmers_from_both_files_wasm::<IntT>(file1,
+                                                                           file2,
+                                                                           k,
+                                                                           qual,
+                                                                           &mut tmpvec
+        );
+
+        loG("Kmers extracted", Some("info"));
 
 
-    // First, we want to fill our mega-vector with all k-mers from both paired-end reads
-    loG("Filling vector", Some("info"));
+        // Then, we want to sort it according to the hash
+        // println!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
+        loG("Sorting vector", Some("info"));
+        tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-    let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
-    let (theseq, thedict, maxmindict) = get_kmers_from_both_files_wasm::<IntT>(file1,
-        file2,
-        k,
-        qual,
-        &mut tmpvec);
-
-    loG("Kmers extracted", Some("info"));
+        loG("Kmers sorted.", Some("info"));
 
 
-    // Then, we want to sort it according to the hash
-    // println!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
-    loG("Sorting vector", Some("info"));
-    tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        // Then, do a counting of everything and save the results in a dictionary and return it
+        loG("Counting k-mers", Some("info"));
+        let (themap, histovec) = get_map_for_wasm(&tmpvec, qual.min_count);
+        histovec.shrink_to_fit();
+        drop(tmpvec);
 
-    loG("Kmers sorted.", Some("info"));
+        loG("Kmers counted.", Some("info"));
 
+        return (themap, Some(thedict), maxmindict, histovec);
+    } else {
+        // Build indexes
+        loG(format!("Processing in chunks of size {} the input files", csize).as_str(), Some("info"));
 
-    // Then, do a counting of everything and save the results in a dictionary and return it
-    loG("Counting k-mers", Some("info"));
-    let (themap, histovec) = get_map_for_wasm(&tmpvec, qual.min_count);
-    drop(tmpvec);
+        let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
+        let (thedict, maxmindict, themap, histovec) = chunked_processing_wasm::<IntT>(
+            file1,
+            file2,
+            k,
+            qual,
+            &mut tmpvec,
+            csize
+        );
+        drop(tmpvec);
 
-    loG("Kmers counted.", Some("info"));
-
-    (themap, theseq, Some(thedict), maxmindict, histovec)
+        return (themap, Some(thedict), maxmindict, histovec);
+    }
 }

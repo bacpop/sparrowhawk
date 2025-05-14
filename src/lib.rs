@@ -280,214 +280,6 @@ pub fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
-// #[cfg(feature = "wasm")]
-// #[wasm_bindgen]
-// pub struct AssemblyHelper {
-//     contigs           : Contigs,
-//     outfasta          : String,
-// }
-//
-// #[cfg(feature = "wasm")]
-// #[wasm_bindgen]
-// impl AssemblyHelper {
-//     pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8) -> Self {
-//         if cfg!(debug_assertions) {
-//             init_panic_hook();
-//         }
-//
-//         let mut wf1 = WebSysFile::new(file1);
-//         let mut wf2 = WebSysFile::new(file2);
-//
-//         // Read input
-//         let quality = QualOpts {
-//             min_count: min_count,
-//             min_qual:  min_qual,
-//         };
-//
-//         // loG("Checking requested threads and creating pool if needed", Some("info"));
-//         // rayon::ThreadPoolBuilder::new()
-//         //     .num_threads(8)
-//         //     .build_global()
-//         //     .unwrap();
-//         loG("Beginning processing", Some("info"));
-//
-//         let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
-//         let theseq : Vec<u64>;
-//         let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
-//
-//         let mut outcontigs : Contigs;
-//         let mut outfasta   : String;
-//
-//         if k % 2 == 0 {
-//             panic!("Support for even k-mer lengths not implemented");
-//
-//         } else if k < 3 {
-//             panic!("kmer length too small (min. 3)");
-//
-//         } else if k <= 32 {
-//             loG(format!("k={}: using 64-bit representation", k).as_str(), Some("info"));
-//             let thedict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
-//             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality);
-//             drop(theseq);
-//             loG("Preprocessing done!", Some("info"));
-//
-//             loG("Starting assembly...", Some("info"));
-//             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
-//             loG("Assembly done!", Some("info"));
-//
-//             // Save as fasta
-//             outfasta = save_functions::save_as_fasta_for_wasm::<u64>(&mut outcontigs, &thedict, k); // FASTA file(s)
-//
-//         } else if k <= 64 {
-//             loG(format!("k={}: using 128-bit representation", k).as_str(), Some("info"));
-//             let thedict : HashMap::<u64, u128, BuildHasherDefault<NoHashHasher<u64>>>;
-//             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality);
-//             drop(theseq);
-//             loG("Preprocessing done!", Some("info"));
-//
-//             loG("Starting assembly...", Some("info"));
-//             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
-//             loG("Assembly done!", Some("info"));
-//
-//             // Save as fasta
-//             outfasta = save_functions::save_as_fasta_for_wasm::<u128>(&mut outcontigs, &thedict, k); // FASTA file(s)
-//
-//         } else if k <= 128 {
-//             loG(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
-//
-//             let thedict : HashMap::<u64, U256, BuildHasherDefault<NoHashHasher<u64>>>;
-//             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality);
-//             drop(theseq);
-//             loG("Preprocessing done!", Some("info"));
-//
-//             loG("Starting assembly...", Some("info"));
-//             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
-//             loG("Assembly done!", Some("info"));
-//
-//             // Save as fasta
-//             outfasta = save_functions::save_as_fasta_for_wasm::<U256>(&mut outcontigs, &thedict, k); // FASTA file(s)
-//
-//         } else if k <= 256 {
-//             loG(format!("k={}: using 512-bit representation", k).as_str(), Some("info"));
-//
-//             loG("Preprocessing...", Some("info"));
-//             let thedict : HashMap::<u64, U512, BuildHasherDefault<NoHashHasher<u64>>>;
-//             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality);
-//             drop(theseq);
-//             loG("Preprocessing done!", Some("info"));
-//
-//             loG("Starting assembly...", Some("info"));
-//             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
-//             loG("Assembly done!", Some("info"));
-//
-//             // Save as fasta
-//             outfasta = save_functions::save_as_fasta_for_wasm::<U512>(&mut outcontigs, &thedict, k); // FASTA file(s)
-//
-//         } else {
-//             panic!("kmer length larger than 256 currently not supported.");
-//         }
-//
-//         loG("Sparrowhawk done!", Some("info"));
-//
-//         Self {
-//             contigs  : outcontigs,
-//             outfasta : outfasta,
-//         }
-//     }
-//
-//     pub fn assemble() {
-//         let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
-//         let theseq : Vec<u64>;
-//         let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
-//
-//         let mut outcontigs : Contigs;
-//         let mut outfasta   : String;
-//
-//         if k % 2 == 0 {
-//             panic!("Support for even k-mer lengths not implemented");
-//
-//         } else if k < 3 {
-//             panic!("kmer length too small (min. 3)");
-//
-//         } else if k <= 32 {
-//             loG(format!("k={}: using 64-bit representation", k).as_str(), Some("info"));
-//             let thedict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
-//             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality);
-//             drop(theseq);
-//             loG("Preprocessing done!", Some("info"));
-//
-//             loG("Starting assembly...", Some("info"));
-//             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
-//             loG("Assembly done!", Some("info"));
-//
-//             // Save as fasta
-//             outfasta = save_functions::save_as_fasta_for_wasm::<u64>(&mut outcontigs, &thedict, k); // FASTA file(s)
-//
-//         } else if k <= 64 {
-//             loG(format!("k={}: using 128-bit representation", k).as_str(), Some("info"));
-//             let thedict : HashMap::<u64, u128, BuildHasherDefault<NoHashHasher<u64>>>;
-//             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality);
-//             drop(theseq);
-//             loG("Preprocessing done!", Some("info"));
-//
-//             loG("Starting assembly...", Some("info"));
-//             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
-//             loG("Assembly done!", Some("info"));
-//
-//             // Save as fasta
-//             outfasta = save_functions::save_as_fasta_for_wasm::<u128>(&mut outcontigs, &thedict, k); // FASTA file(s)
-//
-//         } else if k <= 128 {
-//             loG(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
-//
-//             let thedict : HashMap::<u64, U256, BuildHasherDefault<NoHashHasher<u64>>>;
-//             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality);
-//             drop(theseq);
-//             loG("Preprocessing done!", Some("info"));
-//
-//             loG("Starting assembly...", Some("info"));
-//             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
-//             loG("Assembly done!", Some("info"));
-//
-//             // Save as fasta
-//             outfasta = save_functions::save_as_fasta_for_wasm::<U256>(&mut outcontigs, &thedict, k); // FASTA file(s)
-//
-//         } else if k <= 256 {
-//             loG(format!("k={}: using 512-bit representation", k).as_str(), Some("info"));
-//
-//             loG("Preprocessing...", Some("info"));
-//             let thedict : HashMap::<u64, U512, BuildHasherDefault<NoHashHasher<u64>>>;
-//             (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality);
-//             drop(theseq);
-//             loG("Preprocessing done!", Some("info"));
-//
-//             loG("Starting assembly...", Some("info"));
-//             outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(k, &mut preprocessed_data, &mut maxmindict, &mut Vec::new(), None);
-//             loG("Assembly done!", Some("info"));
-//
-//             // Save as fasta
-//             outfasta = save_functions::save_as_fasta_for_wasm::<U512>(&mut outcontigs, &thedict, k); // FASTA file(s)
-//
-//         } else {
-//             panic!("kmer length larger than 256 currently not supported.");
-//         }
-//
-//         loG("Sparrowhawk done!", Some("info"));
-//
-//         Self {
-//             contigs  : outcontigs,
-//             outfasta : outfasta,
-//         }
-//     }
-//
-//     pub fn get_assembly(self) -> String {
-//         let mut results = json::JsonValue::new_array();
-//
-//         results["outfasta"] = json::JsonValue::String(self.outfasta);
-//
-//         return results.dump();
-//     }
-// }
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
@@ -507,7 +299,7 @@ pub struct AssemblyHelper {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl AssemblyHelper {
-    pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8) -> Self {
+    pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8, csize : usize) -> Self {
         if cfg!(debug_assertions) {
             init_panic_hook();
         }
@@ -529,7 +321,6 @@ impl AssemblyHelper {
         loG("Beginning processing", Some("info"));
 
         let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
-        let theseq : Vec<u64>;
         let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
         let histovalues : Vec<u16>;
         let mut thedict64  = None;
@@ -546,35 +337,27 @@ impl AssemblyHelper {
         } else if k <= 32 {
             loG(format!("k={}: using 64-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, theseq, thedict64, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality);
-
-            drop(theseq);
+            (preprocessed_data, thedict64, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality, csize);
 
             loG("Preprocessing done!", Some("info"));
 
         } else if k <= 64 {
             loG(format!("k={}: using 128-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, theseq, thedict128, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality);
-
-            drop(theseq);
+            (preprocessed_data, thedict128, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality, csize);
 
             loG("Preprocessing done!", Some("info"));
 
         } else if k <= 128 {
             loG(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, theseq, thedict256, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality);
-
-            drop(theseq);
+            (preprocessed_data, thedict256, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality, csize);
 
             loG("Preprocessing done!", Some("info"));
         } else if k <= 256 {
             loG(format!("k={}: using 512-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, theseq, thedict512, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality);
-
-            drop(theseq);
+            (preprocessed_data, thedict512, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality, csize);
 
             loG("Preprocessing done!", Some("info"));
         } else {
