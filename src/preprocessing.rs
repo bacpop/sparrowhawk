@@ -499,8 +499,6 @@ where
         loG("k-mers sorted. Counting k-mers...", Some("info"));
         // Then, do a counting of everything and save the results in a dictionary and return it
 
-        let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
-
         update_countmap(&outvec, &mut countmap);
 
         // Reset
@@ -510,7 +508,6 @@ where
     loG("Filtering...", Some("info"));
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
-    // TODO
     countmap.shrink_to_fit();
     countmap.retain(|h, tup| {
         if tup.0 >= qual.min_count {
@@ -719,7 +716,8 @@ fn update_countmap(
     while i < invec.len() {
         if tmphash != invec[i].0 {
 
-            countmap.entry(tmphash).or_insert( (c, invec[i - 1].1, invec[i - 1].2) ).0.saturating_add(c);
+            let tmpref = countmap.entry(tmphash).or_insert( (c, invec[i - 1].1, invec[i - 1].2) );
+            tmpref.0 = tmpref.0.saturating_add(c);
             tmphash = invec[i].0;
             c = 1;
         } else {
@@ -728,7 +726,8 @@ fn update_countmap(
         i += 1;
     }
 
-    countmap.entry(tmphash).or_insert( (c, invec[i - 1].1, invec[i - 1].2) ).0.saturating_add(c);
+    let tmpref = countmap.entry(tmphash).or_insert( (c, invec[i - 1].1, invec[i - 1].2) );
+    tmpref.0 = tmpref.0.saturating_add(c);
 }
 
 
