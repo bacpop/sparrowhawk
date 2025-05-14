@@ -395,6 +395,7 @@ where
     let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
     let mut themap     = HashMap::with_hasher(BuildHasherDefault::default());
+    let mut countmap : HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>> = HashMap::with_hasher(BuildHasherDefault::default());
 
     let mut reader = open_fastq(file1);
     let mut histovec = Vec::new();
@@ -435,10 +436,7 @@ where
             loG("k-mers sorted. Counting k-mers...", Some("info"));
             // Then, do a counting of everything and save the results in a dictionary and return it
 
-            let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
-
-            themap.extend(tmpthemap);
-            histovec.extend(tmphistovec);
+            update_countmap(&outvec, &mut countmap);
 
             // Reset
             outvec.clear();
@@ -485,12 +483,7 @@ where
             loG("k-mers sorted. Counting k-mers...", Some("info"));
             // Then, do a counting of everything and save the results in a dictionary and return it
 
-            let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
-
-            themap.extend(tmpthemap);
-            // drop(tmpthemap);
-            histovec.extend(tmphistovec);
-            // drop(tmphistovec);
+            update_countmap(&outvec, &mut countmap);
 
             // Reset
             outvec.clear();
@@ -508,16 +501,41 @@ where
 
         let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
 
-        themap.extend(tmpthemap);
-        // drop(tmpthemap);
-        histovec.extend(tmphistovec);
-        // drop(tmphistovec);
+        update_countmap(&outvec, &mut countmap);
 
         // Reset
         outvec.clear();
     }
-
     loG("Finished getting kmers from the second file", Some("info"));
+    loG("Filtering...", Some("info"));
+
+    // Now, get themap, histovec, and filter outdict and minmaxdict
+    // TODO
+    countmap.shrink_to_fit();
+    countmap.retain(|h, tup| {
+        if tup.0 >= qual.min_count {
+            themap
+                .entry(*h)
+                .or_insert( RefCell::new(HashInfoSimple {
+                            hnc:    tup.1,
+                            b:      tup.2,
+                            pre:    Vec::new(),
+                            post:   Vec::new(),
+                            counts: tup.0,
+                    }) );
+        } else {
+            outdict.remove(h);
+            minmaxdict.remove(&tup.1);
+        }
+
+        histovec.push(tup.0);
+        false
+    });
+    outdict.shrink_to_fit();
+    minmaxdict.shrink_to_fit();
+    drop(countmap);
+
+
 
     (outdict, minmaxdict, themap, histovec)
 }
@@ -683,6 +701,34 @@ fn get_map_for_wasm(
 
     // loG(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
     (outdict, plotvec)
+}
+
+
+#[cfg(feature = "wasm")]
+fn update_countmap(
+    invec    : &    Vec<(u64, u64, u8)>,
+    countmap : &mut HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>>,
+) {
+
+    let mut i = 0;
+    let mut c : u16 = 0;
+    let mut tmphash = invec[i].0;
+    let mut tmpcounter = 0;
+
+
+    while i < invec.len() {
+        if tmphash != invec[i].0 {
+
+            countmap.entry(tmphash).or_insert( (c, invec[i - 1].1, invec[i - 1].2) ).0.saturating_add(c);
+            tmphash = invec[i].0;
+            c = 1;
+        } else {
+            c = c.saturating_add(1);
+        }
+        i += 1;
+    }
+
+    countmap.entry(tmphash).or_insert( (c, invec[i - 1].1, invec[i - 1].2) ).0.saturating_add(c);
 }
 
 
