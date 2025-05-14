@@ -438,9 +438,7 @@ where
             let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
 
             themap.extend(tmpthemap);
-            // drop(tmpthemap);
             histovec.extend(tmphistovec);
-            // drop(tmphistovec);
 
             // Reset
             outvec.clear();
@@ -800,7 +798,7 @@ where
         loG(format!("Processing in chunks of size {} the input files", csize).as_str(), Some("info"));
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
-        let (thedict, maxmindict, themap, histovec) = chunked_processing_wasm::<IntT>(
+        let (thedict, maxmindict, themap, mut histovec) = chunked_processing_wasm::<IntT>(
             file1,
             file2,
             k,
@@ -809,7 +807,7 @@ where
             csize
         );
         drop(tmpvec);
-
+        histovec.extend(themap.iter().map(|(_, x)| x.borrow().counts as u16));
         return (themap, Some(thedict), maxmindict, histovec);
     }
 }
