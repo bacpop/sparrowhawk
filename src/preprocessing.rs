@@ -438,9 +438,9 @@ where
             let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
 
             themap.extend(tmpthemap);
-            drop(tmpthemap);
+            // drop(tmpthemap);
             histovec.extend(tmphistovec);
-            drop(tmphistovec);
+            // drop(tmphistovec);
 
             // Reset
             outvec.clear();
@@ -490,9 +490,9 @@ where
             let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
 
             themap.extend(tmpthemap);
-            drop(tmpthemap);
+            // drop(tmpthemap);
             histovec.extend(tmphistovec);
-            drop(tmphistovec);
+            // drop(tmphistovec);
 
             // Reset
             outvec.clear();
@@ -511,9 +511,9 @@ where
         let (tmpthemap, tmphistovec) = get_map_for_wasm(&outvec, qual.min_count);
 
         themap.extend(tmpthemap);
-        drop(tmpthemap);
+        // drop(tmpthemap);
         histovec.extend(tmphistovec);
-        drop(tmphistovec);
+        // drop(tmphistovec);
 
         // Reset
         outvec.clear();
@@ -788,7 +788,7 @@ where
 
         // Then, do a counting of everything and save the results in a dictionary and return it
         loG("Counting k-mers", Some("info"));
-        let (themap, histovec) = get_map_for_wasm(&tmpvec, qual.min_count);
+        let (themap, mut histovec) = get_map_for_wasm(&tmpvec, qual.min_count);
         histovec.shrink_to_fit();
         drop(tmpvec);
 
