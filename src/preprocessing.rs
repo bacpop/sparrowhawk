@@ -430,13 +430,14 @@ where
         i_record += 1;
         if i_record >= csize {
             // Processssssss! And reset.
-            // Either chunk and loose some kmers, or only remove those that are past the limit.
-            loG("Processing chunk. Sorting k-mers...", Some("info"));
-            outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            loG("k-mers sorted. Counting k-mers...", Some("info"));
-            // Then, do a counting of everything and save the results in a dictionary and return it
+            if !outvec.is_empty() {
+                loG("Processing chunk. Sorting k-mers...", Some("info"));
+                outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                loG("k-mers sorted. Counting k-mers...", Some("info"));
+                // Then, do a counting of everything and save the results in a dictionary and return it
 
-            update_countmap(&outvec, &mut countmap);
+                update_countmap(&outvec, &mut countmap);
+            }
 
             // Reset
             outvec.clear();
@@ -477,13 +478,14 @@ where
         i_record += 1;
         if i_record >= csize {
             // Processssssss! And reset.
-            // Either chunk and loose some kmers, or only remove those that are past the limit.
-            loG("Processing chunk. Sorting k-mers...", Some("info"));
-            outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            loG("k-mers sorted. Counting k-mers...", Some("info"));
-            // Then, do a counting of everything and save the results in a dictionary and return it
+            if !outvec.is_empty() {
+                loG("Processing chunk. Sorting k-mers...", Some("info"));
+                outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                loG("k-mers sorted. Counting k-mers...", Some("info"));
+                // Then, do a counting of everything and save the results in a dictionary and return it
 
-            update_countmap(&outvec, &mut countmap);
+                update_countmap(&outvec, &mut countmap);
+            }
 
             // Reset
             outvec.clear();
@@ -491,16 +493,16 @@ where
         }
     }
 
-    if i_record >= 0 {
+    if i_record > 0 {
         // Processssssss! And reset.
-        // Either chunk and loose some kmers, or only remove those that are past the limit.
-        loG("Processing last chunk. Sorting k-mers...", Some("info"));
-        outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        loG("k-mers sorted. Counting k-mers...", Some("info"));
-        // Then, do a counting of everything and save the results in a dictionary and return it
+        if !outvec.is_empty() {
+            loG("Processing last chunk. Sorting k-mers...", Some("info"));
+            outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            loG("k-mers sorted. Counting k-mers...", Some("info"));
+            // Then, do a counting of everything and save the results in a dictionary and return it
 
-        update_countmap(&outvec, &mut countmap);
-
+            update_countmap(&outvec, &mut countmap);
+        }
         // Reset
         outvec.clear();
     }
