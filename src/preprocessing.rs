@@ -534,9 +534,9 @@ where
 
 
         if tup.0 > 250 {
-            histovec[249].saturating_add(1);
+            histovec[249] = histovec[249].saturating_add(1);
         } else {
-            histovec[tup.0 as usize- 1].saturating_add(1);
+            histovec[tup.0 as usize- 1] = histovec[tup.0 as usize- 1].saturating_add(1);
         }
         false
     });
@@ -657,9 +657,9 @@ where
         }
 
         if tup.0 > 250 {
-            histovec[249].saturating_add(1);
+            histovec[249] = histovec[249].saturating_add(1);
         } else {
-            histovec[tup.0 as usize - 1].saturating_add(1);
+            histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
         }
 
         false
@@ -806,9 +806,9 @@ fn get_map_for_wasm(
             }
 
             if c > 250 {
-                plotvec[249].saturating_add(1);
+                plotvec[249] = plotvec[249].saturating_add(1);
             } else {
-                plotvec[c as usize - 1].saturating_add(1);
+                plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
             }
 
             tmphash = invec[i].0;
@@ -834,9 +834,9 @@ fn get_map_for_wasm(
     }
 
     if c > 250 {
-        plotvec[249].saturating_add(1);
+        plotvec[249] = plotvec[249].saturating_add(1);
     } else {
-        plotvec[c as usize - 1].saturating_add(1);
+        plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
     }
     // loG(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
     (outdict, plotvec)
