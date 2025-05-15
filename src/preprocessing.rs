@@ -921,12 +921,14 @@ pub fn preprocessing_for_wasm<IntT>(
     k       : usize,
     qual    : &QualOpts,
     csize   : usize,
-    doBloom : bool,
+    do_bloom : bool,
 ) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Option<HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
 where
     IntT: for<'a> UInt<'a>,
 {
-    if doBloom {
+    loG(format!("{:?}", do_bloom).as_str(), Some("info"));
+
+    if do_bloom {
         // Build indexes
         loG(format!("Processing using a Bloom filter").as_str(), Some("info"));
 
