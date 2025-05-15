@@ -134,7 +134,7 @@ impl KmerFilter {
                         .entry(kmer_hash)
                         .and_modify(|tuple| {
                             count = tuple.0.saturating_add(1);
-                            tuple.0 = count
+                            tuple.0 = count;
                         })
                         .or_insert((count, kmer_nc_hash, bases));
                     self.min_count.cmp(&count)
