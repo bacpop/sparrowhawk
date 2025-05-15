@@ -390,7 +390,7 @@ fn chunked_processing_wasm<IntT>(
     qual:      &QualOpts,
     outvec:    &mut Vec<(u64, u64, u8)>,
     csize:     usize,
-) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
+) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>)
 where
     IntT: for<'a> UInt<'a>,
 {
@@ -402,7 +402,7 @@ where
     let mut countmap : HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>> = HashMap::with_hasher(BuildHasherDefault::default());
 
     let mut reader = open_fastq(file1);
-    let mut histovec = vec![0; 250];
+    let mut histovec : Vec<u32> = vec![0; 250];
 
     loG("Entering while loop...", Some("info"));
 
@@ -536,7 +536,7 @@ where
         if tup.0 > 250 {
             histovec[249].saturating_add(1);
         } else {
-            histovec[tup.0 - 1].saturating_add(1);
+            histovec[tup.0 as usize- 1].saturating_add(1);
         }
         false
     });
@@ -555,7 +555,7 @@ fn bloom_filter_preprocessing_wasm<IntT>(
     file2:    &mut WebSysFile,
     k:         usize,
     qual:      &QualOpts,
-) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
+) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>)
 where
     IntT: for<'a> UInt<'a>,
 {
@@ -566,7 +566,7 @@ where
     let mut themap     = HashMap::with_hasher(BuildHasherDefault::default());
 
     let mut reader = open_fastq(file1);
-    let mut histovec = vec![0; 250];
+    let mut histovec : Vec<u32> = vec![0; 250];
 
     let mut kmer_filter = KmerFilter::new(qual.min_count);
     kmer_filter.init();
@@ -659,7 +659,7 @@ where
         if tup.0 > 250 {
             histovec[249].saturating_add(1);
         } else {
-            histovec[tup.0 - 1].saturating_add(1);
+            histovec[tup.0 as usize - 1].saturating_add(1);
         }
 
         false
@@ -788,7 +788,7 @@ fn get_map_for_wasm(
     let mut tmphash = invec[i].0;
     let mut tmpcounter = 0;
 
-    let mut plotvec : Vec<u32> = vec![0; 250]; // For plotting
+    let mut plotvec : Vec<u32> = vec![0 as u32; 250]; // For plotting
 
     while i < invec.len() {
         if tmphash != invec[i].0 {
@@ -808,7 +808,7 @@ fn get_map_for_wasm(
             if c > 250 {
                 plotvec[249].saturating_add(1);
             } else {
-                plotvec[c - 1].saturating_add(1);
+                plotvec[c as usize - 1].saturating_add(1);
             }
 
             tmphash = invec[i].0;
@@ -836,7 +836,7 @@ fn get_map_for_wasm(
     if c > 250 {
         plotvec[249].saturating_add(1);
     } else {
-        plotvec[c - 1].saturating_add(1);
+        plotvec[c as usize - 1].saturating_add(1);
     }
     // loG(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
     (outdict, plotvec)
