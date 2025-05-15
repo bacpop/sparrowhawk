@@ -30,6 +30,8 @@ pub mod graphs;
 /// Contains different traits that implement various algorithms
 pub mod algorithms;
 
+/// Defines a bloom filter (taken from ska.rust!)
+pub mod bloom_filter;
 
 use nohash_hasher::NoHashHasher;
 use std::{collections::HashMap, hash::BuildHasherDefault, cell::*};
@@ -299,7 +301,7 @@ pub struct AssemblyHelper {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl AssemblyHelper {
-    pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8, csize : usize) -> Self {
+    pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8, csize : usize, do_bloom : bool) -> Self {
         if cfg!(debug_assertions) {
             init_panic_hook();
         }
@@ -337,27 +339,27 @@ impl AssemblyHelper {
         } else if k <= 32 {
             loG(format!("k={}: using 64-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict64, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality, csize);
+            (preprocessed_data, thedict64, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality, csize, do_bloom);
 
             loG("Preprocessing done!", Some("info"));
 
         } else if k <= 64 {
             loG(format!("k={}: using 128-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict128, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality, csize);
+            (preprocessed_data, thedict128, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality, csize, do_bloom);
 
             loG("Preprocessing done!", Some("info"));
 
         } else if k <= 128 {
             loG(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict256, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality, csize);
+            (preprocessed_data, thedict256, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality, csize, do_bloom);
 
             loG("Preprocessing done!", Some("info"));
         } else if k <= 256 {
             loG(format!("k={}: using 512-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict512, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality, csize);
+            (preprocessed_data, thedict512, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality, csize, do_bloom);
 
             loG("Preprocessing done!", Some("info"));
         } else {

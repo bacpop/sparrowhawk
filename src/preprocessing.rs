@@ -41,6 +41,10 @@ use wasm_bindgen_file_reader::WebSysFile;
 use crate::fastx_wasm::open_fastq;
 #[cfg(feature = "wasm")]
 use seq_io::fastq::Record;
+#[cfg(feature = "wasm")]
+use crate::bloom_filter::KmerFilter;
+#[cfg(feature = "wasm")]
+use std::cmp::Ordering;
 
 // =====================================================================================================
 
@@ -534,7 +538,123 @@ where
     minmaxdict.shrink_to_fit();
     drop(countmap);
 
+    (outdict, minmaxdict, themap, histovec)
+}
 
+
+#[cfg(feature = "wasm")]
+fn bloom_filter_preprocessing_wasm<IntT>(
+    file1:    &mut WebSysFile,
+    file2:    &mut WebSysFile,
+    k:         usize,
+    qual:      &QualOpts,
+) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
+where
+    IntT: for<'a> UInt<'a>,
+{
+    loG("Getting kmers from first file. Creating reader...", Some("info"));
+
+    let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
+    let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
+    let mut themap     = HashMap::with_hasher(BuildHasherDefault::default());
+
+    let mut reader = open_fastq(file1);
+    let mut histovec = Vec::new();
+    let mut kmer_filter = KmerFilter::new(qual.min_count);
+    kmer_filter.init();
+
+    loG("Entering while loop...", Some("info"));
+
+    while let Some(record) = reader.next() {
+        let seqrec = record.expect("Invalid FASTQ record");
+        let rl = seqrec.seq().len();
+        let kmer_opt = Kmer::<IntT>::new(
+            std::borrow::Cow::Borrowed(seqrec.seq()),
+            rl,
+            Some(seqrec.qual()),
+            k,
+            qual.min_qual,
+            true,
+        );
+        if let Some(mut kmer_it) = kmer_opt {
+            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer(); // TODO: potential really small improvement, get only hash for the bloom filter, then get the rest.
+            if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
+                outdict.entry(hc).or_insert(km);
+                minmaxdict.entry(hnc).or_insert(hc);
+            }
+            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                let (hc, hnc, b, km) = tmptuple;
+                if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
+                    outdict.entry(hc).or_insert(km);
+                    minmaxdict.entry(hnc).or_insert(hc);
+                }
+            }
+        }
+
+
+    }
+    loG("Finished getting kmers from first file. Starting with the second...", Some("info"));
+
+    let mut reader = open_fastq(file2);
+
+    // Filling the seq of the second file!
+    while let Some(record) = reader.next() {
+        let seqrec = record.expect("Invalid FASTQ record");
+        // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
+        let rl = seqrec.seq().len();
+        let kmer_opt = Kmer::<IntT>::new(
+            std::borrow::Cow::Borrowed(seqrec.seq()),
+            rl,
+            Some(seqrec.qual()),
+            k,
+            qual.min_qual,
+            true,
+        );
+        if let Some(mut kmer_it) = kmer_opt {
+            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+            if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
+                outdict.entry(hc).or_insert(km);
+                minmaxdict.entry(hnc).or_insert(hc);
+            }
+            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                let (hc, hnc, b, km) = tmptuple;
+                if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
+                    outdict.entry(hc).or_insert(km);
+                    minmaxdict.entry(hnc).or_insert(hc);
+                }
+            }
+        }
+    }
+
+    loG("Finished getting kmers from the second file", Some("info"));
+    loG("Filtering...", Some("info"));
+
+    // Now, get themap, histovec, and filter outdict and minmaxdict
+    let mut countmap = kmer_filter.get_counts_map();
+    countmap.shrink_to_fit();
+    countmap.retain(|h, tup| {
+        if tup.0 >= qual.min_count {
+            themap
+                .entry(*h)
+                .or_insert( RefCell::new(HashInfoSimple {
+                            hnc:    tup.1,
+                            b:      tup.2,
+                            pre:    Vec::new(),
+                            post:   Vec::new(),
+                            counts: tup.0,
+                    }) );
+        } else {
+            outdict.remove(h);
+            minmaxdict.remove(&tup.1);
+        }
+
+        histovec.push(tup.0);
+        false
+    });
+
+    outdict.shrink_to_fit();
+    minmaxdict.shrink_to_fit();
+    drop(countmap);
 
     (outdict, minmaxdict, themap, histovec)
 }
@@ -796,16 +916,30 @@ where
 
 #[cfg(feature = "wasm")]
 pub fn preprocessing_for_wasm<IntT>(
-    file1:    &mut WebSysFile,
-    file2:    &mut WebSysFile,
-    k:         usize,
-    qual:     &QualOpts,
-    csize:    usize,
+    file1   : &mut WebSysFile,
+    file2   : &mut WebSysFile,
+    k       : usize,
+    qual    : &QualOpts,
+    csize   : usize,
+    doBloom : bool,
 ) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Option<HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
 where
     IntT: for<'a> UInt<'a>,
 {
-    if csize <= 0 {
+    if doBloom {
+        // Build indexes
+        loG(format!("Processing using a Bloom filter").as_str(), Some("info"));
+
+        let (thedict, maxmindict, themap, mut histovec) = bloom_filter_preprocessing_wasm::<IntT>(
+            file1,
+            file2,
+            k,
+            qual,
+        );
+        histovec.extend(themap.iter().map(|(_, x)| x.borrow().counts as u16));
+        return (themap, Some(thedict), maxmindict, histovec);
+
+    } else if csize <= 0 {
         // Build indexes
         loG("Starting preprocessing with k = {k}", Some("info"));
 
