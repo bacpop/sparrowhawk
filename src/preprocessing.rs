@@ -535,7 +535,7 @@ where
         }
 
 
-        if tup.0 > MAXSIZEHISTO {
+        if tup.0 as usize > MAXSIZEHISTO {
             histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
         } else {
             histovec[tup.0 as usize- 1] = histovec[tup.0 as usize- 1].saturating_add(1);
@@ -658,7 +658,7 @@ where
             minmaxdict.remove(&tup.1);
         }
 
-        if tup.0 > MAXSIZEHISTO {
+        if tup.0 as usize > MAXSIZEHISTO {
             histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
         } else {
             histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
@@ -807,7 +807,7 @@ fn get_map_for_wasm(
                         }) );
             }
 
-            if c > MAXSIZEHISTO {
+            if c as usize > MAXSIZEHISTO {
                 plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
             } else {
                 plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
@@ -835,7 +835,7 @@ fn get_map_for_wasm(
                 }) );
     }
 
-    if c > MAXSIZEHISTO {
+    if c as usize > MAXSIZEHISTO {
         plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
     } else {
         plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
