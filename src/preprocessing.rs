@@ -926,7 +926,7 @@ pub fn preprocessing_for_wasm<IntT>(
 where
     IntT: for<'a> UInt<'a>,
 {
-    loG(format!("{:?}", do_bloom).as_str(), Some("info"));
+    loG(format!("PRINTING THIS: {:?}", do_bloom).as_str(), Some("info"));
 
     if do_bloom {
         // Build indexes
