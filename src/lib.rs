@@ -322,6 +322,8 @@ impl AssemblyHelper {
         //     .unwrap();
         loG("Beginning processing", Some("info"));
 
+        loG(format!("PRINTTHISATTHESTART {:?}", do_bloom).as_str(), Some("info"));
+
         let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
         let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
         let histovalues : Vec<u16>;
