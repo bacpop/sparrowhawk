@@ -46,6 +46,8 @@ use crate::bloom_filter::KmerFilter;
 #[cfg(feature = "wasm")]
 use std::cmp::Ordering;
 
+const MAXSIZEHISTO : usize = 200;
+
 // =====================================================================================================
 
 
@@ -402,7 +404,7 @@ where
     let mut countmap : HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>> = HashMap::with_hasher(BuildHasherDefault::default());
 
     let mut reader = open_fastq(file1);
-    let mut histovec : Vec<u32> = vec![0; 250];
+    let mut histovec : Vec<u32> = vec![0; MAXSIZEHISTO];
 
     loG("Entering while loop...", Some("info"));
 
@@ -533,8 +535,8 @@ where
         }
 
 
-        if tup.0 > 250 {
-            histovec[249] = histovec[249].saturating_add(1);
+        if tup.0 > MAXSIZEHISTO {
+            histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
         } else {
             histovec[tup.0 as usize- 1] = histovec[tup.0 as usize- 1].saturating_add(1);
         }
@@ -566,7 +568,7 @@ where
     let mut themap     = HashMap::with_hasher(BuildHasherDefault::default());
 
     let mut reader = open_fastq(file1);
-    let mut histovec : Vec<u32> = vec![0; 250];
+    let mut histovec : Vec<u32> = vec![0; MAXSIZEHISTO];
 
     let mut kmer_filter = KmerFilter::new(qual.min_count);
     kmer_filter.init();
@@ -656,8 +658,8 @@ where
             minmaxdict.remove(&tup.1);
         }
 
-        if tup.0 > 250 {
-            histovec[249] = histovec[249].saturating_add(1);
+        if tup.0 > MAXSIZEHISTO {
+            histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
         } else {
             histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
         }
@@ -788,7 +790,7 @@ fn get_map_for_wasm(
     let mut tmphash = invec[i].0;
     let mut tmpcounter = 0;
 
-    let mut plotvec : Vec<u32> = vec![0 as u32; 250]; // For plotting
+    let mut plotvec : Vec<u32> = vec![0 as u32; MAXSIZEHISTO]; // For plotting
 
     while i < invec.len() {
         if tmphash != invec[i].0 {
@@ -805,8 +807,8 @@ fn get_map_for_wasm(
                         }) );
             }
 
-            if c > 250 {
-                plotvec[249] = plotvec[249].saturating_add(1);
+            if c > MAXSIZEHISTO {
+                plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
             } else {
                 plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
             }
@@ -833,8 +835,8 @@ fn get_map_for_wasm(
                 }) );
     }
 
-    if c > 250 {
-        plotvec[249] = plotvec[249].saturating_add(1);
+    if c > MAXSIZEHISTO {
+        plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
     } else {
         plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
     }
