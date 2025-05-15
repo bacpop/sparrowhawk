@@ -552,7 +552,7 @@ fn bloom_filter_preprocessing_wasm<IntT>(
 where
     IntT: for<'a> UInt<'a>,
 {
-    loG("Getting kmers from first file. Creating reader...", Some("info"));
+    loG("Getting kmers from first file with Bloom filter. Creating reader and initialising filter...", Some("info"));
 
     let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
@@ -563,7 +563,7 @@ where
     let mut kmer_filter = KmerFilter::new(qual.min_count);
     kmer_filter.init();
 
-    loG("Entering while loop...", Some("info"));
+    loG("Entering while loop for the first file...", Some("info"));
 
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
@@ -627,7 +627,7 @@ where
     }
 
     loG("Finished getting kmers from the second file", Some("info"));
-    loG("Filtering...", Some("info"));
+    loG("Second part of filtering...", Some("info"));
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
     let mut countmap = kmer_filter.get_counts_map();
@@ -654,7 +654,6 @@ where
 
     outdict.shrink_to_fit();
     minmaxdict.shrink_to_fit();
-    drop(countmap);
 
     (outdict, minmaxdict, themap, histovec)
 }
@@ -930,7 +929,7 @@ where
 
     if do_bloom {
         // Build indexes
-        loG(format!("Processing using a Bloom filter").as_str(), Some("info"));
+        loG("Processing using a Bloom filter", Some("info"));
 
         let (thedict, maxmindict, themap, mut histovec) = bloom_filter_preprocessing_wasm::<IntT>(
             file1,
