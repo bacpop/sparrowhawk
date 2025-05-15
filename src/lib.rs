@@ -293,7 +293,7 @@ pub struct AssemblyHelper {
     seqdict128        : Option<HashMap::<u64, u128, BuildHasherDefault<NoHashHasher<u64>>>>,
     seqdict256        : Option<HashMap::<u64, U256, BuildHasherDefault<NoHashHasher<u64>>>>,
     seqdict512        : Option<HashMap::<u64, U512, BuildHasherDefault<NoHashHasher<u64>>>>,
-    histovec          : Vec<u16>,
+    histovec          : Vec<u32>,
     contigs           : Contigs,
     outfasta          : String,
 }
@@ -322,11 +322,9 @@ impl AssemblyHelper {
         //     .unwrap();
         loG("Beginning processing", Some("info"));
 
-        loG(format!("PRINTTHISATTHESTART {:?}", do_bloom).as_str(), Some("info"));
-
         let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
         let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
-        let histovalues : Vec<u16>;
+        let histovalues : Vec<u32>;
         let mut thedict64  = None;
         let mut thedict128 = None;
         let mut thedict256 = None;
@@ -400,7 +398,7 @@ impl AssemblyHelper {
             panic!("kmer length too small (min. 3)");
 
         } else if self.k <= 32 {
-            outfasta = save_functions::save_as_fasta_for_wasm::<u64>(&mut outcontigs, self.seqdict64.as_ref().unwrap(), self.k);
+            outfasta = save_functions::save_as_fasta_for_wasm::<u64>( &mut outcontigs, self.seqdict64.as_ref().unwrap(),  self.k);
         } else if self.k <= 64 {
             outfasta = save_functions::save_as_fasta_for_wasm::<u128>(&mut outcontigs, self.seqdict128.as_ref().unwrap(), self.k);
         } else if self.k <= 128 {

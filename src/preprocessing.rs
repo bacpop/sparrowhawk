@@ -402,7 +402,8 @@ where
     let mut countmap : HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>> = HashMap::with_hasher(BuildHasherDefault::default());
 
     let mut reader = open_fastq(file1);
-    let mut histovec = Vec::new();
+    let mut histovec = vec![0; 250];
+
     loG("Entering while loop...", Some("info"));
 
     let mut i_record = 0;
@@ -531,11 +532,17 @@ where
             minmaxdict.remove(&tup.1);
         }
 
-        histovec.push(tup.0);
+
+        if tup.0 > 250 {
+            histovec[249].saturating_add(1);
+        } else {
+            histovec[tup.0 - 1].saturating_add(1);
+        }
         false
     });
     outdict.shrink_to_fit();
     minmaxdict.shrink_to_fit();
+    histovec.shrink_to_fit();
     drop(countmap);
 
     (outdict, minmaxdict, themap, histovec)
@@ -559,7 +566,8 @@ where
     let mut themap     = HashMap::with_hasher(BuildHasherDefault::default());
 
     let mut reader = open_fastq(file1);
-    let mut histovec = Vec::new();
+    let mut histovec = vec![0; 250];
+
     let mut kmer_filter = KmerFilter::new(qual.min_count);
     kmer_filter.init();
 
@@ -648,7 +656,12 @@ where
             minmaxdict.remove(&tup.1);
         }
 
-        histovec.push(tup.0);
+        if tup.0 > 250 {
+            histovec[249].saturating_add(1);
+        } else {
+            histovec[tup.0 - 1].saturating_add(1);
+        }
+
         false
     });
 
@@ -765,7 +778,7 @@ fn get_map_with_counts_with_hashes_only(
 fn get_map_for_wasm(
     invec:      &Vec<(u64, u64, u8)>,
     min_count:  u16,
-) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
+) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>)
 {
     let mut outdict = HashMap::with_hasher(BuildHasherDefault::default());
 
@@ -775,7 +788,7 @@ fn get_map_for_wasm(
     let mut tmphash = invec[i].0;
     let mut tmpcounter = 0;
 
-    let mut plotvec : Vec<u16> = Vec::new(); // For plotting
+    let mut plotvec : Vec<u32> = vec![0; 250]; // For plotting
 
     while i < invec.len() {
         if tmphash != invec[i].0 {
@@ -790,9 +803,14 @@ fn get_map_for_wasm(
                                 post:   Vec::new(),
                                 counts: c,
                         }) );
-            } else {
-                plotvec.push(c);
             }
+
+            if c > 250 {
+                plotvec[249].saturating_add(1);
+            } else {
+                plotvec[c - 1].saturating_add(1);
+            }
+
             tmphash = invec[i].0;
             c = 1;
         } else {
@@ -813,10 +831,13 @@ fn get_map_for_wasm(
                         post:   Vec::new(),
                         counts: c,
                 }) );
-    } else {
-        plotvec.push(c);
     }
 
+    if c > 250 {
+        plotvec[249].saturating_add(1);
+    } else {
+        plotvec[c - 1].saturating_add(1);
+    }
     // loG(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
     (outdict, plotvec)
 }
@@ -921,12 +942,10 @@ pub fn preprocessing_for_wasm<IntT>(
     qual    : &QualOpts,
     csize   : usize,
     do_bloom : bool,
-) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Option<HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u16>)
+) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Option<HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>)
 where
     IntT: for<'a> UInt<'a>,
 {
-    loG(format!("PRINTING THIS: {:?}", do_bloom).as_str(), Some("info"));
-
     if do_bloom {
         // Build indexes
         loG("Processing using a Bloom filter", Some("info"));
@@ -937,7 +956,6 @@ where
             k,
             qual,
         );
-        histovec.extend(themap.iter().map(|(_, x)| x.borrow().counts as u16));
         return (themap, Some(thedict), maxmindict, histovec);
 
     } else if csize <= 0 {
@@ -989,7 +1007,7 @@ where
             csize
         );
         drop(tmpvec);
-        histovec.extend(themap.iter().map(|(_, x)| x.borrow().counts as u16));
+        histovec.shrink_to_fit();
         return (themap, Some(thedict), maxmindict, histovec);
     }
 }
