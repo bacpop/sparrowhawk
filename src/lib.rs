@@ -205,7 +205,7 @@ pub fn main() {
                 (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_gpulike_with_dict_and_seq::<u64>(&input_files, *k, &quality, &mut timevec);
                 drop(theseq);
                 let outgraph = output.to_string().clone().replace(".fasta", "") + ".dot";
-                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
+                let (mut contigs, _) = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
 
                 // Save as fasta
                 save_functions::save_as_fasta::<u64>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -217,7 +217,7 @@ pub fn main() {
                 drop(theseq);
 
                 let outgraph = output.to_string().clone().replace(".fasta", "") + ".dot";
-                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
+                let (mut contigs, _) = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
 
                 // Save as fasta
                 save_functions::save_as_fasta::<u128>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -230,7 +230,7 @@ pub fn main() {
                 drop(theseq);
 
                 let outgraph = output.to_string().clone().replace(".fasta", "") + ".dot";
-                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
+                let (mut contigs, _) = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
 
                 // Save as fasta
                 save_functions::save_as_fasta::<U256>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -243,7 +243,7 @@ pub fn main() {
                 drop(theseq);
 
                 let outgraph = output.to_string().clone().replace(".fasta", "") + ".dot";
-                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
+                let (mut contigs, _) = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
 
                 // Save as fasta
                 save_functions::save_as_fasta::<U512>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -296,6 +296,7 @@ pub struct AssemblyHelper {
     histovec          : Vec<u32>,
     contigs           : Contigs,
     outfasta          : String,
+    outdot            : String,
 }
 
 #[cfg(feature = "wasm")]
@@ -379,13 +380,14 @@ impl AssemblyHelper {
             histovec          : histovalues,
             contigs           : Contigs::default(),
             outfasta          : "".to_owned(),
+            outdot            : "".to_owned(),
         }
     }
 
 
     pub fn assemble(&mut self) {
         loG("Starting assembly...", Some("info"));
-        let mut outcontigs = graph_works::BasicAsm::assemble::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict, &mut Vec::new(), None);
+        let (mut outcontigs, outdot) = graph_works::BasicAsm::assemble::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict, &mut Vec::new(), None);
 
         loG("Assembly done!", Some("info"));
 
@@ -413,6 +415,7 @@ impl AssemblyHelper {
 
         self.contigs  = outcontigs;
         self.outfasta = outfasta;
+        self.outdot   = outdot;
     }
 
 
@@ -420,6 +423,7 @@ impl AssemblyHelper {
         let mut results = json::JsonValue::new_array();
 
         results["outfasta"] = json::JsonValue::String(self.outfasta.clone());
+        results["outdot"]   = json::JsonValue::String(self.outdot.clone());
         results["ncontigs"] = json::JsonValue::Number(self.contigs.contig_sequences.as_ref().unwrap().len().into());
 
         return results.dump();

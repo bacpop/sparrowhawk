@@ -60,6 +60,8 @@ pub trait Graph
     fn in_neighbours_max(&self, nodeid : Self::NodeIdentifier) -> Vec<(NodeIndex, EdgeType)>;
     /// Write everything to a graph in DOT format.
     fn write_to_dot<W: Write>(&self, path : &mut W);
+    /// Get a String with the graph just pre-collapse in DOT format.
+    fn get_dot_string(&self) -> String;
     /// Get the "externals" of a bi-directed DNA de Bruijn graph, i.e. those nodes whose edges only connect them to one only neighbour.
     fn externals_bi(&self) -> Vec<NodeIndex>;
     /// Get the "externals" of a bi-directed DNA de Bruijn graph whose link with their only neighbour is an outgoing edge from the canonical hash of the external.

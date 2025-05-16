@@ -538,8 +538,9 @@ where
         if tup.0 as usize > MAXSIZEHISTO {
             histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
         } else {
-            histovec[tup.0 as usize- 1] = histovec[tup.0 as usize- 1].saturating_add(1);
+            histovec[tup.0 as usize - 1] = histovec[tup.0 as usize- 1].saturating_add(1);
         }
+
         false
     });
     outdict.shrink_to_fit();

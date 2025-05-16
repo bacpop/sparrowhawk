@@ -558,7 +558,23 @@ impl Graph for PtGraph {
 
         let _ = f.write(&output.into_bytes()[..]);
     }
+
+    fn get_dot_string(&self) -> String {
+//         println!("{}", Dot::new(&self.graph));
+//         fs::write(path_, Dot::new(&self.graph)).expect("Unable to write file");
+        let mut graphfordot = self.graph.clone();
+        graphfordot.retain_nodes(|g, n| g.neighbors_directed(n, petgraph::EdgeDirection::Outgoing).count() != 0 || g.neighbors_directed(n, petgraph::EdgeDirection::Incoming).count() != 0);
+        let output = format!("{:?}", Dot::with_attr_getters(&graphfordot,
+            &[Config::NodeNoLabel, Config::EdgeNoLabel],
+            // &|_, e| format!("label = \"{:?}\"", e.weight().t),
+            // &|_, n| format!("label = \"{:?} | {:?}\"", n.1.counts, n.1.abs_ind.len()),));
+            &|_, e| format!("label = \"{:?}\"", e.weight().t),
+            &|_, n| format!("label = \"{:?} | {:?}\" counts = {:?} kmers = {:?}", n.1.counts, n.1.abs_ind.len(), n.1.counts, n.1.abs_ind.len()),));
+
+        return output;
+    }
 }
+
 
 
 impl Init for PtGraph {

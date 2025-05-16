@@ -185,7 +185,7 @@ pub trait Assemble {
     /// Assembles given data using specified `Graph` and writes results into the output file.
     fn assemble<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                           maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, timevec : &mut Vec<Instant>,
-                          path : Option<&String>) -> Contigs;
+                          path : Option<&String>) -> (Contigs, String);
 }
 
 
@@ -198,7 +198,7 @@ impl Assemble for BasicAsm {
     fn assemble<G: Graph>(k    : usize,
                         indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                         maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
-                        timevec    : &mut Vec<Instant>, path : Option<&String>) -> Contigs {
+                        timevec    : &mut Vec<Instant>, path : Option<&String>) -> (Contigs, String) {
         log::info!("Starting assembler!");
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
@@ -223,21 +223,21 @@ impl Assemble for BasicAsm {
         // timevec.push(Instant::now());
         // log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
-        indict.iter().for_each(|(h, hi)| {
-            let himutref = hi.borrow();
-
-            // Check first previous neighbours:
-            for ipre in himutref.pre.iter() {
-                if !indict.get(&ipre.0).unwrap().borrow().pre.contains(&(*h, ipre.1.rev())) || !indict.get(&ipre.0).unwrap().borrow().post.contains(&(*h, ipre.1)) {
-                    println!("HEY");
-                }
-            }
-            for ipost in himutref.post.iter() {
-                if !indict.get(&ipost.0).unwrap().borrow().post.contains(&(*h, ipost.1.rev())) || !indict.get(&ipost.0).unwrap().borrow().pre.contains(&(*h, ipost.1)) {
-                    println!("HEY");
-                }
-            }
-        });
+        // indict.iter().for_each(|(h, hi)| {
+        //     let himutref = hi.borrow();
+        //
+        //     // Check first previous neighbours:
+        //     for ipre in himutref.pre.iter() {
+        //         if !indict.get(&ipre.0).unwrap().borrow().pre.contains(&(*h, ipre.1.rev())) || !indict.get(&ipre.0).unwrap().borrow().post.contains(&(*h, ipre.1)) {
+        //             println!("HEY");
+        //         }
+        //     }
+        //     for ipost in himutref.post.iter() {
+        //         if !indict.get(&ipost.0).unwrap().borrow().post.contains(&(*h, ipost.1.rev())) || !indict.get(&ipost.0).unwrap().borrow().pre.contains(&(*h, ipost.1)) {
+        //             println!("HEY");
+        //         }
+        //     }
+        // });
 
         let ptgraph = G::create_from_map::<G>(k, indict);
 
@@ -248,7 +248,7 @@ impl Assemble for BasicAsm {
 
 /// Assemble a bidirected DNA de Bruijn graph
 fn assemble_with_bi_graph<G: Graph>(mut ptgraph: G, timevec : &mut Vec<Instant>, path_ : Option<&String>)
--> Contigs {
+-> (Contigs, String) {
 
     log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
     if path_.is_some() {
@@ -285,6 +285,8 @@ fn assemble_with_bi_graph<G: Graph>(mut ptgraph: G, timevec : &mut Vec<Instant>,
     }
     log::info!("Done.");
 
+    let outDot = ptgraph.get_dot_string();
+
     let serialized_contigs = ptgraph.collapse(path_);
     log::info!("I created {} contigs", serialized_contigs.len());
     let mut contigs = Contigs::new(serialized_contigs);
@@ -292,5 +294,5 @@ fn assemble_with_bi_graph<G: Graph>(mut ptgraph: G, timevec : &mut Vec<Instant>,
     // TEMPORAL RESTRICTION, WIP
     contigs.shrink();
 
-    contigs
+    (contigs, outDot)
 }
