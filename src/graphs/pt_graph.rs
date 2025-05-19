@@ -704,6 +704,7 @@ impl Graph for PtGraph {
                                      tid.index(), tsign,
                                      sbeg, send,
                                      tbeg, tend,
+                                     self.k - 1,
                                      ).as_str() );
         } );
 
