@@ -629,7 +629,7 @@ impl Graph for PtGraph {
                 },
             }
 
-            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\n",
+            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\t*\n",
                                      ei.index(),
                                      sid.index(), ssign,
                                      tid.index(), tsign,
@@ -697,7 +697,7 @@ impl Graph for PtGraph {
                 },
             }
 
-            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\n",
+            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\t*\n",
                                      ei.index(),
                                      sid.index(), ssign,
                                      tid.index(), tsign,
