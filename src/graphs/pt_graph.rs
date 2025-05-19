@@ -581,12 +581,12 @@ impl Graph for PtGraph {
         // With that, the resulting nodes and edges will represent, by construction, correctly both strands.
 
         // Add nodes
-        self.graph.node_indices().map(|ni| {
+        self.graph.node_indices().for_each(|ni| {
             output.push_str( format!("S\t{}\t{}\t*\n", ni.index(), self.k + self.graph.node_weight(ni).unwrap().abs_ind.len() - 1).as_str() );
         } );
 
         // Add edges
-        self.graph.edge_indices().map(|ei| {
+        self.graph.edge_indices().for_each(|ei| {
             let (sid, tid) = self.graph.edge_endpoints(ei).unwrap();
             let (st, tt)   = self.graph.edge_weight(ei).unwrap().t.get_from_and_to();
 
@@ -649,12 +649,12 @@ impl Graph for PtGraph {
         // With that, the resulting nodes and edges will represent, by construction, correctly both strands.
 
         // Add nodes
-        self.graph.node_indices().map(|ni| {
+        self.graph.node_indices().for_each(|ni| {
             output.push_str( format!("S\t{}\t{}\t*\n", ni.index(), self.k + self.graph.node_weight(ni).unwrap().abs_ind.len() - 1).as_str() );
         } );
 
         // Add edges
-        self.graph.edge_indices().map(|ei| {
+        self.graph.edge_indices().for_each(|ei| {
             let (sid, tid) = self.graph.edge_endpoints(ei).unwrap();
             let (st, tt)   = self.graph.edge_weight(ei).unwrap().t.get_from_and_to();
 
