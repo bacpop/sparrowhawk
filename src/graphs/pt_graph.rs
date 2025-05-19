@@ -573,6 +573,141 @@ impl Graph for PtGraph {
 
         return output;
     }
+
+    fn write_to_gfa<W: Write>(&self, f: &mut W) {
+        let mut output : String = "VN:Z:2.0\n".to_owned();
+
+        // Given the duality of the graph, to do the exportation of it as GFA, it is enough to assume that e.g. the canonical hashes represent the direct strand.
+        // With that, the resulting nodes and edges will represent, by construction, correctly both strands.
+
+        // Add nodes
+        self.graph.node_indices().map(|ni| {
+            output.push_str( format!("S\t{}\t{}\t*\n", ni.index(), self.k + self.graph.node_weight(ni).unwrap().abs_ind.len() - 1).as_str() );
+        } );
+
+        // Add edges
+        self.graph.edge_indices().map(|ei| {
+            let (sid, tid) = self.graph.edge_endpoints(ei).unwrap();
+            let (st, tt)   = self.graph.edge_weight(ei).unwrap().t.get_from_and_to();
+
+            let ssign : &str;
+            let tsign : &str;
+            let sbeg  : String;
+            let send  : String;
+            let tbeg  : String;
+            let tend  : String;
+
+            match st {
+                CarryType::Min => {
+                    ssign = "+";
+
+                    let tmplen = self.graph.node_weight(sid).unwrap().abs_ind.len();
+                    sbeg = format!("{}",  tmplen);
+                    send = format!("{}$", self.k + tmplen - 1);
+                },
+                CarryType::Max => {
+                    ssign = "-";
+
+                    sbeg = format!("{}", 0);
+                    send = format!("{}", self.k - 1);
+                },
+            }
+
+            match tt {
+                CarryType::Min => {
+                    tsign = "+";
+                    tbeg = format!("{}", 0);
+                    tend = format!("{}", self.k - 1);
+
+                },
+                CarryType::Max => {
+                    tsign = "-";
+                    let tmplen = self.graph.node_weight(tid).unwrap().abs_ind.len();
+
+                    tbeg = format!("{}", tmplen);
+                    tend = format!("{}$", self.k + tmplen - 1);
+                },
+            }
+
+            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\n",
+                                     ei.index(),
+                                     sid.index(), ssign,
+                                     tid.index(), tsign,
+                                     sbeg, send,
+                                     tbeg, tend,
+                                     ).as_str() );
+        } );
+
+        let _ = f.write(&output.into_bytes()[..]);
+    }
+
+
+    fn get_gfa_string(&self) -> String {
+        let mut output : String = "VN:Z:2.0\n".to_owned();
+
+        // Given the duality of the graph, to do the exportation of it as GFA, it is enough to assume that e.g. the canonical hashes represent the direct strand.
+        // With that, the resulting nodes and edges will represent, by construction, correctly both strands.
+
+        // Add nodes
+        self.graph.node_indices().map(|ni| {
+            output.push_str( format!("S\t{}\t{}\t*\n", ni.index(), self.k + self.graph.node_weight(ni).unwrap().abs_ind.len() - 1).as_str() );
+        } );
+
+        // Add edges
+        self.graph.edge_indices().map(|ei| {
+            let (sid, tid) = self.graph.edge_endpoints(ei).unwrap();
+            let (st, tt)   = self.graph.edge_weight(ei).unwrap().t.get_from_and_to();
+
+            let ssign : &str;
+            let tsign : &str;
+            let sbeg  : String;
+            let send  : String;
+            let tbeg  : String;
+            let tend  : String;
+
+            match st {
+                CarryType::Min => {
+                    ssign = "+";
+
+                    let tmplen = self.graph.node_weight(sid).unwrap().abs_ind.len();
+                    sbeg = format!("{}",  tmplen);
+                    send = format!("{}$", self.k + tmplen - 1);
+                },
+                CarryType::Max => {
+                    ssign = "-";
+
+                    sbeg = format!("{}", 0);
+                    send = format!("{}", self.k - 1);
+                },
+            }
+
+            match tt {
+                CarryType::Min => {
+                    tsign = "+";
+                    tbeg = format!("{}", 0);
+                    tend = format!("{}", self.k - 1);
+
+                },
+                CarryType::Max => {
+                    tsign = "-";
+                    let tmplen = self.graph.node_weight(tid).unwrap().abs_ind.len();
+
+                    tbeg = format!("{}", tmplen);
+                    tend = format!("{}$", self.k + tmplen - 1);
+                },
+            }
+
+            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\n",
+                                     ei.index(),
+                                     sid.index(), ssign,
+                                     tid.index(), tsign,
+                                     sbeg, send,
+                                     tbeg, tend,
+                                     ).as_str() );
+        } );
+
+        output
+    }
 }
 
 
