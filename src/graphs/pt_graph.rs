@@ -575,7 +575,7 @@ impl Graph for PtGraph {
     }
 
     fn write_to_gfa<W: Write>(&self, f: &mut W) {
-        let mut output : String = "VN:Z:2.0\n".to_owned();
+        let mut output : String = "H\tVN:Z:2.0\n".to_owned();
 
         // Given the duality of the graph, to do the exportation of it as GFA, it is enough to assume that e.g. the canonical hashes represent the direct strand.
         // With that, the resulting nodes and edges will represent, by construction, correctly both strands.
@@ -629,12 +629,13 @@ impl Graph for PtGraph {
                 },
             }
 
-            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\t*\n",
+            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\t{}M\n",
                                      ei.index(),
                                      sid.index(), ssign,
                                      tid.index(), tsign,
                                      sbeg, send,
                                      tbeg, tend,
+                                     self.k - 1
                                      ).as_str() );
         } );
 
@@ -643,7 +644,7 @@ impl Graph for PtGraph {
 
 
     fn get_gfa_string(&self) -> String {
-        let mut output : String = "VN:Z:2.0\n".to_owned();
+        let mut output : String = "H\tVN:Z:2.0\n".to_owned();
 
         // Given the duality of the graph, to do the exportation of it as GFA, it is enough to assume that e.g. the canonical hashes represent the direct strand.
         // With that, the resulting nodes and edges will represent, by construction, correctly both strands.
@@ -697,7 +698,7 @@ impl Graph for PtGraph {
                 },
             }
 
-            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\t*\n",
+            output.push_str( format!("E\t{}\t{}{}\t{}{}\t{}\t{}\t{}\t{}\t{}M\n",
                                      ei.index(),
                                      sid.index(), ssign,
                                      tid.index(), tsign,
