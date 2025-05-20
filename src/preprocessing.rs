@@ -46,7 +46,7 @@ use crate::bloom_filter::KmerFilter;
 #[cfg(feature = "wasm")]
 use std::cmp::Ordering;
 
-const MAXSIZEHISTO : usize = 200;
+const MAXSIZEHISTO : usize = 500;
 
 // =====================================================================================================
 
