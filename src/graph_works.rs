@@ -185,7 +185,7 @@ pub trait Assemble {
     /// Assembles given data using specified `Graph` and writes results into the output file.
     fn assemble<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                           maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, timevec : &mut Vec<Instant>,
-                          path : Option<&String>) -> (Contigs, String, String);
+                          path : Option<&String>) -> (Contigs, String, String, String);
 }
 
 
@@ -198,7 +198,7 @@ impl Assemble for BasicAsm {
     fn assemble<G: Graph>(k    : usize,
                         indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                         maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
-                        timevec    : &mut Vec<Instant>, path : Option<&String>) -> (Contigs, String, String) {
+                        timevec    : &mut Vec<Instant>, path : Option<&String>) -> (Contigs, String, String, String) {
         log::info!("Starting assembler!");
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
@@ -248,7 +248,7 @@ impl Assemble for BasicAsm {
 
 /// Assemble a bidirected DNA de Bruijn graph
 fn assemble_with_bi_graph<G: Graph>(mut ptgraph: G, timevec : &mut Vec<Instant>, path_ : Option<&String>)
--> (Contigs, String, String) {
+-> (Contigs, String, String, String) {
 
     log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
     if path_.is_some() {
@@ -285,8 +285,9 @@ fn assemble_with_bi_graph<G: Graph>(mut ptgraph: G, timevec : &mut Vec<Instant>,
     }
     log::info!("Done.");
 
-    let outdot = ptgraph.get_dot_string();
-    let outgfa = ptgraph.get_gfa_string();
+    let outdot  = ptgraph.get_dot_string();
+    let outgfa  = ptgraph.get_gfa_string();
+    let outgfa2 = ptgraph.get_gfa2_string();
 
     let serialized_contigs = ptgraph.collapse(path_);
     log::info!("I created {} contigs", serialized_contigs.len());
@@ -295,5 +296,5 @@ fn assemble_with_bi_graph<G: Graph>(mut ptgraph: G, timevec : &mut Vec<Instant>,
     // TEMPORAL RESTRICTION, WIP
     contigs.shrink();
 
-    (contigs, outdot, outgfa)
+    (contigs, outdot, outgfa, outgfa2)
 }
