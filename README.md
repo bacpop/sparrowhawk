@@ -12,6 +12,7 @@ This is a **work in progress** project. This in particular implies:
 - Some features might be partially hardcoded.
 
 These (and potentially other) items will be progressively fixed before version 1.0.
+
 ---
 
 
