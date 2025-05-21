@@ -33,6 +33,7 @@ pub mod algorithms;
 /// Defines a bloom filter (taken from ska.rust!)
 pub mod bloom_filter;
 
+
 use nohash_hasher::NoHashHasher;
 use std::{collections::HashMap, hash::BuildHasherDefault, cell::*};
 use crate::graphs::pt_graph::EdgeType;
@@ -62,6 +63,12 @@ use crate::graph_works::Contigs;
 use json;
 #[cfg(feature = "wasm")]
 use crate::bit_encoding::UInt;
+
+/// Fits the k-mer spectrum to automatically get a min_count (taken from ska.rust!)
+#[cfg(feature = "wasm")]
+pub mod spectrum_fitter;
+#[cfg(feature = "wasm")]
+use crate::spectrum_fitter::SpectrumFitter;
 
 // use std::process::exit;
 
