@@ -9,8 +9,7 @@ Short-read assembler for bacterial genomics based on a de Bruijn graph written i
 
 
 ---
-:warning: :construction:
-## Disclaimer
+## Disclaimer :warning: :construction:
 This is a **work in progress** project. This in particular implies:
 
 - Not all the main features we want are yet implemented.
@@ -20,8 +19,6 @@ This is a **work in progress** project. This in particular implies:
 - Some features might be partially hardcoded.
 
 These (and potentially other) items will be progressively fixed before version 1.0.
-
-:warning: :construction:
 
 ---
 
