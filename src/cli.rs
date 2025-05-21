@@ -4,17 +4,7 @@ use std::fmt;
 use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
 
 /// Default k-mer size
-pub const DEFAULT_KMER: usize = 17;
-/// Default single strand (which is equivalent to !rc)
-pub const DEFAULT_STRAND: bool = false;
-/// Default behaviour when min-freq counting ambig sites
-pub const DEFAULT_AMBIGMISSING: bool = false;
-/// Default repeat masking behaviour
-pub const DEFAULT_REPEATMASK: bool = false;
-/// Default ambiguous masking behaviour
-pub const DEFAULT_AMBIGMASK: bool = false;
-/// Default gap ignoring behaviour (at constant sites)
-pub const DEFAULT_CONSTGAPS: bool = false;
+pub const DEFAULT_KMER: usize = 31;
 /// Default minimum k-mer count for FASTQ files
 pub const DEFAULT_MINCOUNT: u16 = 5;
 /// Default minimum base quality (PHRED score) for FASTQ files
@@ -111,13 +101,13 @@ pub enum Commands {
             .required(true)
             .args(["seq_files", "file_list"]),
     ))]
-    /// Create a split-kmer file from input sequences
+    /// Assemble these input fastq files 
     Build {
-        /// List of input FASTA files
+        /// List of input FASTQ files
         #[arg(group = "input")]
         seq_files: Option<Vec<String>>,
 
-        /// File listing input files (tab separated name, sequences)
+        /// File listing input file (tab separated name TAB fastq1,fastq2)
         #[arg(short, group = "input")]
         file_list: Option<String>,
 
@@ -128,10 +118,6 @@ pub enum Commands {
         /// K-mer size
         #[arg(short, value_parser = valid_kmer, default_value_t = DEFAULT_KMER)]
         k: usize,
-
-        /// Ignore reverse complement (all contigs are oriented along same strand)
-        #[arg(long, default_value_t = DEFAULT_STRAND)]
-        single_strand: bool,
 
         /// Minimum k-mer count (with reads)
         #[arg(long, default_value_t = DEFAULT_MINCOUNT)]

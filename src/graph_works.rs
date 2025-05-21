@@ -250,12 +250,12 @@ impl Assemble for BasicAsm {
 fn assemble_with_bi_graph<G: Graph>(mut ptgraph: G, timevec : &mut Vec<Instant>, path_ : Option<&String>)
 -> (Contigs, String, String, String) {
 
-    log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
-    if path_.is_some() {
-        let mut wbuf = set_ostream(&Some(path_.unwrap().clone().replace(".dot", "_preshrink.dot")));
-        ptgraph.write_to_dot(&mut wbuf);
-    }
-    log::info!("Done.");
+    // log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
+    // if path_.is_some() {
+    //     let mut wbuf = set_ostream(&Some(path_.unwrap().clone().replace(".dot", "_preshrink.dot")));
+    //     ptgraph.write_to_dot(&mut wbuf);
+    // }
+    // log::info!("Done.");
 
     log::info!("Starting shrinkage and pruning of the graph");
 

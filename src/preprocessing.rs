@@ -59,13 +59,13 @@ fn put_these_nts_into_an_efficient_vector(charseq : &[u8], compseq : &mut Vec<u6
         tmpind = occ;
         tmpu64 = compseq.pop().unwrap();
     }
-//     println!("{}", tmpind);
+//     log::debug!("{}", tmpind);
 
     for nt in charseq {
-//         println!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (encode_base(*nt) as u64));
+//         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (encode_base(*nt) as u64));
         tmpu64 <<= 2;
         tmpu64 |= encode_base(*nt) as u64;
-//         println!("{:#066b}", tmpu64);
+//         log::debug!("{:#066b}", tmpu64);
         if tmpind == 31 {
             compseq.push(tmpu64);
             tmpu64 = 0;
@@ -73,7 +73,7 @@ fn put_these_nts_into_an_efficient_vector(charseq : &[u8], compseq : &mut Vec<u6
         } else {
             tmpind += 1;
         }
-//         println!("{}", tmpind);
+//         log::debug!("{}", tmpind);
     }
 
     if tmpind != 0 {
@@ -89,12 +89,12 @@ fn put_these_nts_into_an_efficient_vector_rc(charseq : &[u8], compseq : &mut Vec
         tmpind = occ;
         tmpu64 = compseq.pop().unwrap();
     }
-//     println!("{}", tmpind);
+//     log::debug!("{}", tmpind);
     for nt in charseq.iter().rev() {
-//         println!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (rc_base(encode_base(*nt)) as u64));
+//         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (rc_base(encode_base(*nt)) as u64));
         tmpu64 <<= 2;
         tmpu64 |= rc_base(encode_base(*nt)) as u64;
-//         println!("{:#066b}", tmpu64);
+//         log::debug!("{:#066b}", tmpu64);
         if tmpind == 31 {
             compseq.push(tmpu64);
             tmpu64 = 0;
@@ -153,24 +153,24 @@ where
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
             let testkm = outdict.entry(hc).or_insert(km);
-            if *testkm != km {
-                println!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
-                println!("{:#0258b}\n{:#0258b}", *testkm, km);
-            }
+            // if *testkm != km {
+            //     log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
+            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+            // }
             // } else {
-            //     println!("\n\t\t- NOT COLLISIONS!!!");
+            //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
                 let testkm = outdict.entry(hc).or_insert(km);
-                if *testkm != km {
-                    println!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
-                    println!("{:#0258b}\n{:#0258b}", *testkm, km);
-                }
+                // if *testkm != km {
+                //     log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
+                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                // }
                 // } else {
-                //     println!("\n\t\t- NOT COLLISIONS!!!");
+                //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
                 minmaxdict.entry(hnc).or_insert(hc);
 
@@ -187,7 +187,7 @@ where
     let mut reader =
         parse_fastx_file(filename2).unwrap_or_else(|_| panic!("Invalid path/file: {filename2}"));
 
-//     println!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
+//     log::debug!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
     // Memory usage optimisations
     let cseq = theseq.capacity();
     let lseq = theseq.len();
@@ -200,7 +200,7 @@ where
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
         put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
-//         println!("{}", seqrec.num_bases());
+//         log::debug!("{}", seqrec.num_bases());
         let rl = seqrec.num_bases();
         let kmer_opt = Kmer::<IntT>::new(
             seqrec.seq(),
@@ -216,24 +216,24 @@ where
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
             let testkm = outdict.entry(hc).or_insert(km);
-            if *testkm != km {
-                println!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
-                println!("{:#0258b}\n{:#0258b}", *testkm, km);
-            }
+            // if *testkm != km {
+            //     log::debug!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
+            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+            // }
             // } else {
-            //     println!("\n\t\t- NOT COLLISIONS!!!");
+            //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
                 let testkm = outdict.entry(hc).or_insert(km);
-                if *testkm != km {
-                    println!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
-                    println!("{:#0258b}\n{:#0258b}", *testkm, km);
-                }
+                // if *testkm != km {
+                //     log::debug!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
+                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                // }
                 // } else {
-                //     println!("\n\t\t- NOT COLLISIONS!!!");
+                //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
                 minmaxdict.entry(hnc).or_insert(hc);
 
@@ -248,12 +248,12 @@ where
     if (itrecord % 32) != 0 {
         let mut tmpu64 = theseq.pop().unwrap();
         tmpu64 <<= 2 * (32 - itrecord % 32);
-//         println!("{:#066b}", tmpu64);
+//         log::debug!("{:#066b}", tmpu64);
         theseq.push(tmpu64);
     }
 
     log::info!("Finished getting kmers from file {filename2}");
-    println!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
+    log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
 
 
     (theseq, outdict, minmaxdict)
@@ -298,24 +298,24 @@ where
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
             let testkm = outdict.entry(hc).or_insert(km);
-            if *testkm != km {
-                loG(format!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc).as_str(), Some("warn"));
-                loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
-            }
+            // if *testkm != km {
+            //     loG(format!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+            //     loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
+            // }
             // } else {
-            //     println!("\n\t\t- NOT COLLISIONS!!!");
+            //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
                 let testkm = outdict.entry(hc).or_insert(km);
-                if *testkm != km {
-                    loG(format!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc).as_str(), Some("warn"));
-                    loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
-                }
+                // if *testkm != km {
+                //     loG(format!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+                //     loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
+                // }
                 // } else {
-                //     println!("\n\t\t- NOT COLLISIONS!!!");
+                //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
                 minmaxdict.entry(hnc).or_insert(hc);
 
@@ -329,7 +329,7 @@ where
 
     let mut reader = open_fastq(file2);
 
-//     println!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
+//     log::debug!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
     // Memory usage optimisations
     // Filling the seq of the second file!
     while let Some(record) = reader.next() {
@@ -348,24 +348,24 @@ where
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
             let testkm = outdict.entry(hc).or_insert(km);
-            if *testkm != km {
-                loG(format!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc).as_str(), Some("warn"));
-                loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
-            }
+            // if *testkm != km {
+            //     loG(format!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+            //     loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
+            // }
             // } else {
-            //     println!("\n\t\t- NOT COLLISIONS!!!");
+            //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
                 let testkm = outdict.entry(hc).or_insert(km);
-                if *testkm != km {
-                    loG(format!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc).as_str(), Some("warn"));
-                    loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
-                }
+                // if *testkm != km {
+                //     loG(format!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+                //     loG(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
+                // }
                 // } else {
-                //     println!("\n\t\t- NOT COLLISIONS!!!");
+                //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
                 minmaxdict.entry(hnc).or_insert(hc);
 
@@ -708,11 +708,11 @@ fn get_map_with_counts_with_hashes_only(
                 plotvec.push(c);
             }
 //             else {
-//                 println!("{}", c);
+//                 log::debug!("{}", c);
 //             }
 //             if i > 500 {
-//                 println!("{:?}", outdict);
-//                 println!("{} {} {}", tmphash, c, i);
+//                 log::debug!("{:?}", outdict);
+//                 log::debug!("{} {} {}", tmphash, c, i);
 //                 exit(1);
 //             }
             tmphash = invec[i].0;
@@ -772,7 +772,7 @@ fn get_map_with_counts_with_hashes_only(
 
 //     exit(1);
 
-    println!("Good kmers {}", tmpcounter);
+    log::debug!("Good kmers {}", tmpcounter);
     outdict
 }
 
@@ -915,7 +915,7 @@ where
 
 
     // Then, we want to sort it according to the hash
-    println!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
+    log::debug!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
     log::info!("Sorting vector");
     tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
@@ -980,7 +980,7 @@ where
 
 
         // Then, we want to sort it according to the hash
-        // println!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
+        // log::debug!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
         loG("Sorting vector", Some("info"));
         tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 

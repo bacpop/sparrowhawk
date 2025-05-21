@@ -154,7 +154,8 @@ impl fmt::Display for QualOpts {
 pub fn main() {
     let args = cli_args();
     if args.verbose {
-        simple_logger::init_with_level(log::Level::Trace).unwrap();
+        // simple_logger::init_with_level(log::Level::Trace).unwrap();
+        simple_logger::init_with_level(log::Level::Info).unwrap();
     } else {
         simple_logger::init_with_level(log::Level::Warn).unwrap();
     }
@@ -169,7 +170,6 @@ pub fn main() {
             file_list,
             output,
             k,
-            single_strand,
             min_count,
             min_qual,
             threads,
@@ -177,8 +177,8 @@ pub fn main() {
             check_threads(*threads);
 
             // Read input
-            // let input_files = get_input_list(file_list, seq_files);
-            let input_files = get_input_list(file_list);
+            let input_files = get_input_list(file_list, seq_files);
+            // let input_files = get_input_list(file_list);
             let quality = QualOpts {
                 min_count: *min_count,
                 min_qual: *min_qual,

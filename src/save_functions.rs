@@ -22,32 +22,32 @@ where
     invec.contig_sequences = Some(Vec::with_capacity(invec.serialized_contigs.len()));
     let mut counter = 0;
     for ipc in 0..invec.serialized_contigs.len() {
-//         println!("\nIteration");
+//         log::debug!("\nIteration");
 //         let mut outseq : VecDeque<u8>  = VecDeque::new();
         let mut outseq : Vec<u8>  = Vec::new();
 
-//         println!("Initial index: {}", initind);
+//         log::debug!("Initial index: {}", initind);
         // First of all, we decode and set the cov. for the first k nucleotides
         if invec.serialized_contigs[ipc].len() > 1 {panic!("MORE THAN ONE ENTRY!!")};
         let initkmer    = inmap.get(&invec.serialized_contigs[ipc][0].abs_ind[0]).unwrap();
         let nbitstomove = initkmer.n_bits() as usize - 2 * (k - 1);
-//         println!("nbits: {nbitstomove}");
+//         log::debug!("nbits: {nbitstomove}");
 
         let mut prevkmer = *initkmer;
         if invec.serialized_contigs[ipc][0].abs_ind.len() > 1 {
             let tmpkmermoved    = *inmap.get(&invec.serialized_contigs[ipc][0].abs_ind[1]).unwrap() >> 2;
             let tmpkmerrevmoved = inmap.get(&invec.serialized_contigs[ipc][0].abs_ind[1]).unwrap().rev_comp(k) >> 2;
             let prevkmermoved   = (prevkmer << nbitstomove) >> nbitstomove;
-//             println!("Prev.              {:#066b}", prevkmer            );
-//             println!("Prev. (rev.-comp.) {:#066b}", prevkmer.rev_comp(k));
-//             println!("Post.              {:#066b}", tmpkmermoved);
-//             println!("Post. (rev.-comp.) {:#066b}", tmpkmerrevmoved);
-//             println!("Prev.              {:#066b}", prevkmermoved);
+//             log::debug!("Prev.              {:#066b}", prevkmer            );
+//             log::debug!("Prev. (rev.-comp.) {:#066b}", prevkmer.rev_comp(k));
+//             log::debug!("Post.              {:#066b}", tmpkmermoved);
+//             log::debug!("Post. (rev.-comp.) {:#066b}", tmpkmerrevmoved);
+//             log::debug!("Prev.              {:#066b}", prevkmermoved);
 
             if tmpkmermoved != prevkmermoved && tmpkmerrevmoved != prevkmermoved {
                 // We need to add the first nucleotides from the rev. comp.
                 prevkmer = prevkmer.rev_comp(k);
-//                 println!("CHANGED");
+//                 log::debug!("CHANGED");
             }
 
             if tmpkmermoved == prevkmermoved && tmpkmerrevmoved == prevkmermoved {
@@ -65,7 +65,7 @@ where
         let mut currkmer : IntT;
         let thelen = invec.serialized_contigs[ipc][0].abs_ind.len();
         for i in 1..thelen {
-//             println!("Entry {}/{}", i + 1, thelen);
+//             log::debug!("Entry {}/{}", i + 1, thelen);
             currkmer = *inmap.get(&invec.serialized_contigs[ipc][0].abs_ind[i]).unwrap();
 
             if ((prevkmer << nbitstomove) >> nbitstomove) == (currkmer >> 2) && ((prevkmer << nbitstomove) >> nbitstomove) == (currkmer.rev_comp(k) >> 2) {
@@ -77,16 +77,16 @@ where
 //             }
 
             if ((prevkmer << nbitstomove) >> nbitstomove) != (currkmer >> 2) {
-//                 println!("CAMBIANDO!");
+//                 log::debug!("CAMBIANDO!");
                 currkmer = currkmer.rev_comp(k);
                 if ((prevkmer << (nbitstomove)) >> nbitstomove) != (currkmer >> 2) {
-//                     println!("BAD THING");
-//                     println!("Prev.:              {:#066b}", (prevkmer << (nbitstomove)) >> nbitstomove);
-//                     println!("Prev. (rev.-comp.): {:#066b}", (prevkmer.rev_comp(k) << (nbitstomove)) >> nbitstomove);
-//                     println!("Post:               {:#066b}", currkmer.rev_comp(k) >> 2);
-//                     println!("Post. (rev.-comp.): {:#066b}", currkmer >> 2);
-//                     println!("Prev. hash: {}",   invec.serialized_contigs[ipc][0].abs_ind[i - 1]);
-//                     println!("Post. hash: {}\n", invec.serialized_contigs[ipc][0].abs_ind[i]);
+//                     log::debug!("BAD THING");
+//                     log::debug!("Prev.:              {:#066b}", (prevkmer << (nbitstomove)) >> nbitstomove);
+//                     log::debug!("Prev. (rev.-comp.): {:#066b}", (prevkmer.rev_comp(k) << (nbitstomove)) >> nbitstomove);
+//                     log::debug!("Post:               {:#066b}", currkmer.rev_comp(k) >> 2);
+//                     log::debug!("Post. (rev.-comp.): {:#066b}", currkmer >> 2);
+//                     log::debug!("Prev. hash: {}",   invec.serialized_contigs[ipc][0].abs_ind[i - 1]);
+//                     log::debug!("Post. hash: {}\n", invec.serialized_contigs[ipc][0].abs_ind[i]);
                     counter += 1;
                 }
             }
@@ -106,7 +106,7 @@ where
         }
 
     }
-    println!("\nNUMBER OF BAD THINGS: {}\n", counter);
+    log::debug!("\nNUMBER OF BAD THINGS: {}\n", counter);
 
 }
 
@@ -122,13 +122,13 @@ where
     // First, we write the sequences and the coverages
     write_sequences_and_coverages(ingraph, inmap, k);
 
-    println!("Starting to save");
-    println!("{}", outfile);
+    log::debug!("Starting to save");
+    log::debug!("{}", outfile);
     // Now, we just write all the contigs. We get our writing buffer with this:
     let mut wbuf = set_ostream(&Some(outfile.clone()));
     // And simply, contig per contig, we write the file
 
-    println!("\tLen.\tMean\tSD\tMedian");
+    log::debug!("\tLen.\tMean\tSD\tMedian");
     ingraph.write_fasta(&mut wbuf);
 }
 

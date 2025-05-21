@@ -43,7 +43,7 @@ pub fn set_ostream(oprefix: &Option<String>) -> BufWriter<Box<dyn Write>> {
 /// If `seq_files` are provided use [`read_input_fastas`].
 pub fn get_input_list(
     file_list: &Option<String>,
-    // seq_files: &Option<Vec<String>>,
+    seq_files: &Option<Vec<String>>,
 ) -> Vec<InputFastx> {
     // Read input
     match file_list {
@@ -70,8 +70,13 @@ pub fn get_input_list(
             }
             input_files
         }
-//         None => read_input_fastas(seq_files.as_ref().unwrap()),
-        None => panic!("Single-stranded reads are not supported at this moment."),
+        None => {
+            let mut input_files: Vec<InputFastx> = Vec::new();
+            let tmpvec = seq_files.as_ref().unwrap();
+            input_files.push(("reads".to_owned(), tmpvec[0].clone(), Some(tmpvec[1].clone()) ));
+            input_files
+        },
+        // None => panic!("Single-stranded reads are not supported at this moment."),
     }
 }
 
