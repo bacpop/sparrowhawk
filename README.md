@@ -1,11 +1,11 @@
-# sparrowhawk <img src='sparrowhawk_logo.png' align="right" height="500" />
+# sparrowhawk <img src='sparrowhawk_logo.png' align="right" height="250" />
 Short-read assembler for bacterial genomics based on a de Bruijn graph written in Rust.
 
 ---
 ## Disclaimer :warning: :construction:
 This is a **work in progress** project. This in particular implies:
 
-- Not all the main features we want are yet implmemented.
+- Not all the main features we want are yet implemented.
 - Code might be messy, and not even documented.
 - General documentation on how to install and use the tool might be short or even missing.
 - Finding unexpected errors/behaviour or bugs should not be a surprise.
@@ -17,16 +17,16 @@ These (and potentially other) items will be progressively fixed before version 1
 
 
 ## sparrowhawk?
-Sparrowhawk was at one time the archmage of [Earthsea](https://en.wikipedia.org/wiki/Earthsea).
-Also, the sparrowhawk (*Accipiter nisus*) is a bird of prey native to Europe (and the island of Gont).
+Sparrowhawk was at one time the Archmage of [Earthsea](https://en.wikipedia.org/wiki/Earthsea).
+Also, the [sparrowhawk](https://en.wikipedia.org/wiki/Eurasian_sparrowhawk) (*Accipiter nisus*) is a bird of prey native to Europe (and the island of Gont).
 
 # Description
 
-**Note:** this repository is for the Rust-based genomic assembler. If you are looking for our web implementation of this assembler, see [sparrowhawk-web](https://github.com/bacpop/sparrowhawk-web).
+**Note:** this repository is for the Rust-based genomic assembler. If you are looking for its web implementation, see [sparrowhawk-web](https://github.com/bacpop/sparrowhawk-web).
 
-Sparrowhawk aims to be a fast short-read assembler for bacterial genomics. It has been developed taking advantage/inspiration of other Rust-based tools developed by our group (such as [ska.rust](https://github.com/bacpop/ska.rust)), as well as others (such as [Katome](https://github.com/fuine/katome) or [SKESA](https://github.com/ncbi/SKESA)).
+sparrowhawk aims to be a fast short-read assembler for bacterial genomics. It has been developed taking advantage/inspiration of other Rust-based tools developed by our group (such as [ska.rust](https://github.com/bacpop/ska.rust)), as well as others (such as [Katome](https://github.com/fuine/katome) or [SKESA](https://github.com/ncbi/SKESA)).
 
-Current main features:
+Current **main features**:
 - Currently only support for Illumina paired short reads.
 - Single k-value, that must be odd and between 3 (not recommended to go below 19/21, due to memory requirements) and 256.
 - Designed thinking on bacterial genomes (i.e. "small").
@@ -34,7 +34,7 @@ Current main features:
 - Partially parallelised with [rayon](https://docs.rs/rayon/latest/rayon).
 - Compilation to WebAssembly targets (currently only `wasm32-unknown-unknown`) is possible to run the assembler in web projects. For more info, see [sparrowhawk-web](https://github.com/bacpop/sparrowhawk-web).
 
-:construction: In-progress future main (not all) features:
+:construction: In-progress future main (not all) features: :construction:
 - Partial GPU acceleration.
 - Multi-k support.
 - Improved error correction and graph collapse logics.
@@ -42,29 +42,35 @@ Current main features:
 
 # Installation
 ## Using a pre-compiled binary
-You can access the latest compiled version of Sparrowhawk in the "Releases" section, that are currently only offered for x86_64 systems.
+You can access the latest compiled version of sparrowhawk in the "Releases" section, that are currently only offered for x86_64 systems.
 
 
 ## Compilation from source
 Development has been done only on x86_64 GNU/Linux-based systems, and most surely will probably stay that way. To compile our project from source as we did, you will need the [rust toolchain](https://www.rust-lang.org/tools/install) installed in your system. Then, you can download the code with
 
-`git clone https://github.com/bacpop/sparrowhawk.git`
+```
+git clone https://github.com/bacpop/sparrowhawk.git
+```
 
-Sparrowhawk is designed to compile to run natively as a x86_64 binary, but you can also compile it to the WebAssembly target `wasm32-unknown-unknown`. You can see below how to do it manually (as we did for development). Check out [sparrowhawk-web](https://github.com/bacpop/sparrowhawk-web) for an integrated project with Javascript and [wasm-pack](https://github.com/rustwasm/wasm-pack).
+sparrowhawk is designed to compile to run natively as a x86_64 binary, but you can also compile it to the WebAssembly target `wasm32-unknown-unknown`. You can see below how to do it manually (as we did for development). Check out [sparrowhawk-web](https://github.com/bacpop/sparrowhawk-web) for an integrated project with Javascript and [wasm-pack](https://github.com/rustwasm/wasm-pack).
 
 ### Compilation to x86_64 (default)
 Move into the downloaded repository and use `cargo` to build the project. You can add the `--release` argument to include some compiler optimisations.
 
-`cd sparrowhawk`
-`cargo build --release`
+```
+cd sparrowhawk
+cargo build --release
+```
 
 If using the `--release` flag, this should place your compiled binary inside `target/release`.
 
 ### Compilation to wasm32-unknown-unknown
 For this, you will need to activate the feature `wasm` with the `-F` argument and manually set the target. You can add the `--release` argument to include some compiler optimisations.
 
-`cd sparrowhawk`
-`cargo build --release -F wasm --target wasm32-unknown-unknown`
+```
+cd sparrowhawk
+cargo build --release -F wasm --target wasm32-unknown-unknown
+```
 
 If using the `--release` flag, this should place your compiled binary inside `target/wasm32-unknown-unknown/release` as `sparrowhawk.wasm`.
 
@@ -72,24 +78,34 @@ If using the `--release` flag, this should place your compiled binary inside `ta
 ## Usage
 Here we will only consider the binary compiled for x86_64, refer to [sparrowhawk-web](https://github.com/bacpop/sparrowhawk-web) for an example of usage of the `wasm32-unknown-unknown` compilation target.
 
-Sparrowhawk can be called later to see the basic options and arguments with
+sparrowhawk can be called later to see the basic options and arguments with
 
-`./sparrowhawk`
+```
+./sparrowhawk
+```
 
 Currently, only the `build` option is present (apart from `help`), that allows assemblying the genomes. You can check its arguments running
 
-`./sparrowhawk build --help`
+```
+./sparrowhawk build --help
+```
 
 An example execution could be the following:
 
-`./sparrowhawk -f ./reads.tsv -k 31 --threads 1 -v --min-count 5 -o ./assembly.fasta`
+```
+./sparrowhawk -f ./reads.tsv -k 31 --threads 1 -v --min-count 5 -o ./assembly.fasta
+```
 
-This will assemble your reads, with k=31 and using only one thread. The minimum repeats of one particular k-mer to be considered are 5 (which is also the default). The output contigs will be written as a fasta file called `assembly.fasta`. The input files in this case are provided through a `reads.tsv` tab-separated file, that contains an identifier for your reads and the two file paths separated by a space, i.e. this line
+This will assemble your reads, with k=31 and using only one thread. The minimum repeats of one particular k-mer to be considered are 5 (which is also the default). The output contigs will be written as a fasta file called `assembly.fasta`. The input files in this case are provided through a `reads.tsv` tab-separated file, that contains an identifier for your reads and the two file paths separated by a space, i.e. a file that contains this line
 
-`IDENTIFIER     /path/to/the/read_1.fastq /path/to/the/read_2.fastq`
+```
+IDENTIFIER     /path/to/the/read_1.fastq /path/to/the/read_2.fastq
+```
 
 Alternatively, you could have run:
 
-`./sparrowhawk /path/to/the/read_1.fastq /path/to/the/read_2.fastq -k 31 --threads 1 -v --min-count 5 -o ./assembly.fasta`
+```
+./sparrowhawk /path/to/the/read_1.fastq /path/to/the/read_2.fastq -k 31 --threads 1 -v --min-count 5 -o ./assembly.fasta
+```
 
-In the same folder as the output FASTA file, the graph before collapsing will be exported in [DOT format](https://en.wikipedia.org/wiki/DOT_%28graph_description_language%29) as `graph.dot`, as well as a histogram of the k-mer frequency spectrum as `histogram.png`. This hardcoded exportation will be adjusted in a future release to add optionality as well as variety of formats as in the web version of Sparrowhawk.
+In the same folder as the output FASTA file, the graph before collapsing will be exported in [DOT format](https://en.wikipedia.org/wiki/DOT_%28graph_description_language%29) as `graph.dot`, as well as a histogram of the k-mer frequency spectrum as `histogram.png`. This hardcoded exportation will be adjusted in a future release to add optionality as well as variety of formats as in the web version of sparrowhawk.
