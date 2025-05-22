@@ -80,7 +80,7 @@ cargo build --release -F wasm --target wasm32-unknown-unknown
 If using the `--release` flag, this should place your compiled binary inside `target/wasm32-unknown-unknown/release` as `sparrowhawk.wasm`.
 
 
-## Usage
+# Usage
 Here we will only consider the binary compiled for x86_64, refer to [sparrowhawk-web](https://github.com/bacpop/sparrowhawk-web) for an example of usage of the `wasm32-unknown-unknown` compilation target.
 
 sparrowhawk can be called later to see the basic options and arguments with
