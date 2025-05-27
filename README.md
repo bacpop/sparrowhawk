@@ -51,7 +51,7 @@ Current **main features**:
 Currently the only option is to compile from source.
 
 ## Compilation from source
-Development has been done only on x86_64 GNU/Linux-based systems, and most surely will probably stay that way. To compile our project from source as we did, you will need the [rust toolchain](https://www.rust-lang.org/tools/install) installed in your system. Then, you can download the code with
+Development has been done only on x86_64 GNU/Linux-based systems, and most surely will probably stay that way (i.e. no other systems have been tested). To compile our project from source as we did, you will need the [rust toolchain](https://www.rust-lang.org/tools/install) installed in your system. Then, you can download the code with
 
 ```
 git clone https://github.com/bacpop/sparrowhawk.git
