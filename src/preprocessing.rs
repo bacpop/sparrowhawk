@@ -768,7 +768,7 @@ fn get_map_with_counts_with_hashes_only(
             .data(plotvec.iter().map(|x: &u16| (*x as u32, 1)).chain(outdict.iter().map(|(_, x)| (x.borrow().counts as u32, 1)))),
     ).unwrap();
 
-    root.present().expect("Unable to write result to file, please make sure 'images' dir exists under current dir");
+    root.present().expect("Unable to write result to file, please make sure 'draftrun' dir exists under current dir");
 
 //     exit(1);
 
