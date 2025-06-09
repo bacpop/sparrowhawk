@@ -9,8 +9,10 @@ pub const DEFAULT_KMER: usize = 31;
 pub const DEFAULT_MINCOUNT: u16 = 5;
 /// Default minimum base quality (PHRED score) for FASTQ files
 pub const DEFAULT_MINQUAL: u8 = 20;
-/// Default minimum base quality (PHRED score) for FASTQ files
-pub const DEFAULT_OUTPUT: &str = "./out.fasta";
+/// Default output directory
+pub const DEFAULT_OUTPUT_DIR:    &str = "./";
+/// Default output prefix
+pub const DEFAULT_OUTPUT_PREFIX: &str = "sphk";
 
 #[doc(hidden)]
 fn valid_kmer(s: &str) -> Result<usize, String> {
@@ -111,9 +113,13 @@ pub enum Commands {
         #[arg(short, group = "input")]
         file_list: Option<String>,
 
+        /// Output directory
+        #[arg(long, default_value_t = DEFAULT_OUTPUT_DIR.to_string())]
+        output_dir: String,
+
         /// Output prefix
-        #[arg(short, default_value_t = DEFAULT_OUTPUT.to_string())]
-        output: String,
+        #[arg(long, default_value_t = DEFAULT_OUTPUT_PREFIX.to_string())]
+        output_prefix: String,
 
         /// K-mer size
         #[arg(short, value_parser = valid_kmer, default_value_t = DEFAULT_KMER)]
@@ -130,6 +136,30 @@ pub enum Commands {
         /// Number of CPU threads
         #[arg(long, value_parser = valid_cpus, default_value_t = 1)]
         threads: usize,
+
+        /// Do the automatic fit to the k-mer spectrum to get the min_count or not
+        #[arg(long, default_value_t = false)]
+        auto_min_count: bool,
+
+        /// Use, instead of the default filtering, a Bloom filter. This will use less memory and be faster, but will add
+        /// false positive matches to the counting, making possible that a k-mer is counted more times that it should be.
+        #[arg(long, default_value_t = false)]
+        do_bloom: bool,
+
+        /// Set a value for the chunks of the reads during preprocessing. A value of zero (the default) ignores chunking.
+        /// Nonzero values enable it, allowing for potential peak memory reduction and speed increase.
+        #[arg(long, default_value_t = 0)]
+        chunk_size: usize,
+
+        /// By default, Sparrowhawk will draw your k-mer spectrum histogram and save it as PNG in the same folder
+        /// where the contigs output will be. Use this argument if you want it to not do this
+        #[arg(long, default_value_t = false)]
+        no_histo: bool,
+
+        /// By default, Sparrowhawk will extract the graph just before collapse and save it in your output folder
+        /// in the DOT, GFAv1.1 and GFAv2 formats. Use this argument if you want it to not do this
+        #[arg(long, default_value_t = false)]
+        no_graphs: bool,
     },
 }
 

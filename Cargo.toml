@@ -1,6 +1,6 @@
 [package]
 name = "sparrowhawk"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,7 +12,7 @@ wasm = ["js-sys", "wasm-bindgen", "simple-error", "console_error_panic_hook", "w
         "serde", "ahash", "num-traits", "log", "simple_logger", "clap", "regex", "rayon", "num_cpus", "nohash-hasher",
         "stacker", "project-root", "petgraph", "bnum", "json", "argmin", "argmin-math", "libm"]
 basic = ["needletail", "serde", "ahash", "num-traits", "log", "simple_logger", "indicatif", "clap", "regex", "rayon", "num_cpus", "nohash-hasher",
-         "stacker", "plotters", "project-root", "petgraph", "bnum"]
+         "stacker", "plotters", "project-root", "petgraph", "bnum", "argmin", "argmin-math", "libm"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]

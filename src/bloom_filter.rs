@@ -145,6 +145,7 @@ impl KmerFilter {
         }
     }
 
+    /// Get method to retrieve the count map
     pub fn get_counts_map(&mut self) -> &mut HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>> {
         return &mut self.counts;
     }

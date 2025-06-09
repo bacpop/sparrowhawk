@@ -7,7 +7,7 @@ use crate::graphs::pt_graph::{CarryType, NodeIndex, NodeStruct, PtGraph};
 use std::cmp::max;
 // use std::process::exit;
 
-use rayon::prelude::*;
+// use rayon::prelude::*;
 use petgraph::EdgeDirection;
 use petgraph::algo::{connected_components, tarjan_scc};
 use petgraph::visit::EdgeRef;
@@ -17,7 +17,7 @@ use petgraph;
 /// Collapse `Graph` into `SerializedContigs`.
 pub trait Collapsable: Shrinkable {
     /// Collapses `Graph` into `SerializedContigs`.
-    fn collapse(self, path : Option<&String>) -> SerializedContigs;
+    fn collapse(self) -> SerializedContigs;
 }
 
 
@@ -30,7 +30,7 @@ pub type SerializedContigs = Vec<Vec<NodeStruct>>;
 
 
 impl Collapsable for PtGraph {
-    fn collapse(mut self, path_ : Option<&String>) -> SerializedContigs {
+    fn collapse(mut self) -> SerializedContigs {
         let mut contigs: SerializedContigs = vec![];
 
         log::info!("Removing self-loops (temporal restriction)");

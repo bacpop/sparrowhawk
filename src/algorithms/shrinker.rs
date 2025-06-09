@@ -127,6 +127,13 @@ impl Shrinkable for PtGraph {
 
     #[inline]
     fn modify_edges_when_shrinking(&mut self, base_node: NodeIndex, prev_node : NodeIndex, internal_edge_ty : EdgeType, in_edge_ind : EdgeIndex, in_edge_ty : EdgeType) {
+
+        log::trace!("base_node: {:?} prev_node: {:?} internal_edge_ty: {:?} in_edge_ind: {:?} in_edge_ty: {:?}",
+            base_node, prev_node, internal_edge_ty, in_edge_ind, in_edge_ty,
+        );
+        log::trace!("edges coming to the prev_node from the base_node: {:?}", self.graph.edges_connecting(base_node, prev_node).map(|x| x.id()).collect::<Vec<_>>());
+        log::trace!("edges coming to the base_node from the prev_node: {:?}", self.graph.edges_connecting(prev_node, base_node).map(|x| x.id()).collect::<Vec<_>>());
+
         match internal_edge_ty {
             EdgeType::MinToMax => {
                 match in_edge_ty {
@@ -164,24 +171,29 @@ impl Shrinkable for PtGraph {
 
     #[inline]
     fn shrink_single_path(&mut self, base_node: NodeIndex, mut next_node: NodeIndex,
-                             ambnodes : &<PtGraph as Graph>::AmbiguousNodes, mut curredge : EdgeType) {
+                          ambnodes : &<PtGraph as Graph>::AmbiguousNodes, mut curredge : EdgeType) {
 
         let mut countsformean : Vec<u16> = vec![self.graph.node_weight(base_node).unwrap().counts];
 
         let (initty, mut currtype) = curredge.get_from_and_to();
 
-        // println!("Starting shrinkage!");
+        log::trace!("Starting shrinkage!");
         if self.out_degree_bi(next_node, currtype) == 0 {
             // Only the base_node + next_node shrinkage is possible
-            // println!("No one to continue already from the next_node, before looping");
+            log::trace!("No one to continue already from the next_node, before looping");
 
             countsformean.push(self.graph.node_weight(next_node).unwrap().counts);
             let next_base_weight = self.graph.remove_node(next_node).unwrap();
             let ind = self.in_neighbours_bi(base_node, initty);
 
-            // self.graph.node_weight_mut(base_node).unwrap().merge(&next_base_weight);                // OLD
+            // self.graph.node_weight_mut(base_node).unwrap().merge(&next_base_weight);             // OLD
             self.graph.node_weight_mut(base_node).unwrap().merge(&next_base_weight, curredge);      // NEW
             self.graph.node_weight_mut(base_node).unwrap().set_mean_counts(&countsformean);
+
+
+            log::trace!("base_node {:?} next_node {:?} curredge {:?} initty {:?} currtype {:?} ind {:?}",
+                        base_node, next_node, curredge, initty, currtype, ind);
+
 
             // ======================================= CHANGING INTERNAL EDGES IF NEEDED BEGIN
 
@@ -200,14 +212,15 @@ impl Shrinkable for PtGraph {
                 // need to change those edges connecting to the previous
                 // node.
 
-                // NOTE: this CHANGES the edges between nodes, and make than
-                // ones of them are FALSE
+                // NOTE: this CHANGES the edges between nodes, and makes that
+                // them are FALSE
 
                 let theedges : Vec<_> = self.graph.edges_connecting(ind[0].0, base_node).map(|e| e.id()).collect();
                 if theedges.len() > 1 {
                     panic!("More than one linking outgoing edge, this should not happen unless there are multiple connections to the same node.");
                 }
 
+                log::trace!("Modifying edges with a non-direct edge at the beginning.");
                 self.modify_edges_when_shrinking(base_node, ind[0].0, curredge, theedges[0], ind[0].1);
 
             }
@@ -298,6 +311,7 @@ impl Shrinkable for PtGraph {
                         panic!("More than one linking outgoing edge, this should not happen unless there are multiple connections to the same node.");
                     }
 
+                    log::trace!("Modifying edges with a non-direct edge in the loop to an ambiguous node that is an external");
                     self.modify_edges_when_shrinking(base_node, ind[0].0, curredge, theedges[0], ind[0].1);
                 }
                 // ======================================= CHANGING INTERNAL EDGES IF NEEDED END
@@ -361,6 +375,7 @@ impl Shrinkable for PtGraph {
                         panic!("More than one linking outgoing edge, this should not happen unless there are multiple connections to the same node.");
                     }
 
+                    log::trace!("Modifying edges with a non-direct edge in the loop when reaching another ambiguous node that is not an external.");
                     self.modify_edges_when_shrinking(base_node, ind[0].0, curredge, theedges[0], ind[0].1);
                 }
 

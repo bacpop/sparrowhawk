@@ -1,7 +1,14 @@
 //! Efficient genome assembler for small genomes in Rust
 #![warn(missing_docs)]
-use std::fmt;
-use std::time::Instant;
+use std::{
+    fmt,
+    time::Instant,
+    collections::HashMap,
+    hash::BuildHasherDefault,
+    cell::*,
+    path::PathBuf,
+    // process::exit,
+};
 
 extern crate num_cpus;
 
@@ -33,9 +40,11 @@ pub mod algorithms;
 /// Defines a bloom filter (taken from ska.rust!)
 pub mod bloom_filter;
 
+/// Fits the k-mer spectrum to automatically get a min_count (taken from ska.rust!)
+pub mod spectrum_fitter;
+
 
 use nohash_hasher::NoHashHasher;
-use std::{collections::HashMap, hash::BuildHasherDefault, cell::*};
 use crate::graphs::pt_graph::EdgeType;
 
 use crate::graphs::pt_graph::PtGraph;
@@ -47,7 +56,6 @@ use crate::cli::*;
 
 pub mod io_utils;
 use crate::io_utils::*;
-
 
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -64,17 +72,11 @@ use json;
 #[cfg(feature = "wasm")]
 use crate::bit_encoding::UInt;
 
-/// Fits the k-mer spectrum to automatically get a min_count (taken from ska.rust!)
-#[cfg(feature = "wasm")]
-pub mod spectrum_fitter;
-#[cfg(feature = "wasm")]
-use crate::spectrum_fitter::SpectrumFitter;
-
-// use std::process::exit;
 
 
+/// Logging wrapper function for the WebAssembly version
 #[cfg(feature = "wasm")]
-pub fn loG(text : &str, typ : Option<&str>) {
+pub fn logw(text : &str, typ : Option<&str>) {
     if typ.is_some() {
         log((String::from("Sparrowhawk::") + typ.unwrap() + "::" + text).as_str());
     } else {
@@ -82,8 +84,10 @@ pub fn loG(text : &str, typ : Option<&str>) {
     }
 }
 
+
+/// Logging wrapper function for the standalone version
 #[cfg(not(feature = "wasm"))]
-pub fn loG(text : &str, typ : Option<&str>) {
+pub fn logw(text : &str, typ : Option<&str>) {
     if let Some(realtyp) = typ {
         if realtyp == "info" {
             log::info!("{}", text);
@@ -154,8 +158,8 @@ impl fmt::Display for QualOpts {
 pub fn main() {
     let args = cli_args();
     if args.verbose {
-        // simple_logger::init_with_level(log::Level::Trace).unwrap();
-        simple_logger::init_with_level(log::Level::Info).unwrap();
+        simple_logger::init_with_level(log::Level::Trace).unwrap();
+        // simple_logger::init_with_level(log::Level::Info).unwrap();
     } else {
         simple_logger::init_with_level(log::Level::Warn).unwrap();
     }
@@ -168,11 +172,17 @@ pub fn main() {
         Commands::Build {
             seq_files,
             file_list,
-            output,
+            output_dir,
+            output_prefix,
             k,
             min_count,
             min_qual,
             threads,
+            auto_min_count,
+            do_bloom,
+            chunk_size,
+            no_histo,
+            no_graphs,
         } => {
             check_threads(*threads);
 
@@ -196,9 +206,35 @@ pub fn main() {
             timevec.push(Instant::now());
 
 
+            if *auto_min_count {
+                log::info!("Automatic fitting to extract minimum counts per k-mer will be done.");
+            } else {
+                log::info!("Minimum count per k-mer to be considered is {}", min_count);
+            }
+
             let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
             let theseq : Vec<u64>;
             let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
+
+            let mut out_path_histo : Option<PathBuf>;
+            if *no_histo {
+                out_path_histo = None;
+            } else {
+                out_path_histo = Some(output_dir.into());
+                out_path_histo.as_mut().unwrap().set_file_name(output_prefix.to_owned() + "_kmerspectrum");
+                out_path_histo.as_mut().unwrap().set_extension("png");
+            }
+            let mut out_path_graph : Option<PathBuf>;
+            if *no_graphs {
+                out_path_graph = None;
+            } else {
+                out_path_graph = Some(output_dir.into());
+                out_path_graph.as_mut().unwrap().set_file_name(output_prefix.to_owned() + "_graph");
+            }
+
+            let mut output : PathBuf = output_dir.into();
+            output.set_file_name(output_prefix.to_string() + "_contigs");
+            output.set_extension("fasta");
 
             if *k % 2 == 0 {
                 panic!("Support for even k-mer lengths not implemented");
@@ -209,10 +245,9 @@ pub fn main() {
             } else if *k <= 32 {
                 log::info!("k={}: using 64-bit representation", *k);
                 let thedict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
-                (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_gpulike_with_dict_and_seq::<u64>(&input_files, *k, &quality, &mut timevec);
+                (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_standalone::<u64>(&input_files, *k, &quality, &mut timevec, &mut out_path_histo, *chunk_size, *do_bloom, *auto_min_count);
                 drop(theseq);
-                let outgraph = output.to_string().clone().replace(".fasta", "") + ".dot";
-                let (mut contigs, _, _, _) = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
+                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph);
 
                 // Save as fasta
                 save_functions::save_as_fasta::<u64>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -220,11 +255,10 @@ pub fn main() {
             } else if *k <= 64 {
                 log::info!("k={}: using 128-bit representation", *k);
                 let thedict : HashMap::<u64, u128, BuildHasherDefault<NoHashHasher<u64>>>;
-                (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_gpulike_with_dict_and_seq::<u128>(&input_files, *k, &quality, &mut timevec);
+                (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_standalone::<u128>(&input_files, *k, &quality, &mut timevec, &mut out_path_histo, *chunk_size, *do_bloom, *auto_min_count);
                 drop(theseq);
 
-                let outgraph = output.to_string().clone().replace(".fasta", "") + ".dot";
-                let (mut contigs, _, _, _) = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
+                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph);
 
                 // Save as fasta
                 save_functions::save_as_fasta::<u128>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -233,11 +267,10 @@ pub fn main() {
                 log::info!("k={}: using 256-bit representation", *k);
 
                 let thedict : HashMap::<u64, U256, BuildHasherDefault<NoHashHasher<u64>>>;
-                (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_gpulike_with_dict_and_seq::<U256>(&input_files, *k, &quality, &mut timevec);
+                (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_standalone::<U256>(&input_files, *k, &quality, &mut timevec, &mut out_path_histo, *chunk_size, *do_bloom, *auto_min_count);
                 drop(theseq);
 
-                let outgraph = output.to_string().clone().replace(".fasta", "") + ".dot";
-                let (mut contigs, _, _, _) = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
+                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph);
 
                 // Save as fasta
                 save_functions::save_as_fasta::<U256>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -246,11 +279,10 @@ pub fn main() {
                 log::info!("k={}: using 512-bit representation", *k);
 
                 let thedict : HashMap::<u64, U512, BuildHasherDefault<NoHashHasher<u64>>>;
-                (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_gpulike_with_dict_and_seq::<U512>(&input_files, *k, &quality, &mut timevec);
+                (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_standalone::<U512>(&input_files, *k, &quality, &mut timevec, &mut out_path_histo, *chunk_size, *do_bloom, *auto_min_count);
                 drop(theseq);
 
-                let outgraph = output.to_string().clone().replace(".fasta", "") + ".dot";
-                let (mut contigs, _, _, _) = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, Some(&outgraph));
+                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph);
 
                 // Save as fasta
                 save_functions::save_as_fasta::<U512>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -311,7 +343,7 @@ pub struct AssemblyHelper {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl AssemblyHelper {
-    pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8, csize : usize, do_bloom : bool) -> Self {
+    pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8, chunk_size : usize, do_bloom : bool, do_fit : bool) -> Self {
         if cfg!(debug_assertions) {
             init_panic_hook();
         }
@@ -325,12 +357,12 @@ impl AssemblyHelper {
             min_qual:  min_qual,
         };
 
-        // loG("Checking requested threads and creating pool if needed", Some("info"));
+        // logw("Checking requested threads and creating pool if needed", Some("info"));
         // rayon::ThreadPoolBuilder::new()
         //     .num_threads(8)
         //     .build_global()
         //     .unwrap();
-        loG("Beginning processing", Some("info"));
+        logw("Beginning processing", Some("info"));
 
         let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
         let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
@@ -347,36 +379,36 @@ impl AssemblyHelper {
             panic!("kmer length too small (min. 3)");
 
         } else if k <= 32 {
-            loG(format!("k={}: using 64-bit representation", k).as_str(), Some("info"));
+            logw(format!("k={}: using 64-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict64, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u64>(&mut wf1, &mut wf2, k, &quality, csize, do_bloom);
+            (preprocessed_data, thedict64, maxmindict, histovalues) = preprocessing::preprocessing_wasm::<u64>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
 
-            loG("Preprocessing done!", Some("info"));
+            logw("Preprocessing done!", Some("info"));
 
         } else if k <= 64 {
-            loG(format!("k={}: using 128-bit representation", k).as_str(), Some("info"));
+            logw(format!("k={}: using 128-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict128, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<u128>(&mut wf1, &mut wf2, k, &quality, csize, do_bloom);
+            (preprocessed_data, thedict128, maxmindict, histovalues) = preprocessing::preprocessing_wasm::<u128>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
 
-            loG("Preprocessing done!", Some("info"));
+            logw("Preprocessing done!", Some("info"));
 
         } else if k <= 128 {
-            loG(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
+            logw(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict256, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U256>(&mut wf1, &mut wf2, k, &quality, csize, do_bloom);
+            (preprocessed_data, thedict256, maxmindict, histovalues) = preprocessing::preprocessing_wasm::<U256>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
 
-            loG("Preprocessing done!", Some("info"));
+            logw("Preprocessing done!", Some("info"));
         } else if k <= 256 {
-            loG(format!("k={}: using 512-bit representation", k).as_str(), Some("info"));
+            logw(format!("k={}: using 512-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict512, maxmindict, histovalues) = preprocessing::preprocessing_for_wasm::<U512>(&mut wf1, &mut wf2, k, &quality, csize, do_bloom);
+            (preprocessed_data, thedict512, maxmindict, histovalues) = preprocessing::preprocessing_wasm::<U512>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
 
-            loG("Preprocessing done!", Some("info"));
+            logw("Preprocessing done!", Some("info"));
         } else {
             panic!("kmer length larger than 256 currently not supported.");
         }
 
-        // loG("Sparrowhawk done!", Some("info"));
+        // logw("Sparrowhawk done!", Some("info"));
 
         Self {
             k : k,
@@ -397,10 +429,10 @@ impl AssemblyHelper {
 
 
     pub fn assemble(&mut self) {
-        loG("Starting assembly...", Some("info"));
-        let (mut outcontigs, outdot, outgfa, outgfav2) = graph_works::BasicAsm::assemble::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict, &mut Vec::new(), None);
+        logw("Starting assembly...", Some("info"));
+        let (mut outcontigs, outdot, outgfa, outgfav2) = graph_works::BasicAsm::assemble_wasm::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict);
 
-        loG("Assembly done!", Some("info"));
+        logw("Assembly done!", Some("info"));
 
         let mut outfasta   : String;
 
@@ -411,18 +443,18 @@ impl AssemblyHelper {
             panic!("kmer length too small (min. 3)");
 
         } else if self.k <= 32 {
-            outfasta = save_functions::save_as_fasta_for_wasm::<u64>( &mut outcontigs, self.seqdict64.as_ref().unwrap(),  self.k);
+            outfasta = save_functions::save_as_fasta_wasm::<u64>( &mut outcontigs, self.seqdict64.as_ref().unwrap(),  self.k);
         } else if self.k <= 64 {
-            outfasta = save_functions::save_as_fasta_for_wasm::<u128>(&mut outcontigs, self.seqdict128.as_ref().unwrap(), self.k);
+            outfasta = save_functions::save_as_fasta_wasm::<u128>(&mut outcontigs, self.seqdict128.as_ref().unwrap(), self.k);
         } else if self.k <= 128 {
-            outfasta = save_functions::save_as_fasta_for_wasm::<U256>(&mut outcontigs, self.seqdict256.as_ref().unwrap(), self.k);
+            outfasta = save_functions::save_as_fasta_wasm::<U256>(&mut outcontigs, self.seqdict256.as_ref().unwrap(), self.k);
         } else if self.k <= 256 {
-            outfasta = save_functions::save_as_fasta_for_wasm::<U512>(&mut outcontigs, self.seqdict512.as_ref().unwrap(), self.k);
+            outfasta = save_functions::save_as_fasta_wasm::<U512>(&mut outcontigs, self.seqdict512.as_ref().unwrap(), self.k);
         } else {
             panic!("kmer length larger than 256 currently not supported.");
         }
 
-        loG("Sparrowhawk done!", Some("info"));
+        logw("Sparrowhawk done!", Some("info"));
 
         self.contigs  = outcontigs;
         self.outfasta = outfasta;
@@ -448,12 +480,12 @@ impl AssemblyHelper {
     pub fn get_preprocessing_info(&self) -> String {
         let mut results = json::JsonValue::new_array();
 
-        loG(format!("{} {}", self.preprocessed_data.len(), self.histovec.len()).as_str(), Some("info"));
+        logw(format!("{} {}", self.preprocessed_data.len(), self.histovec.len()).as_str(), Some("info"));
 
         results["nkmers"] = json::JsonValue::Number(self.preprocessed_data.len().into());
         results["histo"]  = json::JsonValue::Array(self.histovec.iter().map(|x| json::JsonValue::Number((*x).into())).collect());
 
-        loG(results.dump().as_str(), Some("debug"));
+        logw(results.dump().as_str(), Some("debug"));
 
         return results.dump();
     }

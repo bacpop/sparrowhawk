@@ -2,14 +2,14 @@
 
 use core::panic;
 use nohash_hasher::NoHashHasher;
-use std::{collections::HashMap, hash::BuildHasherDefault};
+use std::{collections::HashMap, hash::BuildHasherDefault, path::PathBuf};
 
 use super::io_utils::*;
 // use std::process::exit;
 
-use crate::bit_encoding::{UInt, decode_base};
+use crate::bit_encoding::UInt;
 use crate::graph_works::Contigs;
-use crate::loG;
+use crate::logw;
 
 
 /// Writes the contig sequences and hopefully their average counts/coverage in the future
@@ -106,7 +106,8 @@ where
         }
 
     }
-    log::debug!("\nNUMBER OF BAD THINGS: {}\n", counter);
+
+    logw(format!("\nNUMBER OF BAD THINGS: {}\n", counter).as_str(), Some("debug"));
 
 }
 
@@ -116,16 +117,16 @@ where
 pub fn save_as_fasta<IntT>(ingraph: &mut Contigs,
                                             inmap:   &    HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>,
                                             k:        usize,
-                                            outfile: &String)
+                                            outfile: PathBuf)
 where
     IntT: for<'a> UInt<'a>, {
     // First, we write the sequences and the coverages
     write_sequences_and_coverages(ingraph, inmap, k);
 
     log::debug!("Starting to save");
-    log::debug!("{}", outfile);
+    log::debug!("{:?}", outfile);
     // Now, we just write all the contigs. We get our writing buffer with this:
-    let mut wbuf = set_ostream(&Some(outfile.clone()));
+    let mut wbuf = set_ostream(&Some(outfile.into_os_string().into_string().unwrap()));
     // And simply, contig per contig, we write the file
 
     log::debug!("\tLen.\tMean\tSD\tMedian");
@@ -135,17 +136,17 @@ where
 
 /// Stores all the contigs in fasta format, but exports it as JSON for javascript
 #[cfg(feature = "wasm")]
-pub fn save_as_fasta_for_wasm<IntT>(ingraph: &mut Contigs,
+pub fn save_as_fasta_wasm<IntT>(ingraph: &mut Contigs,
                                     inmap:   &    HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>,
                                     k:        usize) -> String
 where
     IntT: for<'a> UInt<'a>, {
     // First, we write the sequences and the coverages
-    loG("Preparing to export contigs...", Some("info"));
+    logw("Preparing to export contigs...", Some("info"));
 
     write_sequences_and_coverages(ingraph, inmap, k);
 
-    loG("Saving in FASTA format as a JSON", Some("info"));
+    logw("Saving in FASTA format as a JSON", Some("info"));
     // Now, we just write all the contigs. We get our writing buffer with this:
     let mut out = "".to_string();
     let mut tmpvec : Vec<u8> = Vec::with_capacity(80);
