@@ -98,10 +98,10 @@ Currently, only the `build` option is present (apart from `help`), that allows a
 An example execution could be the following:
 
 ```
-./sparrowhawk -f ./reads.tsv -k 31 --threads 1 -v --min-count 5 -o ./assembly.fasta
+./sparrowhawk -f ./reads.tsv -k 31 --threads 1 -v --min-count 5 --output-dir ./ --output-prefix prefix
 ```
 
-This will assemble your reads, with k=31 and using only one thread. The minimum repeats of one particular k-mer to be considered are 5 (which is also the default). The output contigs will be written as a fasta file called `assembly.fasta`. The input files in this case are provided through a `reads.tsv` tab-separated file, that contains an identifier for your reads and the two file paths separated by a space, i.e. a file that contains this line
+This will assemble your reads, with k=31 and using only one thread. The minimum repeats of one particular k-mer to be considered are 5 (which is also the default). The output contigs will be written in the current directory as a fasta file called `prefix_contigs.fasta`, given that we have indicated, using the `--output-prefix` argument the word "prefix" as prefix. The input files in this case are provided through a `reads.tsv` tab-separated file, that contains an identifier for your reads and the two file paths separated by a space, i.e. a file that contains this line
 
 ```
 IDENTIFIER     /path/to/the/read_1.fastq /path/to/the/read_2.fastq
@@ -110,7 +110,7 @@ IDENTIFIER     /path/to/the/read_1.fastq /path/to/the/read_2.fastq
 Alternatively, you could have run:
 
 ```
-./sparrowhawk /path/to/the/read_1.fastq /path/to/the/read_2.fastq -k 31 --threads 1 -v --min-count 5 -o ./assembly.fasta
+./sparrowhawk /path/to/the/read_1.fastq /path/to/the/read_2.fastq -k 31 --threads 1 -v --min-count 5 --output-dir ./ --output-prefix prefix
 ```
 
-In the same folder as the output FASTA file, the graph before collapsing will be exported in [DOT format](https://en.wikipedia.org/wiki/DOT_%28graph_description_language%29) as `graph.dot`, as well as a histogram of the k-mer frequency spectrum as `histogram.png`. This hardcoded exportation will be adjusted in a future release to add optionality as well as variety of formats as in the web version of sparrowhawk.
+In the same folder as the output FASTA file, the graph before collapsing will be exported in [DOT](https://en.wikipedia.org/wiki/DOT_%28graph_description_language%29), and [GFA](https://gfa-spec.github.io/GFA-spec/) versions 1.1 and 2 as `prefix_graph.dot`, `prefix_graph.gfa`, and `prefix_graph.gfa2` respectively. A histogram of the k-mer frequency spectrum will be saved in the same directory as `prefix_kmerspectrum.png`. These optional files can be avoided with the corresponding arguments.
