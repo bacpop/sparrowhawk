@@ -188,11 +188,13 @@ impl Contigs {
 
 /// Public API for assemblers.
 pub trait Assemble {
+    #[cfg(not(feature = "wasm"))]
     /// Assembles given data using specified `Graph` and writes results into the output file.
     fn assemble<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                           maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, timevec : &mut Vec<Instant>,
                           path : &mut Option<PathBuf>) -> Contigs;
 
+    #[cfg(feature = "wasm")]
     /// Assembles given data using specified `Graph` and prepares all info for being later transferred to Javascript.
     fn assemble_wasm<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                                maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>) -> (Contigs, String, String, String);
@@ -205,6 +207,7 @@ pub struct BasicAsm {}
 
 
 impl Assemble for BasicAsm {
+    #[cfg(not(feature = "wasm"))]
     fn assemble<G: Graph>(k        : usize,
                         indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                         maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
@@ -309,10 +312,11 @@ impl Assemble for BasicAsm {
     }
 
 
+    #[cfg(feature = "wasm")]
     fn assemble_wasm<G: Graph>(k        : usize,
                         indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                         maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
-                               ) -> (Contigs, String, String, String) {
+        ) -> (Contigs, String, String, String) {
         log::info!("Starting assembler!");
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
@@ -337,7 +341,6 @@ impl Assemble for BasicAsm {
         println!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0);
         println!("Number of edges {}", (nedges as f64) / (2 as f64));
 
-        // timevec.push(Instant::now());
         // log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
         // indict.iter().for_each(|(h, hi)| {
