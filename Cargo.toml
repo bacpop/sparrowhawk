@@ -57,7 +57,7 @@ flate2                   = {version = "1.0"   , optional = true}
 getrandom                = {version = "0.2"   , optional = true, features = ["js"]}
 web-sys                  = {version = "0.3.77", optional = true, features = ["Blob", "console", "Document", "Element", "HtmlCanvasElement", "HtmlImageElement", "Response", "Window"]}
 json                     = {version = "0.12.4", optional = true}
-argmin                   = {version = "0.9",    optional = true, features = ["slog-logger"]}
+argmin                   = {version = "0.9",    optional = true, features = ["slog-logger", "wasm-bindgen"]}
 argmin-math              = {version = "0.3",    optional = true}
 libm                     = {version = "0.2",    optional = true}
 
