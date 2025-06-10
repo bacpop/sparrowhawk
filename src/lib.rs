@@ -2,12 +2,16 @@
 #![warn(missing_docs)]
 use std::{
     fmt,
-    time::Instant,
     collections::HashMap,
     hash::BuildHasherDefault,
     cell::*,
-    path::PathBuf,
     // process::exit,
+};
+
+#[cfg(not(feature = "wasm"))]
+use std::{
+    time::Instant,
+    path::PathBuf,
 };
 
 extern crate num_cpus;
@@ -52,9 +56,13 @@ use crate::graph_works::Assemble;
 use bit_encoding::{U256, U512};
 
 pub mod cli;
+
+#[cfg(not(feature = "wasm"))]
 use crate::cli::*;
 
 pub mod io_utils;
+
+#[cfg(not(feature = "wasm"))]
 use crate::io_utils::*;
 
 #[cfg(feature = "wasm")]
@@ -69,8 +77,6 @@ pub mod fastx_wasm;
 use crate::graph_works::Contigs;
 #[cfg(feature = "wasm")]
 use json;
-#[cfg(feature = "wasm")]
-use crate::bit_encoding::UInt;
 
 
 
@@ -301,6 +307,7 @@ pub fn main() {
 
 
 #[cfg(feature = "wasm")]
+/// Binary dummy function. In the future, we need to completely remove it whenever compilating with the feature "wasm"
 pub fn main() {
     panic!("You've compiled Sparrowhawk for WebAssembly support, you cannot use it as a normal binary anymore!");
 }
@@ -317,6 +324,7 @@ extern {
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
+/// Function that allows to propagate panic error messages when compiling to wasm, see https://github.com/rustwasm/console_error_panic_hook
 pub fn init_panic_hook() {
     console_error_panic_hook::set_once();
 }
@@ -324,6 +332,7 @@ pub fn init_panic_hook() {
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
+/// Main struct that acts as wrapper of the assembler when compiling to wasm
 pub struct AssemblyHelper {
     k                 : usize,
     preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
@@ -333,6 +342,7 @@ pub struct AssemblyHelper {
     seqdict256        : Option<HashMap::<u64, U256, BuildHasherDefault<NoHashHasher<u64>>>>,
     seqdict512        : Option<HashMap::<u64, U512, BuildHasherDefault<NoHashHasher<u64>>>>,
     histovec          : Vec<u32>,
+    used_min_count    : u16,
     contigs           : Contigs,
     outfasta          : String,
     outdot            : String,
@@ -343,10 +353,13 @@ pub struct AssemblyHelper {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl AssemblyHelper {
+    /// Constructor/initialiser of the wasm assembler. It also performs the preprocessing.
     pub fn new(file1 : web_sys::File, file2 : web_sys::File, k : usize, verbose : bool, min_count : u16, min_qual : u8, chunk_size : usize, do_bloom : bool, do_fit : bool) -> Self {
         if cfg!(debug_assertions) {
             init_panic_hook();
         }
+
+        // TODO: improve verbose with the creation of a logging class and object that carries the verbose level and affects the logw functions, or something similar.
 
         let mut wf1 = WebSysFile::new(file1);
         let mut wf2 = WebSysFile::new(file2);
@@ -364,9 +377,10 @@ impl AssemblyHelper {
         //     .unwrap();
         logw("Beginning processing", Some("info"));
 
-        let mut preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
-        let mut maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
+        let preprocessed_data : HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>;
+        let maxmindict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
         let histovalues : Vec<u32>;
+        let used_min_count : u16;
         let mut thedict64  = None;
         let mut thedict128 = None;
         let mut thedict256 = None;
@@ -381,27 +395,27 @@ impl AssemblyHelper {
         } else if k <= 32 {
             logw(format!("k={}: using 64-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict64, maxmindict, histovalues) = preprocessing::preprocessing_wasm::<u64>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
+            (preprocessed_data, thedict64, maxmindict, histovalues, used_min_count) = preprocessing::preprocessing_wasm::<u64>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
 
             logw("Preprocessing done!", Some("info"));
 
         } else if k <= 64 {
             logw(format!("k={}: using 128-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict128, maxmindict, histovalues) = preprocessing::preprocessing_wasm::<u128>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
+            (preprocessed_data, thedict128, maxmindict, histovalues, used_min_count) = preprocessing::preprocessing_wasm::<u128>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
 
             logw("Preprocessing done!", Some("info"));
 
         } else if k <= 128 {
             logw(format!("k={}: using 256-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict256, maxmindict, histovalues) = preprocessing::preprocessing_wasm::<U256>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
+            (preprocessed_data, thedict256, maxmindict, histovalues, used_min_count) = preprocessing::preprocessing_wasm::<U256>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
 
             logw("Preprocessing done!", Some("info"));
         } else if k <= 256 {
             logw(format!("k={}: using 512-bit representation", k).as_str(), Some("info"));
 
-            (preprocessed_data, thedict512, maxmindict, histovalues) = preprocessing::preprocessing_wasm::<U512>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
+            (preprocessed_data, thedict512, maxmindict, histovalues, used_min_count) = preprocessing::preprocessing_wasm::<U512>(&mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit);
 
             logw("Preprocessing done!", Some("info"));
         } else {
@@ -419,6 +433,7 @@ impl AssemblyHelper {
             seqdict256        : thedict256,
             seqdict512        : thedict512,
             histovec          : histovalues,
+            used_min_count    : used_min_count,
             contigs           : Contigs::default(),
             outfasta          : "".to_owned(),
             outdot            : "".to_owned(),
@@ -428,13 +443,14 @@ impl AssemblyHelper {
     }
 
 
+    /// Assemble method of the wasm version
     pub fn assemble(&mut self) {
         logw("Starting assembly...", Some("info"));
         let (mut outcontigs, outdot, outgfa, outgfav2) = graph_works::BasicAsm::assemble_wasm::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict);
 
         logw("Assembly done!", Some("info"));
 
-        let mut outfasta   : String;
+        let outfasta   : String;
 
         if self.k % 2 == 0 {
             panic!("Support for even k-mer lengths not implemented");
@@ -464,6 +480,7 @@ impl AssemblyHelper {
     }
 
 
+    /// Getter to obtain the results as JSON of the assembly
     pub fn get_assembly(&self) -> String {
         let mut results = json::JsonValue::new_array();
 
@@ -477,6 +494,7 @@ impl AssemblyHelper {
     }
 
 
+    /// Getter to obtain the results as JSON of the preprocessing
     pub fn get_preprocessing_info(&self) -> String {
         let mut results = json::JsonValue::new_array();
 
@@ -484,6 +502,7 @@ impl AssemblyHelper {
 
         results["nkmers"] = json::JsonValue::Number(self.preprocessed_data.len().into());
         results["histo"]  = json::JsonValue::Array(self.histovec.iter().map(|x| json::JsonValue::Number((*x).into())).collect());
+        results["used_min_count"] = json::JsonValue::Number(self.used_min_count.into());
 
         logw(results.dump().as_str(), Some("debug"));
 

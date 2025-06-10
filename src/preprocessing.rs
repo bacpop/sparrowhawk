@@ -1,10 +1,15 @@
 //! Some docs should be here
 
 use core::panic;
-use std::time::Instant;
+
+#[cfg(not(feature = "wasm"))]
+use std::{
+    time::Instant,
+    path::PathBuf,
+};
 
 use nohash_hasher::NoHashHasher;
-use std::{collections::HashMap, hash::BuildHasherDefault, cell::*, path::PathBuf, cmp::Ordering};
+use std::{collections::HashMap, hash::BuildHasherDefault, cell::*, cmp::Ordering};
 
 use rayon::prelude::*;
 
@@ -19,8 +24,13 @@ use plotters::prelude::*;
 
 use super::QualOpts;
 use super::HashInfoSimple;
+
+#[cfg(not(feature = "wasm"))]
 use super::bit_encoding::{encode_base, rc_base};
+
+#[cfg(not(feature = "wasm"))]
 use crate::io_utils::any_fastq;
+
 use crate::bit_encoding::UInt;
 use crate::kmer::Kmer;
 use crate::logw;
@@ -31,8 +41,8 @@ use crate::bloom_filter::KmerFilter;
 /// Tuple for name and fasta or paired fastq input
 pub type InputFastx = (String, String, Option<String>);
 
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
+// #[cfg(feature = "wasm")]
+// use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use wasm_bindgen_file_reader::WebSysFile;
 #[cfg(feature = "wasm")]
@@ -46,6 +56,7 @@ const MAXSIZEHISTO : usize = 500;
 // =====================================================================================================
 
 
+#[cfg(not(feature = "wasm"))]
 fn put_these_nts_into_an_efficient_vector(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
     let mut tmpu64 : u64 = 0;
     let mut tmpind : u8  = 0;
@@ -76,6 +87,7 @@ fn put_these_nts_into_an_efficient_vector(charseq : &[u8], compseq : &mut Vec<u6
     }
 }
 
+#[cfg(not(feature = "wasm"))]
 fn put_these_nts_into_an_efficient_vector_rc(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
     let mut tmpu64 : u64 = 0;
     let mut tmpind : u8  = 0;
@@ -395,7 +407,8 @@ fn chunked_processing_wasm<IntT>(
     qual:      &QualOpts,
     outvec:    &mut Vec<(u64, u64, u8)>,
     csize:     usize,
-) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>)
+    do_fit:    bool,
+) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>, u16)
 where
     IntT: for<'a> UInt<'a>,
 {
@@ -521,37 +534,84 @@ where
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
     countmap.shrink_to_fit();
-    countmap.retain(|h, tup| {
-        if tup.0 >= qual.min_count {
-            themap
-                .entry(*h)
-                .or_insert( RefCell::new(HashInfoSimple {
-                            hnc:    tup.1,
-                            b:      tup.2,
-                            pre:    Vec::new(),
-                            post:   Vec::new(),
-                            counts: tup.0,
-                    }) );
-        } else {
-            outdict.remove(h);
-            minmaxdict.remove(&tup.1);
+    let mut minc : u16 = qual.min_count;
+
+
+    // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
+    // case no autofitting is requested. In any case, it could be improved in the future.
+    if do_fit {
+        for tup in countmap.iter() {
+            if *tup.0 as usize > MAXSIZEHISTO {
+                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
+            } else {
+                histovec[*tup.0 as usize - 1] = histovec[*tup.0 as usize - 1].saturating_add(1);
+            }
         }
 
+        // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
+        // large (and so that we can detect it).
+        logw("Counting finished. Starting fit...", Some("info"));
+        let mut fit = SpectrumFitter::new();
+        minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
 
-        if tup.0 as usize > MAXSIZEHISTO {
-            histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-        } else {
-            histovec[tup.0 as usize - 1] = histovec[tup.0 as usize- 1].saturating_add(1);
+        if minc <= 0 {
+            panic!("Fitted min_count value is zero or negative!");
         }
 
-        false
-    });
+        logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
+
+        countmap.retain(|h, tup| {
+            if tup.0 >= minc {
+                themap
+                    .entry(*h)
+                    .or_insert( RefCell::new(HashInfoSimple {
+                                hnc:    tup.1,
+                                b:      tup.2,
+                                pre:    Vec::new(),
+                                post:   Vec::new(),
+                                counts: tup.0,
+                        }) );
+            } else {
+                outdict.remove(h);
+                minmaxdict.remove(&tup.1);
+            }
+
+            false
+        });
+    } else {
+        countmap.retain(|h, tup| {
+            if tup.0 >= minc {
+                themap
+                    .entry(*h)
+                    .or_insert( RefCell::new(HashInfoSimple {
+                                hnc:    tup.1,
+                                b:      tup.2,
+                                pre:    Vec::new(),
+                                post:   Vec::new(),
+                                counts: tup.0,
+                        }) );
+            } else {
+                outdict.remove(h);
+                minmaxdict.remove(&tup.1);
+            }
+
+
+            if tup.0 as usize > MAXSIZEHISTO {
+                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
+            } else {
+                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize- 1].saturating_add(1);
+            }
+
+            false
+        });
+    }
+
     outdict.shrink_to_fit();
     minmaxdict.shrink_to_fit();
     histovec.shrink_to_fit();
     drop(countmap);
 
-    (outdict, minmaxdict, themap, histovec)
+    (outdict, minmaxdict, themap, histovec, minc)
 }
 
 
@@ -560,8 +620,9 @@ fn bloom_filter_preprocessing_wasm<IntT>(
     file1:    &mut WebSysFile,
     file2:    &mut WebSysFile,
     k:         usize,
-    qual:      &QualOpts,
-) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>)
+    qual:     &QualOpts,
+    do_fit:    bool,
+) -> (HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>, u16)
 where
     IntT: for<'a> UInt<'a>,
 {
@@ -643,38 +704,115 @@ where
     logw("Finished getting kmers from the second file", Some("info"));
     logw("Second part of filtering...", Some("info"));
 
-    // Now, get themap, histovec, and filter outdict and minmaxdict
-    let mut countmap = kmer_filter.get_counts_map();
+    // // Now, get themap, histovec, and filter outdict and minmaxdict
+    let countmap = kmer_filter.get_counts_map();
     countmap.shrink_to_fit();
-    countmap.retain(|h, tup| {
-        if tup.0 >= qual.min_count {
-            themap
-                .entry(*h)
-                .or_insert( RefCell::new(HashInfoSimple {
-                            hnc:    tup.1,
-                            b:      tup.2,
-                            pre:    Vec::new(),
-                            post:   Vec::new(),
-                            counts: tup.0,
-                    }) );
-        } else {
-            outdict.remove(h);
-            minmaxdict.remove(&tup.1);
+
+
+    // countmap.retain(|h, tup| {
+    //     if tup.0 >= qual.min_count {
+    //         themap
+    //             .entry(*h)
+    //             .or_insert( RefCell::new(HashInfoSimple {
+    //                         hnc:    tup.1,
+    //                         b:      tup.2,
+    //                         pre:    Vec::new(),
+    //                         post:   Vec::new(),
+    //                         counts: tup.0,
+    //                 }) );
+    //     } else {
+    //         outdict.remove(h);
+    //         minmaxdict.remove(&tup.1);
+    //     }
+    //
+    //     if tup.0 as usize > MAXSIZEHISTO {
+    //         histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
+    //     } else {
+    //         histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
+    //     }
+    //
+    //     false
+    // });
+    //
+    // outdict.shrink_to_fit();
+    // minmaxdict.shrink_to_fit();
+
+    // coses
+
+    // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
+    // case no autofitting is requested. In any case, it could be improved in the future.
+    let mut minc = qual.min_count;
+    if do_fit {
+        for tup in countmap.iter() {
+            if *tup.0 as usize > MAXSIZEHISTO {
+                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
+            } else {
+                histovec[*tup.0 as usize - 1] = histovec[*tup.0 as usize - 1].saturating_add(1);
+            }
         }
 
-        if tup.0 as usize > MAXSIZEHISTO {
-            histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-        } else {
-            histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
+        // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
+        // large (and so that we can detect it).
+        logw("Counting finished. Starting fit...", Some("info"));
+        let mut fit = SpectrumFitter::new();
+        minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+
+        if minc <= 0 {
+            panic!("Fitted min_count value is zero or negative!");
         }
 
-        false
-    });
+        logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
+
+        countmap.retain(|h, tup| {
+            if tup.0 >= minc {
+                themap
+                    .entry(*h)
+                    .or_insert( RefCell::new(HashInfoSimple {
+                                hnc:    tup.1,
+                                b:      tup.2,
+                                pre:    Vec::new(),
+                                post:   Vec::new(),
+                                counts: tup.0,
+                        }) );
+            } else {
+                outdict.remove(h);
+                minmaxdict.remove(&tup.1);
+            }
+
+            false
+        });
+    } else {
+        countmap.retain(|h, tup| {
+            if tup.0 >= minc {
+                themap
+                    .entry(*h)
+                    .or_insert( RefCell::new(HashInfoSimple {
+                                hnc:    tup.1,
+                                b:      tup.2,
+                                pre:    Vec::new(),
+                                post:   Vec::new(),
+                                counts: tup.0,
+                        }) );
+            } else {
+                outdict.remove(h);
+                minmaxdict.remove(&tup.1);
+            }
+
+            if tup.0 as usize > MAXSIZEHISTO {
+                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
+            } else {
+                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
+            }
+            false
+        });
+    }
 
     outdict.shrink_to_fit();
     minmaxdict.shrink_to_fit();
+    // coses
 
-    (outdict, minmaxdict, themap, histovec)
+
+    (outdict, minmaxdict, themap, histovec, minc)
 }
 
 
@@ -1210,23 +1348,25 @@ fn get_map_with_counts_and_fit(
 
 #[cfg(feature = "wasm")]
 fn get_map_wasm(
-    invec:      &Vec<(u64, u64, u8)>,
+    invec:      &mut Vec<(u64, u64, u8)>,
     min_count:  u16,
-) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>)
+    do_fit:     bool,
+) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>, u16)
 {
     let mut outdict = HashMap::with_hasher(BuildHasherDefault::default());
 
 
     let mut i = 0;
     let mut c : u16 = 0;
+    let mut minc : u16 = min_count;
     let mut tmphash = invec[i].0;
     // let mut tmpcounter = 0;
 
     let mut plotvec : Vec<u32> = vec![0 as u32; MAXSIZEHISTO]; // For plotting
 
-    while i < invec.len() {
-        if tmphash != invec[i].0 {
-            if c >= min_count {
+    if do_fit {
+        while i < invec.len() {
+            if tmphash != invec[i].0 {
                 // tmpcounter += 1;
                 outdict
                     .entry(tmphash)
@@ -1237,24 +1377,23 @@ fn get_map_wasm(
                                 post:   Vec::new(),
                                 counts: c,
                         }) );
-            }
 
-            if c as usize > MAXSIZEHISTO {
-                plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
+                if c as usize > MAXSIZEHISTO {
+                    plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
+                } else {
+                    plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
+                }
+
+                tmphash = invec[i].0;
+                c = 1;
+
             } else {
-                plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
+                c = c.saturating_add(1);
             }
-
-            tmphash = invec[i].0;
-            c = 1;
-        } else {
-            c = c.saturating_add(1);
+            i += 1;
         }
-        i += 1;
-    }
 
 
-    if c >= min_count {
         // tmpcounter += 1;
         outdict
             .entry(tmphash)
@@ -1265,15 +1404,86 @@ fn get_map_wasm(
                         post:   Vec::new(),
                         counts: c,
                 }) );
-    }
 
-    if c as usize > MAXSIZEHISTO {
-        plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
+
+        if c as usize > MAXSIZEHISTO {
+            plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
+        } else {
+            plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
+        }
+
+        invec.clear(); invec.shrink_to_fit(); // Quick optimisation
+
+        // We need to do the fit!
+        logw("Counting finished. Starting fit...", Some("info"));
+        let mut fit = SpectrumFitter::new();
+        // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
+        // large (and so that we can detect it).
+        minc = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+
+        if minc <= 0 {
+            panic!("Fitted min_count value is zero or negative!");
+        }
+
+        logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
+
+        outdict.retain(|_, rc| {
+            rc.borrow().counts >= minc
+        });
+        outdict.shrink_to_fit();
+
     } else {
-        plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
+        while i < invec.len() {
+            if tmphash != invec[i].0 {
+                if c >= minc {
+                    // tmpcounter += 1;
+                    outdict
+                        .entry(tmphash)
+                        .or_insert( RefCell::new(HashInfoSimple {
+                                    hnc:    invec[i - 1].1,
+                                    b:      invec[i - 1].2,
+                                    pre:    Vec::new(),
+                                    post:   Vec::new(),
+                                    counts: c,
+                            }) );
+                }
+
+                if c as usize > MAXSIZEHISTO {
+                    plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
+                } else {
+                    plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
+                }
+
+                tmphash = invec[i].0;
+                c = 1;
+            } else {
+                c = c.saturating_add(1);
+            }
+            i += 1;
+        }
+
+
+        if c >= minc {
+            // tmpcounter += 1;
+            outdict
+                .entry(tmphash)
+                .or_insert( RefCell::new(HashInfoSimple {
+                            hnc:    invec[i - 1].1,
+                            b:      invec[i - 1].2,
+                            pre:    Vec::new(),
+                            post:   Vec::new(),
+                            counts: c,
+                    }) );
+        }
+
+        if c as usize > MAXSIZEHISTO {
+            plotvec[MAXSIZEHISTO - 1] = plotvec[MAXSIZEHISTO - 1].saturating_add(1);
+        } else {
+            plotvec[c as usize - 1] = plotvec[c as usize - 1].saturating_add(1);
+        }
+        // logw(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
     }
-    // logw(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
-    (outdict, plotvec)
+    return (outdict, plotvec, minc);
 }
 
 
@@ -1692,6 +1902,7 @@ where
 
 
 #[cfg(feature = "wasm")]
+/// Main preprocessing function for wasm
 pub fn preprocessing_wasm<IntT>(
     file1   : &mut WebSysFile,
     file2   : &mut WebSysFile,
@@ -1700,7 +1911,7 @@ pub fn preprocessing_wasm<IntT>(
     csize   : usize,
     do_bloom: bool,
     do_fit  : bool,
-) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Option<HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>)
+) -> (HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>, Option<HashMap::<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>, HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, Vec<u32>, u16)
 where
     IntT: for<'a> UInt<'a>,
 {
@@ -1708,13 +1919,14 @@ where
         // Build indexes
         logw("Processing using a Bloom filter", Some("info"));
 
-        let (thedict, maxmindict, themap, mut histovec) = bloom_filter_preprocessing_wasm::<IntT>(
+        let (thedict, maxmindict, themap, histovec, used_min_count) = bloom_filter_preprocessing_wasm::<IntT>(
             file1,
             file2,
             k,
             qual,
+            do_fit
         );
-        return (themap, Some(thedict), maxmindict, histovec);
+        return (themap, Some(thedict), maxmindict, histovec, used_min_count);
 
     } else if csize <= 0 {
         // Build indexes
@@ -1744,28 +1956,29 @@ where
 
         // Then, do a counting of everything and save the results in a dictionary and return it
         logw("Counting k-mers", Some("info"));
-        let (themap, mut histovec) = get_map_wasm(&tmpvec, qual.min_count);
+        let (themap, mut histovec, used_min_count) = get_map_wasm(&mut tmpvec, qual.min_count, do_fit);
         histovec.shrink_to_fit();
         drop(tmpvec);
 
         logw("Kmers counted.", Some("info"));
 
-        return (themap, Some(thedict), maxmindict, histovec);
+        return (themap, Some(thedict), maxmindict, histovec, used_min_count);
     } else {
         // Build indexes
         logw(format!("Processing in chunks of size {} the input files", csize).as_str(), Some("info"));
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
-        let (thedict, maxmindict, themap, mut histovec) = chunked_processing_wasm::<IntT>(
+        let (thedict, maxmindict, themap, mut histovec, used_min_count) = chunked_processing_wasm::<IntT>(
             file1,
             file2,
             k,
             qual,
             &mut tmpvec,
-            csize
+            csize,
+            do_fit,
         );
         drop(tmpvec);
         histovec.shrink_to_fit();
-        return (themap, Some(thedict), maxmindict, histovec);
+        return (themap, Some(thedict), maxmindict, histovec, used_min_count);
     }
 }

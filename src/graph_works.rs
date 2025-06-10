@@ -4,9 +4,11 @@ use std::{
     time::Instant,
     collections::HashMap,
     hash::BuildHasherDefault,
-    io::Write,
     path::PathBuf,
 };
+
+#[cfg(not(feature = "wasm"))]
+use std::io::Write;
 
 // use rayon::prelude::*;
 use super::io_utils::*;

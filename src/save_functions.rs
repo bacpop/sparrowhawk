@@ -2,8 +2,12 @@
 
 use core::panic;
 use nohash_hasher::NoHashHasher;
-use std::{collections::HashMap, hash::BuildHasherDefault, path::PathBuf};
+use std::{collections::HashMap, hash::BuildHasherDefault};
 
+#[cfg(not(feature = "wasm"))]
+use std::path::PathBuf;
+
+#[cfg(not(feature = "wasm"))]
 use super::io_utils::*;
 // use std::process::exit;
 
