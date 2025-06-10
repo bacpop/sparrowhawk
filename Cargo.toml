@@ -10,9 +10,11 @@ default = ["basic"]
 # wasm = ["dep:js-sys", "dep:wasm-bindgen", "dep:simple-error", "dep:console_error_panic_hook", "dep:wasm-bindgen-file-reader", "dep:seq_io", "dep:flate2", "dep:web-sys", "dep:getrandom"]
 wasm = ["js-sys", "wasm-bindgen", "simple-error", "console_error_panic_hook", "wasm-bindgen-file-reader", "seq_io", "flate2", "web-sys", "getrandom",
         "serde", "ahash", "num-traits", "log", "simple_logger", "clap", "regex", "rayon", "num_cpus", "nohash-hasher",
-        "stacker", "project-root", "petgraph", "bnum", "json", "argmin", "argmin-math", "libm"]
+        # "stacker", "project-root", "petgraph", "bnum", "json", "argmin", "argmin-math", "libm"]
+        "stacker", "project-root", "petgraph", "bnum", "json", "argmin", "argmin-math", "argmin-observer-slog", "libm"]
 basic = ["needletail", "serde", "ahash", "num-traits", "log", "simple_logger", "indicatif", "clap", "regex", "rayon", "num_cpus", "nohash-hasher",
-         "stacker", "plotters", "project-root", "petgraph", "bnum", "argmin", "argmin-math", "libm"]
+         # "stacker", "plotters", "project-root", "petgraph", "bnum", "argmin", "argmin-math", "libm"]
+         "stacker", "plotters", "project-root", "petgraph", "bnum", "argmin", "argmin-math", "argmin-observer-slog", "libm"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -57,8 +59,10 @@ flate2                   = {version = "1.0"   , optional = true}
 getrandom                = {version = "0.2"   , optional = true, features = ["js"]}
 web-sys                  = {version = "0.3.77", optional = true, features = ["Blob", "console", "Document", "Element", "HtmlCanvasElement", "HtmlImageElement", "Response", "Window"]}
 json                     = {version = "0.12.4", optional = true}
-argmin                   = {version = "0.9",    optional = true, features = ["slog-logger", "wasm-bindgen"]}
-argmin-math              = {version = "0.3",    optional = true}
+# argmin                   = {version = "0.10.0", optional = true, features = ["slog-logger", "wasm-bindgen"]}
+argmin                   = {version = "0.10.0", optional = true, features = ["wasm-bindgen"]}
+argmin-math              = {version = "0.4",    optional = true}
+argmin-observer-slog     = {version = "0.1.0",  optional = true}
 libm                     = {version = "0.2",    optional = true}
 
 [dev-dependencies]

@@ -11,15 +11,26 @@
 
 use core::panic;
 
-use argmin::core::observers::{ObserverMode, SlogLogger};
-use argmin::core::{
-    CostFunction, Error, Executor, Gradient, State, TerminationReason::SolverConverged,
+use argmin::{
+    core::{
+        // observers::{ObserverMode, SlogLogger},
+        observers::ObserverMode,
+        CostFunction,
+        Error,
+        Executor,
+        Gradient,
+        State,
+        TerminationReason::SolverConverged,
+    },
+    solver::{
+        linesearch::{
+            condition::ArmijoCondition,
+            BacktrackingLineSearch,
+        },
+        quasinewton::BFGS,
+    },
 };
-
-use argmin::solver::linesearch::condition::ArmijoCondition;
-use argmin::solver::linesearch::BacktrackingLineSearch;
-use argmin::solver::quasinewton::BFGS;
-
+use argmin_observer_slog::SlogLogger;
 use libm::lgamma;
 
 use log;
