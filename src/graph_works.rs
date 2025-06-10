@@ -1,9 +1,13 @@
 use nohash_hasher::NoHashHasher;
 use std::{
     cell::*,
-    time::Instant,
     collections::HashMap,
     hash::BuildHasherDefault,
+};
+
+#[cfg(not(feature = "wasm"))]
+use std::{
+    time::Instant,
     path::PathBuf,
 };
 
