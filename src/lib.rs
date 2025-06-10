@@ -306,14 +306,13 @@ pub fn main() {
 }
 
 
+// ===================================== WebAssembly stuff follows
 #[cfg(feature = "wasm")]
 /// Binary dummy function. In the future, we need to completely remove it whenever compilating with the feature "wasm"
 pub fn main() {
     panic!("You've compiled Sparrowhawk for WebAssembly support, you cannot use it as a normal binary anymore!");
 }
 
-
-// ===================================== WebAssembly stuff follows
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]

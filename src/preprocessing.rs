@@ -540,11 +540,11 @@ where
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
     if do_fit {
-        for tup in countmap.iter() {
-            if *tup.0 as usize > MAXSIZEHISTO {
+        for (_, tup) in countmap.iter() {
+            if tup.0 as usize > MAXSIZEHISTO {
                 histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
             } else {
-                histovec[*tup.0 as usize - 1] = histovec[*tup.0 as usize - 1].saturating_add(1);
+                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
             }
         }
 
@@ -743,11 +743,11 @@ where
     // case no autofitting is requested. In any case, it could be improved in the future.
     let mut minc = qual.min_count;
     if do_fit {
-        for tup in countmap.iter() {
-            if *tup.0 as usize > MAXSIZEHISTO {
+        for (_, tup) in countmap.iter() {
+            if tup.0 as usize > MAXSIZEHISTO {
                 histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
             } else {
-                histovec[*tup.0 as usize - 1] = histovec[*tup.0 as usize - 1].saturating_add(1);
+                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
             }
         }
 
@@ -916,11 +916,11 @@ where
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
     if do_fit {
-        for tup in countmap.iter() {
-            if *tup.0 as usize > MAXSIZEHISTO {
+        for (_, tup) in countmap.iter() {
+            if tup.0 as usize > MAXSIZEHISTO {
                 histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
             } else {
-                histovec[*tup.0 as usize - 1] = histovec[*tup.0 as usize - 1].saturating_add(1);
+                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
             }
         }
 
@@ -1501,8 +1501,9 @@ fn update_countmap(
     while i < invec.len() {
         if tmphash != invec[i].0 {
 
-            let tmpref = countmap.entry(tmphash).or_insert( (c, invec[i - 1].1, invec[i - 1].2) );
+            let tmpref = countmap.entry(tmphash).or_insert( (0, invec[i - 1].1, invec[i - 1].2) );
             tmpref.0 = tmpref.0.saturating_add(c);
+
             tmphash = invec[i].0;
             c = 1;
         } else {
@@ -1511,7 +1512,7 @@ fn update_countmap(
         i += 1;
     }
 
-    let tmpref = countmap.entry(tmphash).or_insert( (c, invec[i - 1].1, invec[i - 1].2) );
+    let tmpref = countmap.entry(tmphash).or_insert( (0, invec[i - 1].1, invec[i - 1].2) );
     tmpref.0 = tmpref.0.saturating_add(c);
 }
 
@@ -1661,19 +1662,19 @@ where
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
     if do_fit {
-        for tup in countmap.iter() {
-            if *tup.0 as usize > MAXSIZEHISTO {
+        for (_, tup) in countmap.iter() {
+            if tup.0 as usize > MAXSIZEHISTO {
                 histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
             } else {
-                histovec[*tup.0 as usize - 1] = histovec[*tup.0 as usize - 1].saturating_add(1);
+                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
             }
         }
-
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
         log::info!("Counting finished. Starting fit...");
         let mut fit = SpectrumFitter::new();
-        let minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        let minc = fit.fit_histogram(histovec.clone()[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
