@@ -1850,7 +1850,7 @@ where
             qual,
             &mut tmpvec);
 
-        // timevec.push(Instant::now());
+        timevec.push(Instant::now());
         log::info!("Kmers extracted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
 
@@ -1859,11 +1859,11 @@ where
         log::info!("Sorting vector");
         tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-        // timevec.push(Instant::now());
+        timevec.push(Instant::now());
         log::info!("Kmers sorted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
         // Then, do a counting of everything and save the results in a dictionary and return it
-        // timevec.push(Instant::now());
+        timevec.push(Instant::now());
         log::info!("Counting k-mers");
         let themap;
 
@@ -1874,7 +1874,7 @@ where
         }
         drop(tmpvec);
 
-        // timevec.push(Instant::now());
+        timevec.push(Instant::now());
         log::info!("Kmers counted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
         return (themap, theseq, thedict, maxmindict)
