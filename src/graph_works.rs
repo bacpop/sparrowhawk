@@ -1,10 +1,20 @@
-use std::cell::*;
-use std::time::Instant;
 use nohash_hasher::NoHashHasher;
-use std::{collections::HashMap, hash::BuildHasherDefault};
+use std::{
+    cell::*,
+    collections::HashMap,
+    hash::BuildHasherDefault,
+};
 
-use rayon::prelude::*;
-use std::io::Write;
+#[cfg(not(feature = "wasm"))]
+use std::{
+    time::Instant,
+    path::PathBuf,
+    io::Write,
+};
+
+// use rayon::prelude::*;
+
+#[cfg(not(feature = "wasm"))]
 use super::io_utils::*;
 
 #[cfg(not(feature = "wasm"))]
@@ -150,7 +160,7 @@ impl Contigs {
 
     /// Temporal and historical function to simplify contigs. To be removed in the future
     pub fn shrink(&mut self) {
-        log::warn!("Contigs are going to be shrunk!");
+        // log::warn!("Contigs are going to be shrunk!");
 
         for ic in 0..self.serialized_contigs.len() {
             let mut tmpv = self.serialized_contigs[ic][0].abs_ind.clone();
@@ -182,23 +192,31 @@ impl Contigs {
 
 /// Public API for assemblers.
 pub trait Assemble {
+    #[cfg(not(feature = "wasm"))]
     /// Assembles given data using specified `Graph` and writes results into the output file.
     fn assemble<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                           maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, timevec : &mut Vec<Instant>,
-                          path : Option<&String>) -> (Contigs, String, String, String);
+                          path : &mut Option<PathBuf>) -> Contigs;
+
+    #[cfg(feature = "wasm")]
+    /// Assembles given data using specified `Graph` and prepares all info for being later transferred to Javascript.
+    fn assemble_wasm<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
+                               maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>) -> (Contigs, String, String, String);
 }
 
 
 ///////////////////////////////////////////////////////////
-/// Basic assembler.
+/// Basic standalone assembler.
 pub struct BasicAsm {}
 
 
 impl Assemble for BasicAsm {
-    fn assemble<G: Graph>(k    : usize,
+    #[cfg(not(feature = "wasm"))]
+    fn assemble<G: Graph>(k        : usize,
                         indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                         maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
-                        timevec    : &mut Vec<Instant>, path : Option<&String>) -> (Contigs, String, String, String) {
+                        timevec    : &mut Vec<Instant>,
+                        path       : &mut Option<PathBuf>) -> Contigs {
         log::info!("Starting assembler!");
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
@@ -217,10 +235,116 @@ impl Assemble for BasicAsm {
         });
 
 //         drop(maxmindict);
+        log::info!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0);
+        log::info!("Number of edges {}", (nedges as f64) / (2 as f64));
+
+        timevec.push(Instant::now());
+        log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+
+        indict.iter().for_each(|(h, hi)| {
+            let himutref = hi.borrow();
+
+            // Check first previous neighbours:
+            for ipre in himutref.pre.iter() {
+                if !indict.get(&ipre.0).unwrap().borrow().pre.contains(&(*h, ipre.1.rev())) || !indict.get(&ipre.0).unwrap().borrow().post.contains(&(*h, ipre.1)) {
+                    println!("HEY");
+                }
+            }
+            for ipost in himutref.post.iter() {
+                if !indict.get(&ipost.0).unwrap().borrow().post.contains(&(*h, ipost.1.rev())) || !indict.get(&ipost.0).unwrap().borrow().pre.contains(&(*h, ipost.1)) {
+                    println!("HEY");
+                }
+            }
+        });
+
+        let mut ptgraph = G::create_from_map::<G>(k, indict);
+
+
+        // log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
+        // if path_.is_some() {
+        //     let mut wbuf = set_ostream(&Some(path_.unwrap().clone().replace(".dot", "_preshrink.dot")));
+        //     ptgraph.write_to_dot(&mut wbuf);
+        // }
+        // log::info!("Done.");
+
+        log::info!("Starting shrinkage and pruning of the graph");
+
+        log::info!("Removing self-loops (temporal restriction)");
+        ptgraph.remove_self_loops();
+
+        // let minnts = 100; // independent of this value, the minimum number of nts will be always k
+        // let limit = max(0, minnts - k + 1);
+
+        let mut didanyofusdoanything = true;
+        while didanyofusdoanything {
+            let bools = ptgraph.shrink();
+            // let bools = false;
+            let boolr = ptgraph.remove_dead_paths();
+            // let boolr = false;
+    //             println!("{} {}", bools, boolr);
+            didanyofusdoanything = bools || boolr;
+            // break;
+        }
+        log::info!("Shrinkage and pruning finished");
+
+        if path.is_some() {
+            log::info!("Saving graph (post-shrink, pre-collapse, w/o one-node contigs) as DOT, GFAv1.1, and GFAv2 files...");
+            let pathmutref = path.as_mut().unwrap();
+            pathmutref.set_extension("dot");
+            let mut wbufdot = set_ostream(&Some(pathmutref.clone().into_os_string().into_string().unwrap()));
+            ptgraph.write_to_dot(&mut wbufdot);
+
+            pathmutref.set_extension("gfa");
+            let mut wbufgfa = set_ostream(&Some(pathmutref.clone().into_os_string().into_string().unwrap()));
+            ptgraph.write_to_gfa(&mut wbufgfa);
+
+            pathmutref.set_extension("gfa2");
+            let mut wbufgfa2 = set_ostream(&Some(pathmutref.clone().into_os_string().into_string().unwrap()));
+            ptgraph.write_to_gfa2(&mut wbufgfa2);
+            log::info!("Done.");
+        }
+
+
+        let serialized_contigs = ptgraph.collapse();
+        log::info!("I created {} contigs", serialized_contigs.len());
+        let mut contigs = Contigs::new(serialized_contigs);
+
+        // TEMPORAL RESTRICTION, WIP
+        contigs.shrink();
+
+        contigs
+    }
+
+
+    #[cfg(feature = "wasm")]
+    fn assemble_wasm<G: Graph>(k        : usize,
+                        indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
+                        maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
+        ) -> (Contigs, String, String, String) {
+        log::info!("Starting assembler!");
+
+        // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
+        let mut i = 0;
+        let mut ialone = 0;
+        let mut nedges = 0;
+
+        // TODO: explore parallelisation?
+
+        indict.iter().for_each(|(h, hi)| {
+            let mut himutref = hi.borrow_mut();
+
+            himutref.pre  = check_bkg(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
+            himutref.post = check_fwd(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
+            let tmpnedges = himutref.pre.len() + himutref.post.len();
+            nedges += tmpnedges;
+            i += 1;
+            if tmpnedges == 0 { ialone += 1};
+        });
+
+//         drop(maxmindict);
         println!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0);
         println!("Number of edges {}", (nedges as f64) / (2 as f64));
 
-        // timevec.push(Instant::now());
         // log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
         // indict.iter().for_each(|(h, hi)| {
@@ -239,62 +363,48 @@ impl Assemble for BasicAsm {
         //     }
         // });
 
-        let ptgraph = G::create_from_map::<G>(k, indict);
+        let mut ptgraph = G::create_from_map::<G>(k, indict);
 
-        assemble_with_bi_graph(ptgraph, timevec, path)
+
+        // log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
+        // if path_.is_some() {
+        //     let mut wbuf = set_ostream(&Some(path_.unwrap().clone().replace(".dot", "_preshrink.dot")));
+        //     ptgraph.write_to_dot(&mut wbuf);
+        // }
+        // log::info!("Done.");
+
+        log::info!("Starting shrinkage and pruning of the graph");
+
+        log::info!("Removing self-loops (temporal restriction)");
+        ptgraph.remove_self_loops();
+
+        // let minnts = 100; // independent of this value, the minimum number of nts will be always k
+        // let limit = max(0, minnts - k + 1);
+
+        let mut didanyofusdoanything = true;
+        while didanyofusdoanything {
+            let bools = ptgraph.shrink();
+            // let bools = false;
+            let boolr = ptgraph.remove_dead_paths();
+            // let boolr = false;
+    //             println!("{} {}", bools, boolr);
+            didanyofusdoanything = bools || boolr;
+            // break;
+        }
+        log::info!("Shrinkage and pruning finished");
+
+        let outdot  = ptgraph.get_dot_string();
+        let outgfa  = ptgraph.get_gfa_string();
+        let outgfa2 = ptgraph.get_gfa2_string();
+
+        let serialized_contigs = ptgraph.collapse();
+        log::info!("I created {} contigs", serialized_contigs.len());
+        let mut contigs = Contigs::new(serialized_contigs);
+
+        // TEMPORAL RESTRICTION, WIP
+        contigs.shrink();
+
+        (contigs, outdot, outgfa, outgfa2)
     }
 }
 
-
-/// Assemble a bidirected DNA de Bruijn graph
-fn assemble_with_bi_graph<G: Graph>(mut ptgraph: G, timevec : &mut Vec<Instant>, path_ : Option<&String>)
--> (Contigs, String, String, String) {
-
-    // log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
-    // if path_.is_some() {
-    //     let mut wbuf = set_ostream(&Some(path_.unwrap().clone().replace(".dot", "_preshrink.dot")));
-    //     ptgraph.write_to_dot(&mut wbuf);
-    // }
-    // log::info!("Done.");
-
-    log::info!("Starting shrinkage and pruning of the graph");
-
-    log::info!("Removing self-loops (temporal restriction)");
-    ptgraph.remove_self_loops();
-
-    // let minnts = 100; // independent of this value, the minimum number of nts will be always k
-    // let limit = max(0, minnts - k + 1);
-
-    let mut didanyofusdoanything = true;
-    while didanyofusdoanything {
-        let bools = ptgraph.shrink();
-        // let bools = false;
-        let boolr = ptgraph.remove_dead_paths();
-        // let boolr = false;
-//             println!("{} {}", bools, boolr);
-        didanyofusdoanything = bools || boolr;
-        // break;
-    }
-    log::info!("Shrinkage and pruning finished");
-
-
-    log::info!("Saving graph (post-shrink, pre-collapse, w/o one-node contigs) as DOT file...");
-    if path_.is_some() {
-        let mut wbuf = set_ostream(&Some(path_.unwrap().clone()));
-        ptgraph.write_to_dot(&mut wbuf);
-    }
-    log::info!("Done.");
-
-    let outdot  = ptgraph.get_dot_string();
-    let outgfa  = ptgraph.get_gfa_string();
-    let outgfa2 = ptgraph.get_gfa2_string();
-
-    let serialized_contigs = ptgraph.collapse(path_);
-    log::info!("I created {} contigs", serialized_contigs.len());
-    let mut contigs = Contigs::new(serialized_contigs);
-
-    // TEMPORAL RESTRICTION, WIP
-    contigs.shrink();
-
-    (contigs, outdot, outgfa, outgfa2)
-}

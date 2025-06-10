@@ -8,7 +8,7 @@ use crate::HashInfoSimple;
 pub trait Init: Default {
     /// Initialize collection. Arguments are estimated maximum counts of nodes and
     /// edges, as well as type of the input file.
-    fn init(_edges_count: Option<usize>, _nodes_count: Option<usize>, k : usize) -> Self {
+    fn init(_edges_count: Option<usize>, _nodes_count: Option<usize>, _k : usize) -> Self {
         Self::default()
     }
 }

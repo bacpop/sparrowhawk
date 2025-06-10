@@ -442,8 +442,8 @@ impl Graph for PtGraph {
 
     #[inline]
     fn in_neighbours_min(&self, node: Self::NodeIdentifier) -> Vec<(NodeIndex, EdgeType)> {
-        let tmpoutneigh = self.graph.edges_directed(node, petgraph::EdgeDirection::Incoming).collect::<Vec<_>>();
-        let mut outneigh =Vec::new();
+        let     tmpoutneigh = self.graph.edges_directed(node, petgraph::EdgeDirection::Incoming).collect::<Vec<_>>();
+        let mut outneigh    = Vec::new();
         for ie in tmpoutneigh.iter() {
             match ie.weight().t {
                 EdgeType::MinToMin | EdgeType::MaxToMin => outneigh.push( (ie.source(), ie.weight().t) ),
@@ -455,8 +455,8 @@ impl Graph for PtGraph {
 
     #[inline]
     fn in_neighbours_max(&self, node: Self::NodeIdentifier) -> Vec<(NodeIndex, EdgeType)> {
-        let tmpoutneigh = self.graph.edges_directed(node, petgraph::EdgeDirection::Incoming).collect::<Vec<_>>();
-        let mut outneigh =Vec::new();
+        let     tmpoutneigh = self.graph.edges_directed(node, petgraph::EdgeDirection::Incoming).collect::<Vec<_>>();
+        let mut outneigh    = Vec::new();
         for ie in tmpoutneigh.iter() {
             match ie.weight().t {
                 EdgeType::MinToMax | EdgeType::MaxToMax => outneigh.push( (ie.source(), ie.weight().t) ),

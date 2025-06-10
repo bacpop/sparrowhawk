@@ -11,19 +11,33 @@
 
 use core::panic;
 
-use argmin::core::observers::{ObserverMode, SlogLogger};
-use argmin::core::{
-    CostFunction, Error, Executor, Gradient, State, TerminationReason::SolverConverged,
+use argmin::{
+    core::{
+        // observers::{ObserverMode, SlogLogger},
+        observers::ObserverMode,
+        CostFunction,
+        Error,
+        Executor,
+        Gradient,
+        State,
+        TerminationReason::SolverConverged,
+    },
+    solver::{
+        linesearch::{
+            condition::ArmijoCondition,
+            BacktrackingLineSearch,
+        },
+        quasinewton::BFGS,
+    },
 };
-
-use argmin::solver::linesearch::condition::ArmijoCondition;
-use argmin::solver::linesearch::BacktrackingLineSearch;
-use argmin::solver::quasinewton::BFGS;
-
+use argmin_observer_slog::SlogLogger;
 use libm::lgamma;
 
+use log;
+use crate::logw;
 
-const MAX_COUNT : usize = 500;
+
+// const MAX_COUNT : usize = 500;
 const MIN_FREQ  : u32   = 50;
 const INIT_W0   : f64   = 0.8f64;
 const INIT_C    : f64   = 20.0f64;
@@ -36,16 +50,12 @@ const INIT_C    : f64   = 20.0f64;
 /// extract a table of the output for plotting purposes.
 #[derive(Default, Debug)]
 pub struct SpectrumFitter {
-    /// K-mer size
-    k: usize,
     /// Estimated error weight
     w0: f64,
     /// Estimated coverage
     c: f64,
     /// Coverage cutoff
     cutoff: usize,
-    /// Show logging
-    verbose: bool,
     /// Has the fit been run
     fitted: bool,
 }
@@ -53,19 +63,11 @@ pub struct SpectrumFitter {
 
 impl SpectrumFitter {
     /// Count split k-mers from a pair of input FASTQ files.
-    ///
-    /// `verbose` will also print to stderr on each iteration of the optiser.
-    pub fn new(k: usize, verbose: bool) -> Self {
-        if !(3..=256).contains(&k) || k % 2 == 0 {
-            panic!("Invalid k-mer length");
-        }
-
-        let mut cov_counts = Self {
-            k,
+    pub fn new() -> Self {
+        let cov_counts = Self {
             w0     : INIT_W0,
             c      : INIT_C,
             cutoff : 0,
-            verbose,
             fitted : false,
         };
 
@@ -100,7 +102,7 @@ impl SpectrumFitter {
 
         // Fit with maximum likelihood. Using BFGS optimiser and simple line search
         // seems to work fine
-        log::info!("Fitting Poisson mixture model using maximum likelihood");
+        logw("Fitting Poisson mixture model using maximum likelihood", Some("info"));
         let mixture_fit = MixPoisson { counts: counts_f64 };
         let init_param: Vec<f64> = vec![self.w0, self.c];
 
@@ -118,14 +120,14 @@ impl SpectrumFitter {
                 .max_iters(20)
         });
 
-        if self.verbose {
+        if log::log_enabled!(log::Level::Debug) {
             exec = exec.add_observer(SlogLogger::term(), ObserverMode::Always);
         }
 
         let res = exec.run()?;
 
         // Print diagnostics
-        log::info!("{res}");
+        logw(format!("{res}").as_str(), Some("info"));
         if let Some(termination_reason) = res.state().get_termination_reason() {
             if *termination_reason == SolverConverged {
                 // Best parameter vector
