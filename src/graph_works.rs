@@ -22,6 +22,7 @@ use needletail::parser::write_fasta;
 
 
 // use std::process::exit;
+
 extern crate petgraph;
 use super::HashInfoSimple;
 
@@ -218,6 +219,8 @@ impl Assemble for BasicAsm {
                         timevec    : &mut Vec<Instant>,
                         path       : &mut Option<PathBuf>) -> Contigs {
         log::info!("Starting assembler!");
+
+        // exit(0);
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
         let mut i = 0;
