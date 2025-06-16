@@ -552,7 +552,15 @@ where
         // large (and so that we can detect it).
         logw("Counting finished. Starting fit...", Some("info"));
         let mut fit = SpectrumFitter::new();
-        minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. The default value of 5 will be used. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 5;
+        }
+
+        // minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
@@ -755,7 +763,15 @@ where
         // large (and so that we can detect it).
         logw("Counting finished. Starting fit...", Some("info"));
         let mut fit = SpectrumFitter::new();
-        minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. The default value of 5 will be used. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 5;
+        }
+
+        // minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
@@ -928,7 +944,16 @@ where
         // large (and so that we can detect it).
         log::info!("Counting finished. Starting fit...");
         let mut fit = SpectrumFitter::new();
-        let minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. The default value of 5 will be used. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 5;
+        }
+
+        // let minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
@@ -1261,7 +1286,16 @@ fn get_map_with_counts_and_fit(
     let mut fit = SpectrumFitter::new();
     // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
     // large (and so that we can detect it).
-    let fitted_min_count = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+    // let fitted_min_count = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+    let fitted_min_count : u16;
+
+    let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
+    if result.is_ok() {
+        fitted_min_count = result.unwrap() as u16;
+    } else {
+        logw("Fit has not converged. The default value of 5 will be used. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+        fitted_min_count = 5;
+    }
 
     if fitted_min_count <= 0 {
         panic!("Fitted min_count value is zero or negative!");
@@ -1419,7 +1453,15 @@ fn get_map_wasm(
         let mut fit = SpectrumFitter::new();
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
-        minc = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        // minc = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+
+        let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. The default value of 5 will be used. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 5;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
@@ -1673,8 +1715,15 @@ where
         // large (and so that we can detect it).
         log::info!("Counting finished. Starting fit...");
         let mut fit = SpectrumFitter::new();
-        let minc = fit.fit_histogram(histovec.clone()[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        // let minc = fit.fit_histogram(histovec.clone()[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
 
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. The default value of 5 will be used. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 5;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
