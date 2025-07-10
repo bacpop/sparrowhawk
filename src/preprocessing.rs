@@ -16,7 +16,7 @@ use rayon::prelude::*;
 #[cfg(not(feature = "wasm"))]
 use needletail::parse_fastx_file;
 
-// use std::process::exit;
+use std::process::exit;
 
 #[cfg(not(feature = "wasm"))]
 use plotters::prelude::*;
@@ -139,6 +139,7 @@ where
 
 //     let maxkmers = 200;
 //     let mut numkmers = 0;
+    let mut ncols : usize = 0;
     let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
     let mut theseq   : Vec<u64> = Vec::new();
     while let Some(record) = reader.next() {
@@ -159,12 +160,13 @@ where
 //             numkmers += 1;
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
-            // let testkm = outdict.entry(hc).or_insert(km);
-            // if *testkm != km {
-            //     log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
-            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-            // }
+            // outdict.entry(hc).or_insert(km);
+            let testkm = outdict.entry(hc).or_insert(km);
+            if *testkm != km {
+                log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
+                log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                ncols += 1;
+            }
             // } else {
             //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
@@ -172,12 +174,13 @@ where
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
-                // let testkm = outdict.entry(hc).or_insert(km);
-                // if *testkm != km {
-                //     log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
-                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                // }
+                // outdict.entry(hc).or_insert(km);
+                let testkm = outdict.entry(hc).or_insert(km);
+                if *testkm != km {
+                    log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
+                    log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                    ncols += 1;
+                }
                 // } else {
                 //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
@@ -224,12 +227,13 @@ where
 //             numkmers += 1;
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
-            // let testkm = outdict.entry(hc).or_insert(km);
-            // if *testkm != km {
-            //     log::debug!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
-            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-            // }
+            // outdict.entry(hc).or_insert(km);
+            let testkm = outdict.entry(hc).or_insert(km);
+            if *testkm != km {
+                log::debug!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
+                log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                ncols += 1;
+            }
             // } else {
             //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
@@ -237,12 +241,13 @@ where
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
-                // let testkm = outdict.entry(hc).or_insert(km);
-                // if *testkm != km {
-                //     log::debug!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
-                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                // }
+                // outdict.entry(hc).or_insert(km);
+                let testkm = outdict.entry(hc).or_insert(km);
+                if *testkm != km {
+                    log::debug!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
+                    log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                    ncols += 1;
+                }
                 // } else {
                 //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
@@ -265,6 +270,7 @@ where
 
     log::info!("Finished getting kmers from file {filename2}");
     log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
+    log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
 
 
     (theseq, outdict, minmaxdict)
@@ -1892,6 +1898,7 @@ where
 
         // First, we want to fill our mega-vector with all k-mers from both paired-end reads
         log::info!("Filling vector");
+        println!("checks enabled!");
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
         let (theseq, thedict, maxmindict) = get_kmers_from_both_files_and_the_dict_and_the_seq::<IntT>(&input_files[0].1,
@@ -1900,6 +1907,7 @@ where
             qual,
             &mut tmpvec);
 
+        exit(0);
         timevec.push(Instant::now());
         log::info!("Kmers extracted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
