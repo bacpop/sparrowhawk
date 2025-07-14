@@ -1553,6 +1553,7 @@ where
     log::info!("Entering while loop...");
 
     let mut i_record = 0;
+    let mut ncols : usize = 0;
 
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
@@ -1568,12 +1569,20 @@ where
         if let Some(mut kmer_it) = kmer_opt {
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
+            // outdict.entry(hc).or_insert(km);
+            let testkm = outdict.entry(hc).or_insert(km);
+            if *testkm != km {
+                ncols += 1;
+            }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
+                // outdict.entry(hc).or_insert(km);
+                let testkm = outdict.entry(hc).or_insert(km);
+                if *testkm != km {
+                    ncols += 1;
+                }
                 minmaxdict.entry(hnc).or_insert(hc);
             }
         }
@@ -1617,12 +1626,20 @@ where
         if let Some(mut kmer_it) = kmer_opt {
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
+            // outdict.entry(hc).or_insert(km);
+            let testkm = outdict.entry(hc).or_insert(km);
+            if *testkm != km {
+                ncols += 1;
+            }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
+                // outdict.entry(hc).or_insert(km);
+                let testkm = outdict.entry(hc).or_insert(km);
+                if *testkm != km {
+                    ncols += 1;
+                }
                 minmaxdict.entry(hnc).or_insert(hc);
             }
         }
@@ -1659,6 +1676,12 @@ where
         outvec.clear();
     }
     log::info!("Finished getting kmers from the second file");
+
+
+    log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
+    exit(0);
+
+
     log::info!("Filtering...");
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
