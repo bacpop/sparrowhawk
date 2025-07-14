@@ -124,6 +124,7 @@ pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) {
     mutrefw.merge(&savedmidw, midconns[chosennode].1); // Intermediate node k-mer(s)
     mutrefw.set_internal_edge(EdgeType::MinToMin);     // Inner edge
     mutrefw.abs_ind.push(savedoutw.abs_ind[0]);        // Out node k-mer
+    mutrefw.set_mean_counts(&vec![mutrefw.counts, savedmidw.counts, savedoutw.counts]);
 
     match outct {
         CarryType::Min => {
@@ -139,7 +140,6 @@ pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) {
             ptgraph.graph.add_edge(outconn.0, startn,    EmptyEdge{t : tmptype.rev()});
         },
     }
-    mutrefw.set_mean_counts(&vec![mutrefw.counts, savedmidw.counts, savedoutw.counts]);
 
 }
 
