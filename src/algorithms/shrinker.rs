@@ -1,9 +1,12 @@
 //! Shrink the given graph
 use crate::graphs::Graph;
-use crate::graphs::pt_graph::{CarryType, EdgeIndex, EdgeType, EmptyEdge, NodeIndex, PtGraph};
+use crate::graphs::pt_graph::{CarryType, EdgeIndex, EdgeType, EmptyEdge, NodeIndex, NodeStruct, PtGraph};
+use crate::logw;
 
 use petgraph::Direction::{Incoming, Outgoing};
 use petgraph::visit::EdgeRef;
+use std::collections::BTreeSet;
+
 // use std::process::exit;
 
 /// Mark graph as shrinkable.
@@ -30,6 +33,116 @@ pub trait Shrinkable {
 
 }
 
+/// Checks whether the candidate area can be a good bubble for error correction.
+pub fn check_bubble_structure(ptgraph: &PtGraph, startn : NodeIndex, invec : Vec<EdgeIndex>) -> bool {
+    let mut midnodes = Vec::with_capacity(2);
+    let mut midcts   = Vec::with_capacity(2);
+    let outnode : NodeIndex;
+    for e in invec {
+        midnodes.push(ptgraph.graph.edge_endpoints(e).unwrap().1);
+        midcts.push(ptgraph.graph.edge_weight(e).unwrap().t.get_from_and_to().1);
+    }
+
+    // We need to check that the two intermediate nodes are different
+    if midnodes[0] == midnodes[1] || midnodes[0] == startn || midnodes[1] == startn {
+        return false;
+    }
+
+    // Now, how many neighbours do we have from the middle nodes? It should be only one, and the same
+    // and also, only one incoming neighbour!
+    let tmpv0 = ptgraph.out_neighbours_bi(midnodes[0], midcts[0]);
+    if tmpv0.len() != 1 || ptgraph.in_neighbours_bi(midnodes[0], midcts[0]).len() != 1 {
+        return false
+    }
+    outnode = tmpv0[0].0;
+    let tmpv1 = ptgraph.out_neighbours_bi(midnodes[1], midcts[1]);
+    let outct = tmpv0[0].1.get_from_and_to().1;
+
+    if (tmpv1.len() != 1) || (tmpv1[0].0 != outnode) || (outct != tmpv1[0].1.get_from_and_to().1) || (ptgraph.in_neighbours_bi(midnodes[1], midcts[1]).len() != 1) {
+        return false;
+    }
+
+    // and now we check that we go to a new node that is different from outnode (i.e. no self-edges/loops)
+    let tmpv3 = ptgraph.out_neighbours_bi(outnode, outct);
+    if tmpv3.len() != 1 || tmpv3[0].0 == startn || ptgraph.in_neighbours_bi(outnode, outct).len() != 2 {
+        return false;
+    }
+
+    return true;
+}
+
+
+
+/// This function collapses standard bubbles depending on the number of counts (very naive)
+pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) {
+    // Remember: we always start with the Min being the origin of the two outward edges
+    // let prevconn = ptgraph.in_neighbours_min(startn)[0];
+    let midconns = ptgraph.out_neighbours_min(startn);
+    let chosennode : usize;
+    let node0w = ptgraph.graph.node_weight(midconns[0].0).unwrap();
+    let node1w = ptgraph.graph.node_weight(midconns[1].0).unwrap();
+    let savedmidw : NodeStruct;
+
+    // Decision time!
+    if node0w.counts > node1w.counts {
+        chosennode = 0;
+        savedmidw = node0w.clone();
+    } else if node0w.counts < node1w.counts {
+        chosennode = 1;
+        savedmidw = node1w.clone();
+    } else if node0w.abs_ind.len() > node1w.abs_ind.len() {
+        chosennode = 0;
+        savedmidw = node0w.clone();
+    } else {
+        chosennode = 1;
+        savedmidw = node1w.clone();
+    }
+
+    // We need to know if we are arriving, at the exit node of the bubble, to the Max ct.
+    let midnodect = midconns[chosennode].1.get_from_and_to().1;
+    let midconn2 = ptgraph.out_neighbours_bi(midconns[chosennode].0, midnodect)[0];
+    let outct = midconn2.1.get_from_and_to().1;
+    let outconn = ptgraph.out_neighbours_bi(midconn2.0, outct)[0];
+    let savedoutw = ptgraph.graph.node_weight(midconn2.0).unwrap().clone();
+
+    // By construction, the start node and the end node MUST have only one k-mer. If not, something is wrong.
+    if ptgraph.graph.node_weight(startn).unwrap().abs_ind.len() > 1 || ptgraph.graph.node_weight(midconn2.0).unwrap().abs_ind.len() > 1 {
+        panic!("Trying to remove a bubble with a start or end node with more than one k-mer!");
+    };
+
+    // We have copied the weights and have the information we need to continue, we can thus erase all the
+    // nodes except from the start node.
+    ptgraph.graph.remove_node(midconns[0].0); // intermediate node 0
+    ptgraph.graph.remove_node(midconns[1].0); // intermediate node 1
+    ptgraph.graph.remove_node(midconn2.0);    // end node
+    // At the end, the final node (the original start node) will have an internal node with and edge
+    // MinToMin, as we are starting from the Min ct in any case. However, we might need to adjust the
+    // following edges from the end node if we exit through the Max one.
+
+    let mutrefw = ptgraph.graph.node_weight_mut(startn).unwrap();
+
+    mutrefw.merge(&savedmidw, midconns[chosennode].1); // Intermediate node k-mer(s)
+    mutrefw.set_internal_edge(EdgeType::MinToMin);     // Inner edge
+    mutrefw.abs_ind.push(savedoutw.abs_ind[0]);        // Out node k-mer
+
+    match outct {
+        CarryType::Min => {
+            // Now, we must link the start node with the following node to whatever node the end
+            // node was connected.
+            ptgraph.graph.add_edge(startn,    outconn.0, EmptyEdge{t : outconn.1});
+            ptgraph.graph.add_edge(outconn.0, startn,    EmptyEdge{t : outconn.1.rev()});
+        },
+        CarryType::Max => {
+            // We must check what edges we had
+            let tmptype = EdgeType::from_carrytypes(CarryType::Min, outconn.1.get_from_and_to().1);
+            ptgraph.graph.add_edge(startn,    outconn.0, EmptyEdge{t : tmptype});
+            ptgraph.graph.add_edge(outconn.0, startn,    EmptyEdge{t : tmptype.rev()});
+        },
+    }
+    mutrefw.set_mean_counts(&vec![mutrefw.counts, savedmidw.counts, savedoutw.counts]);
+
+}
+
 
 
 impl Shrinkable for PtGraph {
@@ -37,84 +150,133 @@ impl Shrinkable for PtGraph {
     type NodeIdx = NodeIndex;
 
     fn shrink(&mut self) -> bool {
-        let ambnodes = self.get_ambiguous_nodes_bi(); // Just in case we hadn't got them yet
-        log::info!("Starting shrinking the graph with {} nodes and {} edges, beginning from {} ambiguous nodes",
-              self.graph.node_count(),
-              self.graph.edge_count(),
-              ambnodes.len());
 
         // Shrinkage here means to only find consecutive nodes, w/o bifurcations
 
         let mut dididoanything = false;
+        loop {
+            let ambnodes = self.get_ambiguous_nodes_bi(); // Just in case we hadn't got them yet
+            log::info!("Starting shrinking the graph with {} nodes and {} edges, beginning from {} ambiguous nodes",
+                  self.graph.node_count(),
+                  self.graph.edge_count(),
+                  ambnodes.len());
+            for an in ambnodes.iter() {
+                // println!("it");
+                // We need to see the forward edges from here
 
-        for an in ambnodes.iter() {
-            // println!("it");
-            // We need to see the forward edges from here
-
-            if !self.graph.contains_node(*an) {
-                continue;
-            }
-
-            let neigh = self.get_good_neighbours_bi(*an);
-            let conns = neigh.len();
-
-            if conns == 1 {
-                // println!("1 conn");
-                // This means that this is the outermost k-mer of a dead-end, that might also have self-loops.
-                // I.e. this k-mer itself, if no self-loops are present, can be susceptible of being shrunk.
-
-                // Let's check for self-loops first:
-                if self.node_has_self_loops(*an) {
+                if !self.graph.contains_node(*an) {
                     continue;
                 }
 
-                let tmpty = neigh[0].1.get_from_and_to().1;
-                let outn = self.out_neighbours_bi(neigh[0].0, tmpty);
-                if outn.len() == 1 && (outn[0].0 == *an || ambnodes.contains(&outn[0].0)) {
-                    continue;
-                } else if outn.len() <= 1 && self.in_neighbours_bi(neigh[0].0, tmpty).len() == 1 {
-                    // println!("yes1");
-                    self.shrink_single_path(*an, neigh[0].0, &ambnodes, neigh[0].1);
-                    dididoanything = true;
-                }
+                let neigh = self.get_good_neighbours_bi(*an);
+                let conns = neigh.len();
 
-            } else {
-                // println!("various conn");
-                // This situation means that apart from possible self-loops, we have various valid connections. This
-                // k-mer is not valid itself for shrinkage, but one of those with which is connected might be.
+                if conns == 1 {
+                    // println!("1 conn");
+                    // This means that this is the outermost k-mer of a dead-end, that might also have self-loops.
+                    // I.e. this k-mer itself, if no self-loops are present, can be susceptible of being shrunk.
 
-                // println!("> number of true neighbours: {:?}", neigh.len(),);
-                for n in neigh {
-                    // println!("\t- neighid {:?}, type of edge that connects an with it: {:?}", n.0, n.1);
-
-                    if ambnodes.contains(&n.0) || n.0 == *an {
-                        // println!("\t- It's an ambiguous node!");
+                    // Let's check for self-loops first:
+                    if self.node_has_self_loops(*an) {
                         continue;
-                    } else {
-                        // println!("\t- It's NOT an ambiguous node!");
-                        let tmpty = n.1.get_from_and_to().1;
-                        let outn = self.out_neighbours_bi(n.0, tmpty);
+                    }
 
-                        if outn.len() == 0 {
+                    let tmpty = neigh[0].1.get_from_and_to().1;
+                    let outn = self.out_neighbours_bi(neigh[0].0, tmpty);
+                    if outn.len() == 1 && (outn[0].0 == *an || ambnodes.contains(&outn[0].0)) {
+                        continue;
+                    } else if outn.len() <= 1 && self.in_neighbours_bi(neigh[0].0, tmpty).len() == 1 {
+                        // println!("yes1");
+                        self.shrink_single_path(*an, neigh[0].0, &ambnodes, neigh[0].1);
+                        dididoanything = true;
+                    }
+
+                } else {
+                    // println!("various conn");
+                    // This situation means that apart from possible self-loops, we have various valid connections. This
+                    // k-mer is not valid itself for shrinkage, but one of those with which is connected might be.
+
+                    // println!("> number of true neighbours: {:?}", neigh.len(),);
+                    for n in neigh {
+                        // println!("\t- neighid {:?}, type of edge that connects an with it: {:?}", n.0, n.1);
+
+                        if ambnodes.contains(&n.0) || n.0 == *an {
+                            // println!("\t- It's an ambiguous node!");
                             continue;
-                        }
+                        } else {
+                            // println!("\t- It's NOT an ambiguous node!");
+                            let tmpty = n.1.get_from_and_to().1;
+                            let outn = self.out_neighbours_bi(n.0, tmpty);
 
-                        if outn.len() == 1 && outn[0].0 != n.0 && outn[0].0 != *an &&
-                            (!ambnodes.contains(&outn[0].0) || self.get_good_neighbours_bi(*an).len() == 1) { // This last condition allow us to catch
-                                                                                        // cases where from a junction you try to shrink a path that ends.
-                            let incn = self.in_neighbours_bi(n.0, tmpty);
-                            if incn.len() == 1 {
-                                // println!("yes2");
-                                self.shrink_single_path(n.0, outn[0].0, &ambnodes, outn[0].1);
-                                dididoanything = true;
+                            if outn.len() == 0 {
+                                continue;
+                            }
+
+                            if outn.len() == 1 && outn[0].0 != n.0 && outn[0].0 != *an &&
+                                (!ambnodes.contains(&outn[0].0) || self.get_good_neighbours_bi(*an).len() == 1) { // This last condition allow us to catch
+                                                                                            // cases where from a junction you try to shrink a path that ends.
+                                let incn = self.in_neighbours_bi(n.0, tmpty);
+                                if incn.len() == 1 {
+                                    // println!("yes2");
+                                    self.shrink_single_path(n.0, outn[0].0, &ambnodes, outn[0].1);
+                                    dididoanything = true;
+                                }
                             }
                         }
                     }
-                }
 
-                // exit(1);
+                    // exit(1);
+                }
             }
+
+            // TEST ===== BUBBLE REMOVAL
+            log::info!("IMPORTANT: trivial resolution of standard bubbles is going to follow!");
+            let bubbles = self.graph.node_indices().filter(|n| {
+                    self.out_degree(*n) == 3
+                }).filter(|n| {
+                    // We can directly check only once the bubbles (and not do it twice) by fixing
+                    // the carrytype from which we want to continue
+                    let mut vmin = Vec::with_capacity(2);
+
+                    for e in self.graph.edges_directed(*n, Outgoing) {
+                        match e.weight().t.get_from_and_to().0 {
+                            CarryType::Min => {
+                                if vmin.len() == 2 {
+                                    return false;
+                                } else {
+                                    vmin.push(e.id());
+                                }
+                            },
+                            _ => {},
+                        }
+                    }
+
+                    // We have two outgoing from min/max and one outgoing from max/min.
+                    // We check whether this is actually a bubble or not.
+                    if vmin.len() == 2 {
+                        return check_bubble_structure(&self, *n, vmin);
+                    } else {
+                        return false;
+                    }
+                }).collect::<BTreeSet<NodeIndex>>();
+
+            if bubbles.is_empty() {
+                break;
+            } else {
+                logw(format!("Found {:?} potential bubbles (they might be less). Starting to collapse them ", bubbles.len()).as_str(), Some("trace"));
+                for n in bubbles {
+                    if self.graph.contains_node(n) {
+                        dididoanything = true;
+                        collapse_bubble(self, n);
+                    }
+                }
+            }
+            log::info!("IMPORTANT: trivial resolution of bubbles has been done.");
+            // TEST END ===== BUBBLE REMOVAL
+
+
         }
+
 
         log::info!("Shrinking ended. Shrunk graph has {} nodes and {} edges",
               self.graph.node_count(),
