@@ -5,7 +5,7 @@ use crate::logw;
 
 use petgraph::Direction::{Incoming, Outgoing};
 use petgraph::visit::EdgeRef;
-use std::collections::BTreeSet;
+use std::{cmp::{min, max}, collections::BTreeSet};
 
 // use std::process::exit;
 
@@ -72,31 +72,121 @@ pub fn check_bubble_structure(ptgraph: &PtGraph, startn : NodeIndex, invec : Vec
 }
 
 
-
 /// This function collapses standard bubbles depending on the number of counts (very naive)
-pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) {
+pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) -> bool {
     // Remember: we always start with the Min being the origin of the two outward edges
     // let prevconn = ptgraph.in_neighbours_min(startn)[0];
     let midconns = ptgraph.out_neighbours_min(startn);
+    if midconns.len() != 2 || ptgraph.out_neighbours_bi(midconns[0].0, midconns[0].1.get_from_and_to().1).len() != 1 {
+        return false;
+    }
     let chosennode : usize;
     let node0w = ptgraph.graph.node_weight(midconns[0].0).unwrap();
     let node1w = ptgraph.graph.node_weight(midconns[1].0).unwrap();
     let savedmidw : NodeStruct;
 
-    // Decision time!
-    if node0w.counts > node1w.counts {
-        chosennode = 0;
-        savedmidw = node0w.clone();
-    } else if node0w.counts < node1w.counts {
+    let count_threshold = min((0.1 * max(node0w.counts, node1w.counts) as f32).round() as u16, 1); // Inspired by Skesa
+
+    // println!("here1");
+
+    if node0w.counts < count_threshold {
         chosennode = 1;
         savedmidw = node1w.clone();
-    } else if node0w.abs_ind.len() > node1w.abs_ind.len() {
+        // println!("here3");
+    } else if node1w.counts < count_threshold {
         chosennode = 0;
         savedmidw = node0w.clone();
+        // println!("here4");
     } else {
-        chosennode = 1;
-        savedmidw = node1w.clone();
+        // println!("here2");
+        // We have not managed to exclude one of the two options. What do we do now?
+
+        if ((node0w.abs_ind.len() - node1w.abs_ind.len()) as i32).abs() as f32/(max(node0w.abs_ind.len(), node1w.abs_ind.len()) as f32) > 0.025 {
+            // There is a large difference in the number of k-mers between the options: this could be a coincidence link between
+            // two locations far away in the genome. Let's compare with the counts of the start and end nodes.
+            // println!("here5");
+
+            let startn_counts = ptgraph.graph.node_weight(startn).unwrap().counts;
+
+            // println!("preasdf");
+            let endn_counts   = ptgraph.graph.node_weight(ptgraph.out_neighbours_bi(midconns[0].0, midconns[0].1.get_from_and_to().1)[0].0).unwrap().counts;
+            // println!("asdfadsf");
+            let average_surrounding_counts = ((startn_counts + endn_counts) as f32/2.0).round() as u16;
+
+            let rel_diff_0 = ((node0w.counts - average_surrounding_counts) as i32).abs() as f32/(average_surrounding_counts as f32);
+            let rel_diff_1 = ((node1w.counts - average_surrounding_counts) as i32).abs() as f32/(average_surrounding_counts as f32);
+
+
+            // NOTE: in the future, removing valid connections between nodes might not be desirable, as we might be able to resolve these
+            // unitigs with e.g. larger k-value graphs.
+            if        rel_diff_0 >  0.2 && rel_diff_1 <= 0.2 {
+                // 1 has similar counts as the neighbours
+                // We remove the connections with 0
+                // println!("here6");
+                let tmpvec : Vec<EdgeIndex> = ptgraph.graph.edges(midconns[0].0).map(|er| er.id()).collect();
+                for e in tmpvec {
+                    ptgraph.graph.remove_edge(e);
+                }
+
+            } else if rel_diff_0 <= 0.2 && rel_diff_1 >  0.2 {
+                // 0 has similar counts as the neighbours
+                // We remove the connections with 1
+                // println!("here7");
+                let tmpvec : Vec<EdgeIndex> = ptgraph.graph.edges(midconns[1].0).map(|er| er.id()).collect();
+                for e in tmpvec {
+                    ptgraph.graph.remove_edge(e);
+                }
+
+            } else {
+                // println!("here8");
+                // Both have different counts as the neighbours
+                // Perhaps both connections are unlikely. We remove all the connections of the bubble (i.e. we create a contig break).
+                let tmpvec : Vec<EdgeIndex> = ptgraph.graph.edges(midconns[0].0).chain(ptgraph.graph.edges(midconns[1].0)).map(|er| er.id()).collect();
+                for e in tmpvec {
+                    ptgraph.graph.remove_edge(e);
+                }
+            }
+            // In these cases we exit as there is nothing else to do
+            return true;
+
+        } else {
+            // println!("here9");
+            // The difference in the number of k-mers is very small, this could be a SNP. Let's pick up the highest count one.
+            if node0w.counts > node1w.counts {
+                // println!("here10");
+                chosennode = 0;
+                savedmidw = node0w.clone();
+            } else if node0w.counts < node1w.counts {
+                // println!("here11");
+                chosennode = 1;
+                savedmidw = node1w.clone();
+            } else if node0w.abs_ind.len() > node1w.abs_ind.len() {
+                // println!("here12");
+                chosennode = 0;
+                savedmidw = node0w.clone();
+            } else {
+                // println!("here13");
+                chosennode = 1;
+                savedmidw = node1w.clone();
+            }
+        }
     }
+
+
+    // // Decision time! (simple)
+    // if node0w.counts > node1w.counts {
+    //     chosennode = 0;
+    //     savedmidw = node0w.clone();
+    // } else if node0w.counts < node1w.counts {
+    //     chosennode = 1;
+    //     savedmidw = node1w.clone();
+    // } else if node0w.abs_ind.len() > node1w.abs_ind.len() {
+    //     chosennode = 0;
+    //     savedmidw = node0w.clone();
+    // } else {
+    //     chosennode = 1;
+    //     savedmidw = node1w.clone();
+    // }
 
     // We need to know if we are arriving, at the exit node of the bubble, to the Max ct.
     let midnodect = midconns[chosennode].1.get_from_and_to().1;
@@ -140,7 +230,7 @@ pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) {
             ptgraph.graph.add_edge(outconn.0, startn,    EmptyEdge{t : tmptype.rev()});
         },
     }
-
+    return true;
 }
 
 
@@ -266,8 +356,10 @@ impl Shrinkable for PtGraph {
                 logw(format!("Found {:?} potential bubbles (they might be less). Starting to collapse them ", bubbles.len()).as_str(), Some("trace"));
                 for n in bubbles {
                     if self.graph.contains_node(n) {
-                        dididoanything = true;
-                        collapse_bubble(self, n);
+                        let tmpb = collapse_bubble(self, n);
+                        if tmpb {
+                            dididoanything = true;
+                        }
                     }
                 }
             }
