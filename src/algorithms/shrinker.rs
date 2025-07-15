@@ -190,9 +190,9 @@ pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) -> bool {
 
     // We need to know if we are arriving, at the exit node of the bubble, to the Max ct.
     let midnodect = midconns[chosennode].1.get_from_and_to().1;
-    let midconn2 = ptgraph.out_neighbours_bi(midconns[chosennode].0, midnodect)[0];
-    let outct = midconn2.1.get_from_and_to().1;
-    let outconn = ptgraph.out_neighbours_bi(midconn2.0, outct)[0];
+    let midconn2  = ptgraph.out_neighbours_bi(midconns[chosennode].0, midnodect)[0];
+    let outct     = midconn2.1.get_from_and_to().1;
+    let outconn   = ptgraph.out_neighbours_bi(midconn2.0, outct)[0];
     let savedoutw = ptgraph.graph.node_weight(midconn2.0).unwrap().clone();
 
     // By construction, the start node and the end node MUST have only one k-mer. If not, something is wrong.
