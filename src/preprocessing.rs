@@ -16,7 +16,7 @@ use rayon::prelude::*;
 #[cfg(not(feature = "wasm"))]
 use needletail::parse_fastx_file;
 
-// use std::process::exit;
+use std::process::exit;
 
 #[cfg(not(feature = "wasm"))]
 use plotters::prelude::*;
@@ -139,6 +139,7 @@ where
 
 //     let maxkmers = 200;
 //     let mut numkmers = 0;
+    let mut ncols : usize = 0;
     let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
     let mut theseq   : Vec<u64> = Vec::new();
     while let Some(record) = reader.next() {
@@ -159,12 +160,13 @@ where
 //             numkmers += 1;
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
-            // let testkm = outdict.entry(hc).or_insert(km);
-            // if *testkm != km {
-            //     log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
-            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-            // }
+            // outdict.entry(hc).or_insert(km);
+            let testkm = outdict.entry(hc).or_insert(km);
+            if *testkm != km {
+                log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
+                log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                ncols += 1;
+            }
             // } else {
             //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
@@ -172,12 +174,13 @@ where
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
-                // let testkm = outdict.entry(hc).or_insert(km);
-                // if *testkm != km {
-                //     log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
-                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                // }
+                // outdict.entry(hc).or_insert(km);
+                let testkm = outdict.entry(hc).or_insert(km);
+                if *testkm != km {
+                    log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
+                    log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                    ncols += 1;
+                }
                 // } else {
                 //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
@@ -224,12 +227,13 @@ where
 //             numkmers += 1;
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
-            // let testkm = outdict.entry(hc).or_insert(km);
-            // if *testkm != km {
-            //     log::debug!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
-            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-            // }
+            // outdict.entry(hc).or_insert(km);
+            let testkm = outdict.entry(hc).or_insert(km);
+            if *testkm != km {
+                log::debug!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
+                log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                ncols += 1;
+            }
             // } else {
             //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
@@ -237,12 +241,13 @@ where
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
-                // let testkm = outdict.entry(hc).or_insert(km);
-                // if *testkm != km {
-                //     log::debug!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
-                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                // }
+                // outdict.entry(hc).or_insert(km);
+                let testkm = outdict.entry(hc).or_insert(km);
+                if *testkm != km {
+                    log::debug!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
+                    log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                    ncols += 1;
+                }
                 // } else {
                 //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
@@ -265,6 +270,7 @@ where
 
     log::info!("Finished getting kmers from file {filename2}");
     log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
+    log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
 
 
     (theseq, outdict, minmaxdict)
@@ -564,11 +570,6 @@ where
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
-        } else if minc < 5 {
-            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
-            minc = 2;
-        } else if minc < 10 {
-            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -780,11 +781,6 @@ where
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
-        } else if minc < 5 {
-            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
-            minc = 2;
-        } else if minc < 10 {
-            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -937,7 +933,7 @@ where
     // Now, get themap, histovec, and filter outdict and minmaxdict
     let countmap = kmer_filter.get_counts_map();
     countmap.shrink_to_fit();
-    let mut minc;
+    let minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
@@ -967,11 +963,6 @@ where
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
-        } else if minc < 5 {
-            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
-            minc = 2;
-        } else if minc < 10 {
-            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
@@ -1302,7 +1293,7 @@ fn get_map_with_counts_and_fit(
     // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
     // large (and so that we can detect it).
     // let fitted_min_count = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
-    let mut fitted_min_count : u16;
+    let fitted_min_count : u16;
 
     let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
     if result.is_ok() {
@@ -1314,11 +1305,6 @@ fn get_map_with_counts_and_fit(
 
     if fitted_min_count <= 0 {
         panic!("Fitted min_count value is zero or negative!");
-    } else if fitted_min_count < 5 {
-        logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", fitted_min_count).as_str(), Some("info"));
-        fitted_min_count = 2;
-    } else if fitted_min_count < 10 {
-        logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", fitted_min_count).as_str(), Some("info"));
     }
 
     log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", fitted_min_count);
@@ -1485,11 +1471,6 @@ fn get_map_wasm(
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
-        } else if minc < 5 {
-            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
-            minc = 2;
-        } else if minc < 10 {
-            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -1614,6 +1595,7 @@ where
     log::info!("Entering while loop...");
 
     let mut i_record = 0;
+    let mut ncols : usize = 0;
 
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
@@ -1629,12 +1611,20 @@ where
         if let Some(mut kmer_it) = kmer_opt {
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
+            // outdict.entry(hc).or_insert(km);
+            let testkm = outdict.entry(hc).or_insert(km);
+            if *testkm != km {
+                ncols += 1;
+            }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
+                // outdict.entry(hc).or_insert(km);
+                let testkm = outdict.entry(hc).or_insert(km);
+                if *testkm != km {
+                    ncols += 1;
+                }
                 minmaxdict.entry(hnc).or_insert(hc);
             }
         }
@@ -1678,12 +1668,20 @@ where
         if let Some(mut kmer_it) = kmer_opt {
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
+            // outdict.entry(hc).or_insert(km);
+            let testkm = outdict.entry(hc).or_insert(km);
+            if *testkm != km {
+                ncols += 1;
+            }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
+                // outdict.entry(hc).or_insert(km);
+                let testkm = outdict.entry(hc).or_insert(km);
+                if *testkm != km {
+                    ncols += 1;
+                }
                 minmaxdict.entry(hnc).or_insert(hc);
             }
         }
@@ -1720,11 +1718,17 @@ where
         outvec.clear();
     }
     log::info!("Finished getting kmers from the second file");
+
+
+    log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
+    exit(0);
+
+
     log::info!("Filtering...");
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
     countmap.shrink_to_fit();
-    let mut minc;
+    let minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
@@ -1752,11 +1756,6 @@ where
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
-        } else if minc < 5 {
-            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
-            minc = 2;
-        } else if minc < 10 {
-            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
@@ -1922,6 +1921,7 @@ where
 
         // First, we want to fill our mega-vector with all k-mers from both paired-end reads
         log::info!("Filling vector");
+        println!("checks enabled!");
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
         let (theseq, thedict, maxmindict) = get_kmers_from_both_files_and_the_dict_and_the_seq::<IntT>(&input_files[0].1,
@@ -1930,6 +1930,7 @@ where
             qual,
             &mut tmpvec);
 
+        exit(0);
         timevec.push(Instant::now());
         log::info!("Kmers extracted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
