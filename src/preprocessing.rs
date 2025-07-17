@@ -1720,7 +1720,7 @@ where
     log::info!("Finished getting kmers from the second file");
 
 
-    log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
+    println!("k | Number of collisions =+=+ {} {}", k, ncols);
     exit(0);
 
 
@@ -1921,7 +1921,7 @@ where
 
         // First, we want to fill our mega-vector with all k-mers from both paired-end reads
         log::info!("Filling vector");
-        println!("checks enabled!");
+            println!("checks enabled!");
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
         let (theseq, thedict, maxmindict) = get_kmers_from_both_files_and_the_dict_and_the_seq::<IntT>(&input_files[0].1,
