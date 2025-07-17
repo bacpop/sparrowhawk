@@ -589,7 +589,7 @@ pub fn swapbits_0_19_32_43_52_59(v: u64) -> u64 {
     let u = ((v >> 59) ^ (v >> 52)) & 1; // The 59th bit XOR the 52nd bit
     let w = (v ^ (v >> 59)) & 1;         // The 59th bit XOR the 0th  bit
 
-    v ^ (x | (y << 19) | (z << 32) | (y << 32) | (t << 32) | (u << 32) | (w << 32))
+    v ^ (x | (y << 19) | (z << 32) | (t << 43) | (u << 52) | (w << 59))
 }
 
 /// Function that exchanges the bits in the 32 and 63 positions
