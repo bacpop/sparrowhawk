@@ -661,12 +661,12 @@ impl NtHashIterator {
             let mut h = rev
                 // ^ (MS_TAB_31L[(rc_base(new_base) as usize * 31) + (self.k % 31)]
                 //  | MS_TAB_33R[(rc_base(new_base) as usize) * 33 + (self.k % 33)]);
-                ^ (  MS_TAB_5LL[( old_base as usize * 5)  + (self.k % 5)]
-                   | MS_TAB_7L[(  old_base as usize * 7)  + (self.k % 7)]
-                   | MS_TAB_9LC[( old_base as usize * 9)  + (self.k % 9)]
-                   | MS_TAB_11CR[(old_base as usize * 11) + (self.k % 11)]
-                   | MS_TAB_13R[( old_base as usize * 13) + (self.k % 13)]
-                   | MS_TAB_19RR[(old_base as usize * 19) + (self.k % 19)]);
+                ^ (  MS_TAB_5LL[( rc_base(new_base) as usize * 5)  + (self.k % 5)]
+                   | MS_TAB_7L[(  rc_base(new_base) as usize * 7)  + (self.k % 7)]
+                   | MS_TAB_9LC[( rc_base(new_base) as usize * 9)  + (self.k % 9)]
+                   | MS_TAB_11CR[(rc_base(new_base) as usize * 11) + (self.k % 11)]
+                   | MS_TAB_13R[( rc_base(new_base) as usize * 13) + (self.k % 13)]
+                   | MS_TAB_19RR[(rc_base(new_base) as usize * 19) + (self.k % 19)]);
             h ^= RC_HASH_LOOKUP[old_base as usize];
             h = h.rotate_right(1_u32);
             // h = swapbits3263(h);
