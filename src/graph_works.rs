@@ -48,10 +48,18 @@ pub fn check_bkg( // backwards here mean INCOMING edges, whether from the rev.-c
     let thecbase  = bases & 3;
     let thencbase = (bases >> 2) & 3;
     for i in 0..4 {             //ACTG, in that order
-        let tmphashc = (nthash::swapbits033(hc ^ nthash::HASH_LOOKUP[thecbase as usize]
-                                               ^ (nthash::MS_TAB_31L[(i as usize * 31) + (k % 31)]
-                                                | nthash::MS_TAB_33R[(i as usize) * 33 + (k % 33)])
-                        )).rotate_right(1u32);
+        // let tmphashc = (nthash::swapbits033(hc ^ nthash::HASH_LOOKUP[thecbase as usize]
+        //                                        ^ (nthash::MS_TAB_31L[(i as usize * 31) + (k % 31)]
+        //                                         | nthash::MS_TAB_33R[(i as usize) * 33 + (k % 33)])
+        //                 )).rotate_right(1u32);
+        let tmphashc = (nthash::swapbits_0_19_32_43_52_59(hc ^ nthash::HASH_LOOKUP[thecbase as usize]
+                                               ^ (nthash::MS_TAB_5LL[( i as usize * 5)  + (k % 5)]
+                                                | nthash::MS_TAB_7L[(  i as usize * 7)  + (k % 7)]
+                                                | nthash::MS_TAB_9LC[( i as usize * 9)  + (k % 9)]
+                                                | nthash::MS_TAB_11CR[(i as usize * 11) + (k % 11)]
+                                                | nthash::MS_TAB_13R[( i as usize * 13) + (k % 13)]
+                                                | nthash::MS_TAB_19RR[(i as usize * 19) + (k % 19)])
+        )).rotate_right(1u32);
 
         if thedict.contains_key(&tmphashc) {
             outvec.push((tmphashc, EdgeType::MinToMin));
@@ -62,12 +70,22 @@ pub fn check_bkg( // backwards here mean INCOMING edges, whether from the rev.-c
             }
         }
 
+        // let mut tmphashnc = hnc
+        //     ^ (nthash::MS_TAB_31L[(rc_base(i) as usize  * 31) + (k % 31)]
+        //     |  nthash::MS_TAB_33R[(rc_base(i) as usize) * 33  + (k % 33)]);
+        // tmphashnc ^= nthash::RC_HASH_LOOKUP[thencbase as usize];
+        // tmphashnc = tmphashnc.rotate_right(1_u32);
+        // tmphashnc = nthash::swapbits3263(tmphashnc);
         let mut tmphashnc = hnc
-            ^ (nthash::MS_TAB_31L[(rc_base(i) as usize  * 31) + (k % 31)]
-            |  nthash::MS_TAB_33R[(rc_base(i) as usize) * 33  + (k % 33)]);
+            ^ (  nthash::MS_TAB_5LL[( rc_base(i) as usize * 5)  + (k % 5)]
+               | nthash::MS_TAB_7L[(  rc_base(i) as usize * 7)  + (k % 7)]
+               | nthash::MS_TAB_9LC[( rc_base(i) as usize * 9)  + (k % 9)]
+               | nthash::MS_TAB_11CR[(rc_base(i) as usize * 11) + (k % 11)]
+               | nthash::MS_TAB_13R[( rc_base(i) as usize * 13) + (k % 13)]
+               | nthash::MS_TAB_19RR[(rc_base(i) as usize * 19) + (k % 19)]);
         tmphashnc ^= nthash::RC_HASH_LOOKUP[thencbase as usize];
         tmphashnc = tmphashnc.rotate_right(1_u32);
-        tmphashnc = nthash::swapbits3263(tmphashnc);
+        tmphashnc = nthash::swapbits_18_31_42_51_58_63(tmphashnc);
 
 
         if thedict.contains_key(&tmphashnc) {
@@ -101,10 +119,18 @@ pub fn check_fwd( // Here FORWARD means OUTGOING
     let thencbase  = bases & 3;
     for i in 0..4 {             //ACTG, in that order
         let mut tmphashc = hc.rotate_left(1);
-        tmphashc =  nthash::swapbits033(tmphashc);
+        // tmphashc =  nthash::swapbits033(tmphashc);
+        // tmphashc ^= nthash::HASH_LOOKUP[i as usize];
+        // tmphashc ^= nthash::MS_TAB_31L[(thecbase as usize * 31) + (k % 31)]
+        //           | nthash::MS_TAB_33R[(thecbase as usize) * 33 + (k % 33)];
+        tmphashc =  nthash::swapbits_0_19_32_43_52_59(tmphashc);
         tmphashc ^= nthash::HASH_LOOKUP[i as usize];
-        tmphashc ^= nthash::MS_TAB_31L[(thecbase as usize * 31) + (k % 31)]
-                  | nthash::MS_TAB_33R[(thecbase as usize) * 33 + (k % 33)];
+        tmphashc ^=  nthash::MS_TAB_5LL[( thecbase as usize * 5)  + (k % 5)]
+                   | nthash::MS_TAB_7L[(  thecbase as usize * 7)  + (k % 7)]
+                   | nthash::MS_TAB_9LC[( thecbase as usize * 9)  + (k % 9)]
+                   | nthash::MS_TAB_11CR[(thecbase as usize * 11) + (k % 11)]
+                   | nthash::MS_TAB_13R[( thecbase as usize * 13) + (k % 13)]
+                   | nthash::MS_TAB_19RR[(thecbase as usize * 19) + (k % 19)];
 
 
         if thedict.contains_key(&tmphashc) {
@@ -116,10 +142,18 @@ pub fn check_fwd( // Here FORWARD means OUTGOING
             }
         }
 
-        let tmphashnc = (nthash::swapbits3263(hnc)).rotate_left(1u32)
+        // let tmphashnc = (nthash::swapbits3263(hnc)).rotate_left(1u32)
+        //     ^ nthash::RC_HASH_LOOKUP[i as usize]
+        //     ^ (nthash::MS_TAB_31L[(rc_base(thencbase) as usize * 31) + (k % 31)]
+        //      | nthash::MS_TAB_33R[(rc_base(thencbase) as usize) * 33 + (k % 33)]);
+        let tmphashnc = (nthash::swapbits_18_31_42_51_58_63(hnc)).rotate_left(1u32)
             ^ nthash::RC_HASH_LOOKUP[i as usize]
-            ^ (nthash::MS_TAB_31L[(rc_base(thencbase) as usize * 31) + (k % 31)]
-             | nthash::MS_TAB_33R[(rc_base(thencbase) as usize) * 33 + (k % 33)]);
+            ^ (  nthash::MS_TAB_5LL[( rc_base(thencbase) as usize * 5)  + (k % 5)]
+               | nthash::MS_TAB_7L[(  rc_base(thencbase) as usize * 7)  + (k % 7)]
+               | nthash::MS_TAB_9LC[( rc_base(thencbase) as usize * 9)  + (k % 9)]
+               | nthash::MS_TAB_11CR[(rc_base(thencbase) as usize * 11) + (k % 11)]
+               | nthash::MS_TAB_13R[( rc_base(thencbase) as usize * 13) + (k % 13)]
+               | nthash::MS_TAB_19RR[(rc_base(thencbase) as usize * 19) + (k % 19)]);
 
 
         if thedict.contains_key(&tmphashnc) {
