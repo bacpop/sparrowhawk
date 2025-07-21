@@ -52,14 +52,23 @@ pub fn check_bkg( // backwards here mean INCOMING edges, whether from the rev.-c
         //                                        ^ (nthash::MS_TAB_31L[(i as usize * 31) + (k % 31)]
         //                                         | nthash::MS_TAB_33R[(i as usize) * 33 + (k % 33)])
         //                 )).rotate_right(1u32);
-        let tmphashc = (nthash::swapbits_0_19_32_43_52_59(hc ^ nthash::HASH_LOOKUP[thecbase as usize]
+
+        let tmphashc = nthash::swapbits_18_31_42_51_58_63((hc ^ nthash::HASH_LOOKUP[thecbase as usize]
                                                ^ (nthash::MS_TAB_5LL[( i as usize * 5)  + (k % 5)]
                                                 | nthash::MS_TAB_7L[(  i as usize * 7)  + (k % 7)]
                                                 | nthash::MS_TAB_9LC[( i as usize * 9)  + (k % 9)]
                                                 | nthash::MS_TAB_11CR[(i as usize * 11) + (k % 11)]
                                                 | nthash::MS_TAB_13R[( i as usize * 13) + (k % 13)]
                                                 | nthash::MS_TAB_19RR[(i as usize * 19) + (k % 19)])
-        )).rotate_right(1u32);
+        ).rotate_right(1u32));
+        // let tmphashc = (nthash::swapbits_0_19_32_43_52_59(hc ^ nthash::HASH_LOOKUP[thecbase as usize]
+        //                                        ^ (nthash::MS_TAB_5LL[( i as usize * 5)  + (k % 5)]
+        //                                         | nthash::MS_TAB_7L[(  i as usize * 7)  + (k % 7)]
+        //                                         | nthash::MS_TAB_9LC[( i as usize * 9)  + (k % 9)]
+        //                                         | nthash::MS_TAB_11CR[(i as usize * 11) + (k % 11)]
+        //                                         | nthash::MS_TAB_13R[( i as usize * 13) + (k % 13)]
+        //                                         | nthash::MS_TAB_19RR[(i as usize * 19) + (k % 19)])
+        // )).rotate_right(1u32);
 
         if thedict.contains_key(&tmphashc) {
             outvec.push((tmphashc, EdgeType::MinToMin));
@@ -146,7 +155,7 @@ pub fn check_fwd( // Here FORWARD means OUTGOING
         //     ^ nthash::RC_HASH_LOOKUP[i as usize]
         //     ^ (nthash::MS_TAB_31L[(rc_base(thencbase) as usize * 31) + (k % 31)]
         //      | nthash::MS_TAB_33R[(rc_base(thencbase) as usize) * 33 + (k % 33)]);
-        let tmphashnc = (nthash::swapbits_18_31_42_51_58_63(hnc)).rotate_left(1u32)
+        let tmphashnc = nthash::swapbits_0_19_32_43_52_59(hnc.rotate_left(1u32))
             ^ nthash::RC_HASH_LOOKUP[i as usize]
             ^ (  nthash::MS_TAB_5LL[( rc_base(thencbase) as usize * 5)  + (k % 5)]
                | nthash::MS_TAB_7L[(  rc_base(thencbase) as usize * 7)  + (k % 7)]
@@ -154,6 +163,14 @@ pub fn check_fwd( // Here FORWARD means OUTGOING
                | nthash::MS_TAB_11CR[(rc_base(thencbase) as usize * 11) + (k % 11)]
                | nthash::MS_TAB_13R[( rc_base(thencbase) as usize * 13) + (k % 13)]
                | nthash::MS_TAB_19RR[(rc_base(thencbase) as usize * 19) + (k % 19)]);
+        // let tmphashnc = (nthash::swapbits_18_31_42_51_58_63(hnc)).rotate_left(1u32)
+        //     ^ nthash::RC_HASH_LOOKUP[i as usize]
+        //     ^ (  nthash::MS_TAB_5LL[( rc_base(thencbase) as usize * 5)  + (k % 5)]
+        //        | nthash::MS_TAB_7L[(  rc_base(thencbase) as usize * 7)  + (k % 7)]
+        //        | nthash::MS_TAB_9LC[( rc_base(thencbase) as usize * 9)  + (k % 9)]
+        //        | nthash::MS_TAB_11CR[(rc_base(thencbase) as usize * 11) + (k % 11)]
+        //        | nthash::MS_TAB_13R[( rc_base(thencbase) as usize * 13) + (k % 13)]
+        //        | nthash::MS_TAB_19RR[(rc_base(thencbase) as usize * 19) + (k % 19)]);
 
 
         if thedict.contains_key(&tmphashnc) {
@@ -281,12 +298,12 @@ impl Assemble for BasicAsm {
             // Check first previous neighbours:
             for ipre in himutref.pre.iter() {
                 if !indict.get(&ipre.0).unwrap().borrow().pre.contains(&(*h, ipre.1.rev())) || !indict.get(&ipre.0).unwrap().borrow().post.contains(&(*h, ipre.1)) {
-                    println!("HEY");
+                    println!("HEY1");
                 }
             }
             for ipost in himutref.post.iter() {
                 if !indict.get(&ipost.0).unwrap().borrow().post.contains(&(*h, ipost.1.rev())) || !indict.get(&ipost.0).unwrap().borrow().pre.contains(&(*h, ipost.1)) {
-                    println!("HEY");
+                    println!("HEY2");
                 }
             }
         });
