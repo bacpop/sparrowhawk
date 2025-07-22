@@ -562,15 +562,15 @@ where
         if result.is_ok() {
             minc = result.unwrap() as u16;
         } else {
-            logw("Fit has not converged. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
-            logw("Fit has converged to a value smaller than 10. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -774,15 +774,15 @@ where
         if result.is_ok() {
             minc = result.unwrap() as u16;
         } else {
-            logw("Fit has not converged. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
-            logw("Fit has converged to a value smaller than 10. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -957,15 +957,15 @@ where
         if result.is_ok() {
             minc = result.unwrap() as u16;
         } else {
-            logw("Fit has not converged. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
-            logw("Fit has converged to a value smaller than 10. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
@@ -1313,15 +1313,15 @@ fn get_map_with_counts_and_fit(
     if result.is_ok() {
         fitted_min_count = result.unwrap() as u16;
     } else {
-        logw("Fit has not converged. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-        fitted_min_count = 2;
+        logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+        fitted_min_count = 3;
     }
 
     if fitted_min_count <= 0 {
         panic!("Fitted min_count value is zero or negative!");
     } else if fitted_min_count <= 10 {
-        logw("Fit has converged to a value smaller than 10. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-        fitted_min_count = 2;
+        logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+        fitted_min_count = 3;
     }
 
     log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", fitted_min_count);
@@ -1482,15 +1482,15 @@ fn get_map_wasm(
         if result.is_ok() {
             minc = result.unwrap() as u16;
         } else {
-            logw("Fit has not converged. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
-            logw("Fit has converged to a value smaller than 10. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -1777,15 +1777,15 @@ where
         if result.is_ok() {
             minc = result.unwrap() as u16;
         } else {
-            logw("Fit has not converged. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
-            logw("Fit has converged to a value smaller than 10. A value of 2 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 2;
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
