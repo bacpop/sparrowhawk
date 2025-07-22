@@ -123,7 +123,7 @@ pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) -> bool {
                 // 1 has similar counts as the neighbours
                 // We remove the connections with 0
                 // println!("here6");
-                let tmpvec : Vec<EdgeIndex> = ptgraph.graph.edges(midconns[0].0).map(|er| er.id()).collect();
+                let tmpvec : Vec<EdgeIndex> = ptgraph.graph.edges_directed(midconns[0].0, Outgoing).chain(ptgraph.graph.edges_directed(midconns[0].0, Incoming)).map(|er| er.id()).collect();
                 for e in tmpvec {
                     ptgraph.graph.remove_edge(e);
                 }
@@ -132,7 +132,7 @@ pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) -> bool {
                 // 0 has similar counts as the neighbours
                 // We remove the connections with 1
                 // println!("here7");
-                let tmpvec : Vec<EdgeIndex> = ptgraph.graph.edges(midconns[1].0).map(|er| er.id()).collect();
+                let tmpvec : Vec<EdgeIndex> = ptgraph.graph.edges_directed(midconns[1].0, Outgoing).chain(ptgraph.graph.edges_directed(midconns[1].0, Incoming)).map(|er| er.id()).collect();
                 for e in tmpvec {
                     ptgraph.graph.remove_edge(e);
                 }
@@ -141,7 +141,7 @@ pub fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) -> bool {
                 // println!("here8");
                 // Both have different counts as the neighbours
                 // Perhaps both connections are unlikely. We remove all the connections of the bubble (i.e. we create a contig break).
-                let tmpvec : Vec<EdgeIndex> = ptgraph.graph.edges(midconns[0].0).chain(ptgraph.graph.edges(midconns[1].0)).map(|er| er.id()).collect();
+                let tmpvec : Vec<EdgeIndex> = ptgraph.graph.edges_directed(midconns[0].0, Outgoing).chain(ptgraph.graph.edges_directed(midconns[0].0, Incoming)).chain(ptgraph.graph.edges_directed(midconns[1].0, Outgoing).chain(ptgraph.graph.edges_directed(midconns[1].0, Incoming))).map(|er| er.id()).collect();
                 for e in tmpvec {
                     ptgraph.graph.remove_edge(e);
                 }
