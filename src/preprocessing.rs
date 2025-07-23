@@ -570,6 +570,11 @@ where
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc < 5 {
+            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
+            minc = 2;
+        } else if minc < 10 {
+            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -781,6 +786,11 @@ where
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc < 5 {
+            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
+            minc = 2;
+        } else if minc < 10 {
+            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -933,7 +943,7 @@ where
     // Now, get themap, histovec, and filter outdict and minmaxdict
     let countmap = kmer_filter.get_counts_map();
     countmap.shrink_to_fit();
-    let minc;
+    let mut minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
@@ -963,6 +973,11 @@ where
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc < 5 {
+            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
+            minc = 2;
+        } else if minc < 10 {
+            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
@@ -1293,7 +1308,7 @@ fn get_map_with_counts_and_fit(
     // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
     // large (and so that we can detect it).
     // let fitted_min_count = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
-    let fitted_min_count : u16;
+    let mut fitted_min_count : u16;
 
     let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
     if result.is_ok() {
@@ -1305,6 +1320,11 @@ fn get_map_with_counts_and_fit(
 
     if fitted_min_count <= 0 {
         panic!("Fitted min_count value is zero or negative!");
+    } else if fitted_min_count < 5 {
+        logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", fitted_min_count).as_str(), Some("info"));
+        fitted_min_count = 2;
+    } else if fitted_min_count < 10 {
+        logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", fitted_min_count).as_str(), Some("info"));
     }
 
     log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", fitted_min_count);
@@ -1471,6 +1491,11 @@ fn get_map_wasm(
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc < 5 {
+            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
+            minc = 2;
+        } else if minc < 10 {
+            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -1728,7 +1753,7 @@ where
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
     countmap.shrink_to_fit();
-    let minc;
+    let mut minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
@@ -1756,6 +1781,11 @@ where
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc < 5 {
+            logw(format!("Fit has converged to a value smaller than 5 ({:?}). The value will be modified to 2. You can manually try with the min-count argument the values 3 and 4, but it usually ends up being better to just remove singletons.", minc).as_str(), Some("info"));
+            minc = 2;
+        } else if minc < 10 {
+            logw(format!("Fit has converged to a value smaller than 10 ({:?}). When closer to zero, the fitted result values might be not ideal. We recommend to check the k-mer spectrum (always, but even more in this situation).", minc).as_str(), Some("info"));
         }
 
         log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);

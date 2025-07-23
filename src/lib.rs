@@ -5,6 +5,7 @@ use std::{
     collections::HashMap,
     hash::BuildHasherDefault,
     cell::*,
+    time::SystemTime,
     // process::exit,
 };
 
@@ -15,7 +16,8 @@ use std::{
 };
 
 extern crate num_cpus;
-
+use fern;
+use humantime;
 
 /// Construction, assembly, shrinkage, pruning, and collapse of DNA de Bruijn graphs
 pub mod graph_works;
@@ -158,19 +160,32 @@ impl fmt::Display for QualOpts {
     }
 }
 
+#[cfg(not(feature = "wasm"))]
+pub fn set_up_logging(level : log::LevelFilter, outfile : PathBuf) {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{} {} {}] {}",
+                humantime::format_rfc3339_seconds(SystemTime::now()),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .level(level)
+        .chain(std::io::stdout())
+        .chain(fern::log_file(outfile).unwrap())
+        .apply().unwrap();
+}
+
+
+
 
 #[doc(hidden)]
 #[cfg(not(feature = "wasm"))]
 pub fn main() {
     let args = cli_args();
-    if args.verbose {
-        simple_logger::init_with_level(log::Level::Trace).unwrap();
-        // simple_logger::init_with_level(log::Level::Info).unwrap();
-    } else {
-        simple_logger::init_with_level(log::Level::Warn).unwrap();
-    }
-
-    log::info!("Starting program!");
+    // log::info!("Starting program!");
     eprintln!("Sparrowhawk");
     let mut timevec = Vec::new();
     timevec.push(Instant::now());
@@ -190,7 +205,19 @@ pub fn main() {
             no_histo,
             no_graphs,
         } => {
+            let mut outputlogfile : PathBuf = output_dir.into();
+            outputlogfile.set_file_name(output_prefix.to_string() + "_log");
+            outputlogfile.set_extension("txt");
+            if args.verbose {
+                // set_up_logging(log::LevelFilter::Trace, outputlogfile);
+                set_up_logging(log::LevelFilter::Info, outputlogfile);
+
+            } else {
+                set_up_logging(log::LevelFilter::Warn, outputlogfile);
+            }
+
             check_threads(*threads);
+
 
             // Read input
             let input_files = get_input_list(file_list, seq_files);
