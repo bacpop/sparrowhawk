@@ -455,11 +455,11 @@ impl Assemble for BasicAsm {
 
         logw("Starting graph correction", Some("info"));
 
-        logw("Removing self-loops");
+        logw("Removing self-loops", Some("info"));
         ptgraph.remove_self_loops();
 
         if do_conflictive_links_removal {
-            logw("Removing conflictive links");
+            logw("Removing conflictive links", Some("info"));
             ptgraph.remove_conflictive_links();
         }
 
