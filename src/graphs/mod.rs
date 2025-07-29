@@ -1,6 +1,6 @@
 use super::algorithms::builder::Build;
 use super::algorithms::collapser::Collapsable;
-use super::algorithms::pruner::Prunable;
+use super::algorithms::corrector::Correctable;
 use pt_graph::{CarryType, NodeIndex};
 use std::io::Write;
 use pt_graph::EdgeType;
@@ -10,7 +10,7 @@ pub mod pt_graph;
 
 /// Graph's interface.
 pub trait Graph
-    : Build + Prunable + Collapsable {
+    : Build + Correctable + Collapsable {
     /// Node identifier.
     type NodeIdentifier;
     /// Collection storing nodes which are ambiguous nodes.

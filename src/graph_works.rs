@@ -31,7 +31,7 @@ use crate::nthash;
 use crate::graphs::pt_graph::EdgeType;
 
 use crate::bit_encoding::rc_base;
-
+use crate::logw;
 
 /// Get backwards neighbours, i.e. incoming edges to either the canonical or non-canonical hashes
 pub fn check_bkg( // backwards here mean INCOMING edges, whether from the rev.-comp. strand, or the direct one
@@ -247,12 +247,14 @@ pub trait Assemble {
     /// Assembles given data using specified `Graph` and writes results into the output file.
     fn assemble<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                           maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, timevec : &mut Vec<Instant>,
-                          path : &mut Option<PathBuf>) -> Contigs;
+                          path : &mut Option<PathBuf>, do_bubble_collapse : bool, do_dead_end_removal : bool,
+                          do_conflictive_links_removal : bool) -> Contigs;
 
     #[cfg(feature = "wasm")]
     /// Assembles given data using specified `Graph` and prepares all info for being later transferred to Javascript.
     fn assemble_wasm<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
-                               maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>) -> (Contigs, String, String, String);
+                               maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, do_bubble_collapse : bool,
+                               do_dead_end_removal : bool, do_conflictive_links_removal : bool) -> (Contigs, String, String, String);
 }
 
 
@@ -267,8 +269,12 @@ impl Assemble for BasicAsm {
                         indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                         maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
                         timevec    : &mut Vec<Instant>,
-                        path       : &mut Option<PathBuf>) -> Contigs {
-        log::info!("Starting assembler!");
+                        path       : &mut Option<PathBuf>,
+                        do_bubble_collapse           : bool,
+                        do_dead_end_removal          : bool,
+                        do_conflictive_links_removal : bool,
+    ) -> Contigs {
+        logw("Starting assembler!", Some("info"));
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
         let mut i = 0;
@@ -286,27 +292,27 @@ impl Assemble for BasicAsm {
         });
 
 //         drop(maxmindict);
-        log::info!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0);
-        log::info!("Number of edges {}", (nedges as f64) / (2 as f64));
+        logw(format!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0).as_str(), Some("info"));
+        logw(format!("Number of edges {}", (nedges as f64) / (2 as f64)).as_str(), Some("info"));
 
         timevec.push(Instant::now());
-        log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+        logw(format!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
 
-        indict.iter().for_each(|(h, hi)| {
-            let himutref = hi.borrow();
-
-            // Check first previous neighbours:
-            for ipre in himutref.pre.iter() {
-                if !indict.get(&ipre.0).unwrap().borrow().pre.contains(&(*h, ipre.1.rev())) || !indict.get(&ipre.0).unwrap().borrow().post.contains(&(*h, ipre.1)) {
-                    println!("HEY1");
-                }
-            }
-            for ipost in himutref.post.iter() {
-                if !indict.get(&ipost.0).unwrap().borrow().post.contains(&(*h, ipost.1.rev())) || !indict.get(&ipost.0).unwrap().borrow().pre.contains(&(*h, ipost.1)) {
-                    println!("HEY2");
-                }
-            }
-        });
+        // indict.iter().for_each(|(h, hi)| {
+        //     let himutref = hi.borrow();
+        //
+        //     // Check first previous neighbours:
+        //     for ipre in himutref.pre.iter() {
+        //         if !indict.get(&ipre.0).unwrap().borrow().pre.contains(&(*h, ipre.1.rev())) || !indict.get(&ipre.0).unwrap().borrow().post.contains(&(*h, ipre.1)) {
+        //             println!("HEY1");
+        //         }
+        //     }
+        //     for ipost in himutref.post.iter() {
+        //         if !indict.get(&ipost.0).unwrap().borrow().post.contains(&(*h, ipost.1.rev())) || !indict.get(&ipost.0).unwrap().borrow().pre.contains(&(*h, ipost.1)) {
+        //             println!("HEY2");
+        //         }
+        //     }
+        // });
 
         let mut ptgraph = G::create_from_map::<G>(k, indict);
 
@@ -318,28 +324,47 @@ impl Assemble for BasicAsm {
         // }
         // log::info!("Done.");
 
-        log::info!("Starting shrinkage and pruning of the graph");
+        logw("Starting graph correction", Some("info"));
 
-        log::info!("Removing self-loops (temporal restriction)");
+        logw("Removing self-loops", Some("info"));
         ptgraph.remove_self_loops();
 
-        // let minnts = 100; // independent of this value, the minimum number of nts will be always k
-        // let limit = max(0, minnts - k + 1);
+        if do_conflictive_links_removal {
+            logw("Removing conflictive links", Some("info"));
+            ptgraph.remove_conflictive_links();
+        }
 
         let mut didanyofusdoanything = true;
+        let mut bool1 : bool;
+        let mut bool2 : bool = false;
+        let mut bool3 : bool = false;
+        let mut bool4 : bool = false;
         while didanyofusdoanything {
-            let bools = ptgraph.shrink();
-            // let bools = false;
-            let boolr = ptgraph.remove_dead_paths();
-            // let boolr = false;
+            bool1 = ptgraph.shrink();
+            // let bool1 = false;
+
+            if do_dead_end_removal {
+                bool2 = ptgraph.remove_dead_paths();
+                // let bool2 = false;
+
+                bool3 = ptgraph.shrink();
+                // let bool3 = false;
+            }
+
+            if do_bubble_collapse {
+                bool4 = ptgraph.correct_bubbles();
+                // let bool4 = false;
+            }
+
     //             println!("{} {}", bools, boolr);
-            didanyofusdoanything = bools || boolr;
+            didanyofusdoanything = bool1 || bool2 || bool3 || bool4;
             // break;
         }
-        log::info!("Shrinkage and pruning finished");
+
+        logw("Shrinkage and pruning finished", Some("info"));
 
         if path.is_some() {
-            log::info!("Saving graph (post-shrink, pre-collapse, w/o one-node contigs) as DOT, GFAv1.1, and GFAv2 files...");
+            logw("Saving graph (post-shrink, pre-collapse, w/o one-node contigs) as DOT, GFAv1.1, and GFAv2 files...", Some("info"));
             let pathmutref = path.as_mut().unwrap();
             pathmutref.set_extension("dot");
             let mut wbufdot = set_ostream(&Some(pathmutref.clone().into_os_string().into_string().unwrap()));
@@ -352,12 +377,13 @@ impl Assemble for BasicAsm {
             pathmutref.set_extension("gfa2");
             let mut wbufgfa2 = set_ostream(&Some(pathmutref.clone().into_os_string().into_string().unwrap()));
             ptgraph.write_to_gfa2(&mut wbufgfa2);
-            log::info!("Done.");
+            logw("Done.", Some("info"));
         }
 
 
         let serialized_contigs = ptgraph.collapse();
-        log::info!("I created {} contigs", serialized_contigs.len());
+        logw(format!("I created {} contigs", serialized_contigs.len()).as_str(), Some("info"));
+
         let mut contigs = Contigs::new(serialized_contigs);
 
         // TEMPORAL RESTRICTION, WIP
@@ -371,6 +397,9 @@ impl Assemble for BasicAsm {
     fn assemble_wasm<G: Graph>(k        : usize,
                         indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
                         maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
+                        do_bubble_collapse           : bool,
+                        do_dead_end_removal          : bool,
+                        do_conflictive_links_removal : bool,
         ) -> (Contigs, String, String, String) {
         log::info!("Starting assembler!");
 
@@ -393,8 +422,8 @@ impl Assemble for BasicAsm {
         });
 
 //         drop(maxmindict);
-        println!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0);
-        println!("Number of edges {}", (nedges as f64) / (2 as f64));
+        logw(format!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0).as_str(), Some("trace"));
+        logw(format!("Number of edges {}", (nedges as f64) / (2 as f64)).as_str(), Some("trace"));
 
         // log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
@@ -424,25 +453,44 @@ impl Assemble for BasicAsm {
         // }
         // log::info!("Done.");
 
-        log::info!("Starting shrinkage and pruning of the graph");
+        logw("Starting graph correction", Some("info"));
 
-        log::info!("Removing self-loops (temporal restriction)");
+        logw("Removing self-loops");
         ptgraph.remove_self_loops();
 
-        // let minnts = 100; // independent of this value, the minimum number of nts will be always k
-        // let limit = max(0, minnts - k + 1);
+        if do_conflictive_links_removal {
+            logw("Removing conflictive links");
+            ptgraph.remove_conflictive_links();
+        }
 
         let mut didanyofusdoanything = true;
+        let mut bool1 : bool;
+        let mut bool2 : bool = false;
+        let mut bool3 : bool = false;
+        let mut bool4 : bool = false;
         while didanyofusdoanything {
-            let bools = ptgraph.shrink();
-            // let bools = false;
-            let boolr = ptgraph.remove_dead_paths();
-            // let boolr = false;
+            bool1 = ptgraph.shrink();
+            // let bool1 = false;
+
+            if do_dead_end_removal {
+                bool2 = ptgraph.remove_dead_paths();
+                // let bool2 = false;
+
+                bool3 = ptgraph.shrink();
+                // let bool3 = false;
+            }
+
+            if do_bubble_collapse {
+                bool4 = ptgraph.correct_bubbles();
+                // let bool4 = false;
+            }
+
     //             println!("{} {}", bools, boolr);
-            didanyofusdoanything = bools || boolr;
+            didanyofusdoanything = bool1 || bool2 || bool3 || bool4;
             // break;
         }
-        log::info!("Shrinkage and pruning finished");
+
+        logw("Shrinkage and pruning finished", Some("info"));
 
         let outdot  = ptgraph.get_dot_string();
         let outgfa  = ptgraph.get_gfa_string();

@@ -5,7 +5,6 @@ use std::{
     collections::HashMap,
     hash::BuildHasherDefault,
     cell::*,
-    time::SystemTime,
     // process::exit,
 };
 
@@ -13,10 +12,15 @@ use std::{
 use std::{
     time::Instant,
     path::PathBuf,
+    time::SystemTime,
 };
 
 extern crate num_cpus;
+
+#[cfg(not(feature = "wasm"))]
 use fern;
+
+#[cfg(not(feature = "wasm"))]
 use humantime;
 
 /// Construction, assembly, shrinkage, pruning, and collapse of DNA de Bruijn graphs
@@ -161,6 +165,7 @@ impl fmt::Display for QualOpts {
 }
 
 #[cfg(not(feature = "wasm"))]
+/// Sets up logging
 pub fn set_up_logging(level : log::LevelFilter, outfile : PathBuf) {
     fern::Dispatch::new()
         .format(|out, message, record| {
@@ -205,6 +210,9 @@ pub fn main() {
             chunk_size,
             no_histo,
             no_graphs,
+            no_bubble_collapse,
+            no_dead_end_removal,
+            // no_conflictive_links_removal,
         } => {
             let mut outputlogfile : PathBuf = output_dir.into();
             outputlogfile.set_file_name(output_prefix.to_string() + "_log");
@@ -281,7 +289,7 @@ pub fn main() {
                 let thedict : HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>;
                 (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_standalone::<u64>(&input_files, *k, &quality, &mut timevec, &mut out_path_histo, *chunk_size, *do_bloom, *auto_min_count);
                 drop(theseq);
-                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph);
+                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph, !no_bubble_collapse, !no_dead_end_removal, false);
 
                 // Save as fasta
                 save_functions::save_as_fasta::<u64>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -292,7 +300,7 @@ pub fn main() {
                 (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_standalone::<u128>(&input_files, *k, &quality, &mut timevec, &mut out_path_histo, *chunk_size, *do_bloom, *auto_min_count);
                 drop(theseq);
 
-                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph);
+                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph, !no_bubble_collapse, !no_dead_end_removal, false);
 
                 // Save as fasta
                 save_functions::save_as_fasta::<u128>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -304,7 +312,7 @@ pub fn main() {
                 (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_standalone::<U256>(&input_files, *k, &quality, &mut timevec, &mut out_path_histo, *chunk_size, *do_bloom, *auto_min_count);
                 drop(theseq);
 
-                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph);
+                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph, !no_bubble_collapse, !no_dead_end_removal, false);
 
                 // Save as fasta
                 save_functions::save_as_fasta::<U256>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -316,7 +324,7 @@ pub fn main() {
                 (preprocessed_data, theseq, thedict, maxmindict) = preprocessing::preprocessing_standalone::<U512>(&input_files, *k, &quality, &mut timevec, &mut out_path_histo, *chunk_size, *do_bloom, *auto_min_count);
                 drop(theseq);
 
-                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph);
+                let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(*k, &mut preprocessed_data, &mut maxmindict, &mut timevec, &mut out_path_graph, !no_bubble_collapse, !no_dead_end_removal, false);
 
                 // Save as fasta
                 save_functions::save_as_fasta::<U512>(&mut contigs, &thedict, *k, output); // FASTA file(s)
@@ -471,9 +479,9 @@ impl AssemblyHelper {
 
 
     /// Assemble method of the wasm version
-    pub fn assemble(&mut self) {
+    pub fn assemble(&mut self, no_bubble_collapse : bool, no_dead_end_removal : bool) {
         logw("Starting assembly...", Some("info"));
-        let (mut outcontigs, outdot, outgfa, outgfav2) = graph_works::BasicAsm::assemble_wasm::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict);
+        let (mut outcontigs, outdot, outgfa, outgfav2) = graph_works::BasicAsm::assemble_wasm::<PtGraph>(self.k, &mut self.preprocessed_data, &mut self.maxmindict, !no_bubble_collapse, !no_dead_end_removal, false);
 
         logw("Assembly done!", Some("info"));
 

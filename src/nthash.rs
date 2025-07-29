@@ -288,6 +288,7 @@ pub const MS_TAB_31L: [u64; 124] = [
 ];
 
 
+/// This is the look-up table for the first split, 5LL
 pub const MS_TAB_5LL: [u64; 20] = [
 0x3800000000000000,
 0x7000000000000000,
@@ -311,6 +312,7 @@ pub const MS_TAB_5LL: [u64; 20] = [
 0x1000000000000000,
 ];
 
+/// This is the LUT for the second split, 7L
 pub const MS_TAB_7L: [u64; 28] = [
 0x0480000000000000,
 0x0110000000000000,
@@ -342,6 +344,7 @@ pub const MS_TAB_7L: [u64; 28] = [
 0x0410000000000000,
 ];
 
+/// This is the LUT for the third split, 9LC
 pub const MS_TAB_9LC: [u64; 36] = [
 0x000bf80000000000,
 0x0007f80000000000,
@@ -381,6 +384,7 @@ pub const MS_TAB_9LC: [u64; 36] = [
 0x0009180000000000,
 ];
 
+/// This is the LUT for the fourth split, 11CR
 pub const MS_TAB_11CR: [u64; 44] = [
 0x03b300000000,
 0x076600000000,
@@ -428,6 +432,7 @@ pub const MS_TAB_11CR: [u64; 44] = [
 0x036800000000,
 ];
 
+/// This is the LUT for the fifth split, 13R
 pub const MS_TAB_13R: [u64; 52] = [
 0x000095c00000,
 0x00002b880000,
@@ -484,6 +489,7 @@ pub const MS_TAB_13R: [u64; 52] = [
 
 ];
 
+/// This is the LUT for the sixth split, 19RR
 pub const MS_TAB_19RR: [u64; 76] = [
 0x00060474,
 0x000408e9,

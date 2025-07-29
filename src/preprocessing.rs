@@ -16,7 +16,7 @@ use rayon::prelude::*;
 #[cfg(not(feature = "wasm"))]
 use needletail::parse_fastx_file;
 
-use std::process::exit;
+// use std::process::exit;
 
 #[cfg(not(feature = "wasm"))]
 use plotters::prelude::*;
@@ -139,7 +139,7 @@ where
 
 //     let maxkmers = 200;
 //     let mut numkmers = 0;
-    let mut ncols : usize = 0;
+    // let mut ncols : usize = 0;
     let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
     let mut theseq   : Vec<u64> = Vec::new();
     while let Some(record) = reader.next() {
@@ -160,13 +160,13 @@ where
 //             numkmers += 1;
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            // outdict.entry(hc).or_insert(km);
-            let testkm = outdict.entry(hc).or_insert(km);
-            if *testkm != km {
-                log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
-                log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                ncols += 1;
-            }
+            outdict.entry(hc).or_insert(km);
+            // let testkm = outdict.entry(hc).or_insert(km);
+            // if *testkm != km {
+            //     log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
+            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+            //     ncols += 1;
+            // }
             // } else {
             //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
@@ -174,13 +174,13 @@ where
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                // outdict.entry(hc).or_insert(km);
-                let testkm = outdict.entry(hc).or_insert(km);
-                if *testkm != km {
-                    log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
-                    log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                    ncols += 1;
-                }
+                outdict.entry(hc).or_insert(km);
+                // let testkm = outdict.entry(hc).or_insert(km);
+                // if *testkm != km {
+                //     log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
+                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                //     ncols += 1;
+                // }
                 // } else {
                 //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
@@ -227,13 +227,13 @@ where
 //             numkmers += 1;
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            // outdict.entry(hc).or_insert(km);
-            let testkm = outdict.entry(hc).or_insert(km);
-            if *testkm != km {
-                log::debug!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
-                log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                ncols += 1;
-            }
+            outdict.entry(hc).or_insert(km);
+            // let testkm = outdict.entry(hc).or_insert(km);
+            // if *testkm != km {
+            //     log::debug!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
+            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+            //     ncols += 1;
+            // }
             // } else {
             //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
             // }
@@ -241,13 +241,13 @@ where
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                // outdict.entry(hc).or_insert(km);
-                let testkm = outdict.entry(hc).or_insert(km);
-                if *testkm != km {
-                    log::debug!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
-                    log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                    ncols += 1;
-                }
+                outdict.entry(hc).or_insert(km);
+                // let testkm = outdict.entry(hc).or_insert(km);
+                // if *testkm != km {
+                //     log::debug!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
+                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                //     ncols += 1;
+                // }
                 // } else {
                 //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
@@ -270,7 +270,7 @@ where
 
     log::info!("Finished getting kmers from file {filename2}");
     log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
-    log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
+    // log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
 
 
     (theseq, outdict, minmaxdict)
@@ -1296,11 +1296,11 @@ fn get_map_with_counts_and_fit(
 
     invec.clear(); invec.shrink_to_fit(); // Quick optimisation
 
-    // TEST
-    for i in 0..plotvec.len() {
-        logw(format!("#######{:?}-{:?}", i, plotvec[i]).as_str(), Some("info"));
-    }
-    // TEST END
+    // // TEST
+    // for i in 0..plotvec.len() {
+    //     logw(format!("#######{:?}-{:?}", i, plotvec[i]).as_str(), Some("info"));
+    // }
+    // // TEST END
     // We need to do the fit!
     log::info!("Counting finished. Starting fit...");
     let mut fit = SpectrumFitter::new();
@@ -1615,7 +1615,7 @@ where
     log::info!("Entering while loop...");
 
     let mut i_record = 0;
-    let mut ncols : usize = 0;
+    // let mut ncols : usize = 0;
 
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
@@ -1631,20 +1631,20 @@ where
         if let Some(mut kmer_it) = kmer_opt {
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            // outdict.entry(hc).or_insert(km);
-            let testkm = outdict.entry(hc).or_insert(km);
-            if *testkm != km {
-                ncols += 1;
-            }
+            outdict.entry(hc).or_insert(km);
+            // let testkm = outdict.entry(hc).or_insert(km);
+            // if *testkm != km {
+            //     ncols += 1;
+            // }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                // outdict.entry(hc).or_insert(km);
-                let testkm = outdict.entry(hc).or_insert(km);
-                if *testkm != km {
-                    ncols += 1;
-                }
+                outdict.entry(hc).or_insert(km);
+                // let testkm = outdict.entry(hc).or_insert(km);
+                // if *testkm != km {
+                //     ncols += 1;
+                // }
                 minmaxdict.entry(hnc).or_insert(hc);
             }
         }
@@ -1688,20 +1688,20 @@ where
         if let Some(mut kmer_it) = kmer_opt {
             let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
             outvec.push( (hc, hnc, b) );
-            // outdict.entry(hc).or_insert(km);
-            let testkm = outdict.entry(hc).or_insert(km);
-            if *testkm != km {
-                ncols += 1;
-            }
+            outdict.entry(hc).or_insert(km);
+            // let testkm = outdict.entry(hc).or_insert(km);
+            // if *testkm != km {
+            //     ncols += 1;
+            // }
             minmaxdict.entry(hnc).or_insert(hc);
             while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                 let (hc, hnc, b, km) = tmptuple;
                 outvec.push( (hc, hnc, b) );
-                // outdict.entry(hc).or_insert(km);
-                let testkm = outdict.entry(hc).or_insert(km);
-                if *testkm != km {
-                    ncols += 1;
-                }
+                outdict.entry(hc).or_insert(km);
+                // let testkm = outdict.entry(hc).or_insert(km);
+                // if *testkm != km {
+                //     ncols += 1;
+                // }
                 minmaxdict.entry(hnc).or_insert(hc);
             }
         }
@@ -1740,7 +1740,7 @@ where
     log::info!("Finished getting kmers from the second file");
 
 
-    println!("k | Number of collisions =+=+ {} {}", k, ncols);
+    // println!("k | Number of collisions =+=+ {} {}", k, ncols);
     //exit(0);
 
 
@@ -1761,11 +1761,11 @@ where
             }
         }
 
-        // TEST
-        for i in 0..histovec.len() {
-            logw(format!("#######{:?}-{:?}", i, histovec[i]).as_str(), Some("info"));
-        }
-        // TEST END
+        // // TEST
+        // for i in 0..histovec.len() {
+        //     logw(format!("#######{:?}-{:?}", i, histovec[i]).as_str(), Some("info"));
+        // }
+        // // TEST END
 
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
