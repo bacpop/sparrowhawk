@@ -130,7 +130,6 @@ where
     let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
     let mut theseq   : Vec<u64> = Vec::new();
 
-    //     log::debug!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
     // Memory usage optimisations
     let cseq = theseq.capacity();
     let lseq = theseq.len();
@@ -172,6 +171,7 @@ where
                 // if *testkm != km {
                 //     log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
                 //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                //     ncols += 1;
                 // }
                 // } else {
                 //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
@@ -211,6 +211,7 @@ where
 
     log::info!("Finished getting kmers from {} file(s)", filenames.len());
     log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
+    // log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
 
 
     (theseq, outdict, minmaxdict)
@@ -498,10 +499,19 @@ where
         // large (and so that we can detect it).
         logw("Counting finished. Starting fit...", Some("info"));
         let mut fit = SpectrumFitter::new();
-        minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -701,10 +711,19 @@ where
         // large (and so that we can detect it).
         logw("Counting finished. Starting fit...", Some("info"));
         let mut fit = SpectrumFitter::new();
-        minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -828,7 +847,7 @@ where
     // Now, get themap, histovec, and filter outdict and minmaxdict
     let countmap = kmer_filter.get_counts_map();
     countmap.shrink_to_fit();
-    let minc;
+    let mut minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
@@ -845,10 +864,20 @@ where
         // large (and so that we can detect it).
         log::info!("Counting finished. Starting fit...");
         let mut fit = SpectrumFitter::new();
-        let minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
@@ -1031,6 +1060,12 @@ fn get_map_with_counts(
         plotvec.shrink_to_fit();
 
         // Plotting!
+        // // TEST
+        // for i in 0..plotvec.len() {
+        //     logw(format!("#######{:?}-{:?}", i, plotvec[i]).as_str(), Some("info"));
+        // }
+        // // TEST END
+
 
         let root = BitMapBackend::new(out_path.as_ref().unwrap().as_path(), (1280, 960)).into_drawing_area();
 
@@ -1173,15 +1208,32 @@ fn get_map_with_counts_and_fit(
 
     invec.clear(); invec.shrink_to_fit(); // Quick optimisation
 
+    // // TEST
+    // for i in 0..plotvec.len() {
+    //     logw(format!("#######{:?}-{:?}", i, plotvec[i]).as_str(), Some("info"));
+    // }
+    // // TEST END
     // We need to do the fit!
     log::info!("Counting finished. Starting fit...");
     let mut fit = SpectrumFitter::new();
     // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
     // large (and so that we can detect it).
-    let fitted_min_count = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+    // let fitted_min_count = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+    let mut fitted_min_count : u16;
+
+    let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
+    if result.is_ok() {
+        fitted_min_count = result.unwrap() as u16;
+    } else {
+        logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+        fitted_min_count = 3;
+    }
 
     if fitted_min_count <= 0 {
         panic!("Fitted min_count value is zero or negative!");
+    } else if fitted_min_count <= 10 {
+        logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+        fitted_min_count = 3;
     }
 
     log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", fitted_min_count);
@@ -1336,10 +1388,21 @@ fn get_map_wasm(
         let mut fit = SpectrumFitter::new();
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
-        minc = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        // minc = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+
+        let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -1456,6 +1519,7 @@ where
 
     let mut histovec : Vec<u32> = vec![0; MAXSIZEHISTO];
     let mut i_record = 0;
+    // let mut ncols : usize = 0;
 
     for file in files {
         log::info!("Getting kmers from file {file}. Creating reader...");
@@ -1478,6 +1542,10 @@ where
                 let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
                 outvec.push( (hc, hnc, b) );
                 outdict.entry(hc).or_insert(km);
+                // let testkm = outdict.entry(hc).or_insert(km);
+                // if *testkm != km {
+                //     ncols += 1;
+                // }
                 minmaxdict.entry(hnc).or_insert(hc);
                 while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                     let (hc, hnc, b, km) = tmptuple;
@@ -1522,11 +1590,17 @@ where
         outvec.clear();
     }
     log::info!("Finished getting kmers from the second file");
+
+
+    // println!("k | Number of collisions =+=+ {} {}", k, ncols);
+    //exit(0);
+
+
     log::info!("Filtering...");
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
     countmap.shrink_to_fit();
-    let minc;
+    let mut minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
@@ -1538,15 +1612,32 @@ where
                 histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
             }
         }
+
+        // // TEST
+        // for i in 0..histovec.len() {
+        //     logw(format!("#######{:?}-{:?}", i, histovec[i]).as_str(), Some("info"));
+        // }
+        // // TEST END
+
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
         log::info!("Counting finished. Starting fit...");
         let mut fit = SpectrumFitter::new();
-        let minc = fit.fit_histogram(histovec.clone()[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        // let minc = fit.fit_histogram(histovec.clone()[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
 
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
@@ -1706,6 +1797,7 @@ where
 
         // First, we want to fill our mega-vector with all k-mers from both paired-end reads
         log::info!("Filling vector");
+            println!("checks enabled!");
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
         let (theseq, thedict, maxmindict) = get_kmers_from_both_files_and_the_dict_and_the_seq::<IntT>(&input_files[0].1,
@@ -1713,6 +1805,7 @@ where
             qual,
             &mut tmpvec);
 
+        //exit(0);
         timevec.push(Instant::now());
         log::info!("Kmers extracted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 

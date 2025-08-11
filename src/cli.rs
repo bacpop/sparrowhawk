@@ -160,8 +160,17 @@ pub enum Commands {
         /// in the DOT, GFAv1.1 and GFAv2 formats. Use this argument if you want it to not do this
         #[arg(long, default_value_t = false)]
         no_graphs: bool,
+
+        /// Do not solve bubbles in the graph
+        #[arg(long, default_value_t = false)]
+        no_bubble_collapse: bool,
+
+        /// Do not remove dead endsin the graph
+        #[arg(long, default_value_t = false)]
+        no_dead_end_removal: bool,
     },
 }
+
 
 /// Function to parse command line args into [`Args`] struct
 pub fn cli_args() -> Args {

@@ -288,6 +288,287 @@ pub const MS_TAB_31L: [u64; 124] = [
 ];
 
 
+/// This is the look-up table for the first split, 5LL
+pub const MS_TAB_5LL: [u64; 20] = [
+0x3800000000000000,
+0x7000000000000000,
+0xe000000000000000,
+0xc800000000000000,
+0x9800000000000000,
+0x3000000000000000,
+0x6000000000000000,
+0xc000000000000000,
+0x8800000000000000,
+0x1800000000000000,
+0x2800000000000000,
+0x5000000000000000,
+0xa000000000000000,
+0x4800000000000000,
+0x9000000000000000,
+0x2000000000000000,
+0x4000000000000000,
+0x8000000000000000,
+0x0800000000000000,
+0x1000000000000000,
+];
+
+/// This is the LUT for the second split, 7L
+pub const MS_TAB_7L: [u64; 28] = [
+0x0480000000000000,
+0x0110000000000000,
+0x0220000000000000,
+0x0440000000000000,
+0x0090000000000000,
+0x0120000000000000,
+0x0240000000000000,
+0x0190000000000000,
+0x0320000000000000,
+0x0640000000000000,
+0x0490000000000000,
+0x0130000000000000,
+0x0260000000000000,
+0x04c0000000000000,
+0x0150000000000000,
+0x02a0000000000000,
+0x0540000000000000,
+0x0290000000000000,
+0x0520000000000000,
+0x0250000000000000,
+0x04a0000000000000,
+0x0030000000000000,
+0x0060000000000000,
+0x00c0000000000000,
+0x0180000000000000,
+0x0300000000000000,
+0x0600000000000000,
+0x0410000000000000,
+];
+
+/// This is the LUT for the third split, 9LC
+pub const MS_TAB_9LC: [u64; 36] = [
+0x000bf80000000000,
+0x0007f80000000000,
+0x000ff00000000000,
+0x000fe80000000000,
+0x000fd80000000000,
+0x000fb80000000000,
+0x000f780000000000,
+0x000ef80000000000,
+0x000df80000000000,
+0x0003c00000000000,
+0x0007800000000000,
+0x000f000000000000,
+0x000e080000000000,
+0x000c180000000000,
+0x0008380000000000,
+0x0000780000000000,
+0x0000f00000000000,
+0x0001e00000000000,
+0x0005480000000000,
+0x000a900000000000,
+0x0005280000000000,
+0x000a500000000000,
+0x0004a80000000000,
+0x0009500000000000,
+0x0002a80000000000,
+0x0005500000000000,
+0x000aa00000000000,
+0x0002380000000000,
+0x0004700000000000,
+0x0008e00000000000,
+0x0001c80000000000,
+0x0003900000000000,
+0x0007200000000000,
+0x000e400000000000,
+0x000c880000000000,
+0x0009180000000000,
+];
+
+/// This is the LUT for the fourth split, 11CR
+pub const MS_TAB_11CR: [u64; 44] = [
+0x03b300000000,
+0x076600000000,
+0x06cd00000000,
+0x059b00000000,
+0x033700000000,
+0x066e00000000,
+0x04dd00000000,
+0x01bb00000000,
+0x037600000000,
+0x06ec00000000,
+0x05d900000000,
+0x018500000000,
+0x030a00000000,
+0x061400000000,
+0x042900000000,
+0x005300000000,
+0x00a600000000,
+0x014c00000000,
+0x029800000000,
+0x053000000000,
+0x026100000000,
+0x04c200000000,
+0x01f500000000,
+0x03ea00000000,
+0x07d400000000,
+0x07a900000000,
+0x075300000000,
+0x06a700000000,
+0x054f00000000,
+0x029f00000000,
+0x053e00000000,
+0x027d00000000,
+0x04fa00000000,
+0x06d000000000,
+0x05a100000000,
+0x034300000000,
+0x068600000000,
+0x050d00000000,
+0x021b00000000,
+0x043600000000,
+0x006d00000000,
+0x00da00000000,
+0x01b400000000,
+0x036800000000,
+];
+
+/// This is the LUT for the fifth split, 13R
+pub const MS_TAB_13R: [u64; 52] = [
+0x000095c00000,
+0x00002b880000,
+0x000057100000,
+0x0000ae200000,
+0x00005c480000,
+0x0000b8900000,
+0x000071280000,
+0x0000e2500000,
+0x0000c4a80000,
+0x000089580000,
+0x000012b80000,
+0x000025700000,
+0x00004ae00000,
+0x000062a00000,
+0x0000c5400000,
+0x00008a880000,
+0x000015180000,
+0x00002a300000,
+0x000054600000,
+0x0000a8c00000,
+0x000051880000,
+0x0000a3100000,
+0x000046280000,
+0x00008c500000,
+0x000018a80000,
+0x000031500000,
+0x00004be00000,
+0x000097c00000,
+0x00002f880000,
+0x00005f100000,
+0x0000be200000,
+0x00007c480000,
+0x0000f8900000,
+0x0000f1280000,
+0x0000e2580000,
+0x0000c4b80000,
+0x000089780000,
+0x000012f80000,
+0x000025f00000,
+0x000082500000,
+0x000004a80000,
+0x000009500000,
+0x000012a00000,
+0x000025400000,
+0x00004a800000,
+0x000095000000,
+0x00002a080000,
+0x000054100000,
+0x0000a8200000,
+0x000050480000,
+0x0000a0900000,
+0x000041280000,
+
+];
+
+/// This is the LUT for the sixth split, 19RR
+pub const MS_TAB_19RR: [u64; 76] = [
+0x00060474,
+0x000408e9,
+0x000011d3,
+0x000023a6,
+0x0000474c,
+0x00008e98,
+0x00011d30,
+0x00023a60,
+0x000474c0,
+0x0000e981,
+0x0001d302,
+0x0003a604,
+0x00074c08,
+0x00069811,
+0x00053023,
+0x00026047,
+0x0004c08e,
+0x0001811d,
+0x0003023a,
+0x00002b4c,
+0x00005698,
+0x0000ad30,
+0x00015a60,
+0x0002b4c0,
+0x00056980,
+0x0002d301,
+0x0005a602,
+0x00034c05,
+0x0006980a,
+0x00053015,
+0x0002602b,
+0x0004c056,
+0x000180ad,
+0x0003015a,
+0x000602b4,
+0x00040569,
+0x00000ad3,
+0x000015a6,
+0x00024456,
+0x000488ac,
+0x00011159,
+0x000222b2,
+0x00044564,
+0x00008ac9,
+0x00011592,
+0x00022b24,
+0x00045648,
+0x0000ac91,
+0x00015922,
+0x0002b244,
+0x00056488,
+0x0002c911,
+0x00059222,
+0x00032445,
+0x0006488a,
+0x00049115,
+0x0001222b,
+0x00072324,
+0x00064649,
+0x00048c93,
+0x00011927,
+0x0002324e,
+0x0004649c,
+0x0000c939,
+0x00019272,
+0x000324e4,
+0x000649c8,
+0x00049391,
+0x00012723,
+0x00024e46,
+0x00049c8c,
+0x00013919,
+0x00027232,
+0x0004e464,
+0x0001c8c9,
+0x00039192,
+];
+
 /// Stores forward and (optionally) reverse complement hashes of k-mers in a nucleotide sequence
 #[derive(Debug)]
 pub struct NtHashIterator {
@@ -304,6 +585,18 @@ pub fn swapbits033(v: u64) -> u64 {
     v ^ (x | (x << 33))
 }
 
+/// Function that cycles to the RIGHT the bits in the 0, 19, 32, 43, 52, and 59 positions
+#[inline(always)]
+pub fn swapbits_0_19_32_43_52_59(v: u64) -> u64 {
+    let x = (v ^ (v >> 19)) & 1;         // The 19th bit XOR the 0th  bit
+    let y = ((v >> 32) ^ (v >> 19)) & 1; // The 32nd bit XOR the 19th bit
+    let z = ((v >> 43) ^ (v >> 32)) & 1; // The 32nd bit XOR the 43rd bit
+    let t = ((v >> 52) ^ (v >> 43)) & 1; // The 43rd bit XOR the 52nd bit
+    let u = ((v >> 59) ^ (v >> 52)) & 1; // The 59th bit XOR the 52nd bit
+    let w = (v ^ (v >> 59)) & 1;         // The 59th bit XOR the 0th  bit
+
+    v ^ (x | (y << 19) | (z << 32) | (t << 43) | (u << 52) | (w << 59))
+}
 
 /// Function that exchanges the bits in the 32 and 63 positions
 #[inline(always)]
@@ -312,6 +605,18 @@ pub fn swapbits3263(v: u64) -> u64 {
     v ^ ((x << 32) | (x << 63))
 }
 
+/// Function that cycles to the LEFT the bits in the 18, 31, 42, 51, 58, and 63 positions
+#[inline(always)]
+pub fn swapbits_18_31_42_51_58_63(v: u64) -> u64 {
+    let x = ((v >> 63) ^ (v >> 58)) & 1;   // 63rd XOR 58th bit
+    let y = ((v >> 58) ^ (v >> 51)) & 1;   // 58th XOR 51st bit
+    let z = ((v >> 51) ^ (v >> 42)) & 1;   // 51st XOR 42nd bit
+    let t = ((v >> 42) ^ (v >> 31)) & 1;   // 42nd XOR 31st bit
+    let u = ((v >> 31) ^ (v >> 18)) & 1;   // 31st XOR 18th bit
+    let w = ((v >> 18) ^ (v >> 63)) & 1;   // 18th XOR 63rd bit
+
+    v ^ ((x << 63) | (y << 58) | (z << 51) | (t << 42) | (u << 31) | (w << 18))
+}
 
 impl NtHashIterator {
     /// Creates a new iterator over a sequence with a given k-mer size
@@ -320,7 +625,8 @@ impl NtHashIterator {
         // for (_, v) in seq[0..k].iter().enumerate() {
         for v in seq[0..k].iter() {
             fh = fh.rotate_left(1_u32); // This, WITH swapbits033 (next line), is the "srol" function
-            fh = swapbits033(fh);
+            // fh = swapbits033(fh);
+            fh = swapbits_0_19_32_43_52_59(fh);
             fh ^= HASH_LOOKUP[encode_base(*v) as usize];
         }
 
@@ -329,7 +635,8 @@ impl NtHashIterator {
             // for (_, v) in seq[0..k].iter().rev().enumerate() {
             for v in seq[0..k].iter().rev() {
                 h =  h.rotate_left(1_u32);
-                h =  swapbits033(h);
+                // h =  swapbits033(h);
+                h =  swapbits_0_19_32_43_52_59(h);
                 h ^= RC_HASH_LOOKUP[encode_base(*v) as usize];
             }
             Some(h)
@@ -343,20 +650,33 @@ impl NtHashIterator {
     /// Move to the next k-mer by adding a new base, removing a base from the end, efficiently updating the hash.
     pub fn roll_fwd(&mut self, old_base: u8, new_base: u8) {
         self.fh = self.fh.rotate_left(1);
-        self.fh = swapbits033(self.fh);
+        // self.fh = swapbits033(self.fh);
+        self.fh = swapbits_0_19_32_43_52_59(self.fh);
         self.fh ^= HASH_LOOKUP[new_base as usize];
-        self.fh ^=   MS_TAB_31L[(old_base as usize * 31) + (self.k % 31)]
-                   | MS_TAB_33R[(old_base as usize) * 33 + (self.k % 33)];
-
+        // self.fh ^=   MS_TAB_31L[(old_base as usize * 31) + (self.k % 31)]
+        //            | MS_TAB_33R[(old_base as usize) * 33 + (self.k % 33)];
+        self.fh ^=   MS_TAB_5LL[( old_base as usize * 5)  + (self.k % 5)]
+                   | MS_TAB_7L[(  old_base as usize * 7)  + (self.k % 7)]
+                   | MS_TAB_9LC[( old_base as usize * 9)  + (self.k % 9)]
+                   | MS_TAB_11CR[(old_base as usize * 11) + (self.k % 11)]
+                   | MS_TAB_13R[( old_base as usize * 13) + (self.k % 13)]
+                   | MS_TAB_19RR[(old_base as usize * 19) + (self.k % 19)];
 
 
         if let Some(rev) = self.rh {
             let mut h = rev
-                ^ (MS_TAB_31L[(rc_base(new_base) as usize * 31) + (self.k % 31)]
-                 | MS_TAB_33R[(rc_base(new_base) as usize) * 33 + (self.k % 33)]);
+                // ^ (MS_TAB_31L[(rc_base(new_base) as usize * 31) + (self.k % 31)]
+                //  | MS_TAB_33R[(rc_base(new_base) as usize) * 33 + (self.k % 33)]);
+                ^ (  MS_TAB_5LL[( rc_base(new_base) as usize * 5)  + (self.k % 5)]
+                   | MS_TAB_7L[(  rc_base(new_base) as usize * 7)  + (self.k % 7)]
+                   | MS_TAB_9LC[( rc_base(new_base) as usize * 9)  + (self.k % 9)]
+                   | MS_TAB_11CR[(rc_base(new_base) as usize * 11) + (self.k % 11)]
+                   | MS_TAB_13R[( rc_base(new_base) as usize * 13) + (self.k % 13)]
+                   | MS_TAB_19RR[(rc_base(new_base) as usize * 19) + (self.k % 19)]);
             h ^= RC_HASH_LOOKUP[old_base as usize];
             h = h.rotate_right(1_u32);
-            h = swapbits3263(h);
+            // h = swapbits3263(h);
+            h = swapbits_18_31_42_51_58_63(h);
             self.rh = Some(h);
         };
     }
