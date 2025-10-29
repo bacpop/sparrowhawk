@@ -159,9 +159,9 @@ impl Correctable for PtGraph {
     fn remove_conflictive_links(&mut self) -> bool {
         // Conflicting links: k-mers connected to others with a relatively larger count
         // TODO: apply
-
         return false;
 
+        // OLD-correct bad links (only one edge instead of two, or bad types) BEGIN
         // let mut dididoanything = false;
         // log::info!("Starting removal of conflicting links. Graph has {} sources, {} sinks, {} alone nodes, the remaining are internal.",
         //     self.graph.externals(EdgeDirection::Incoming).count(), self.graph.externals(EdgeDirection::Outgoing).count(),
@@ -198,9 +198,40 @@ impl Correctable for PtGraph {
         // }
         //
         // return dididoanything
-    }
 
+        // OLD END
+
+        // TEST TEMP for creating function for removing conflictive links, but it is better to do it while shrinking the graph the first time
+        // let mut checkednodes : BTreeSet<NodeIndex> = BTreeSet::new();
+        // let mut dididoanything = false;
+        //
+        // for ni in self.ptgraph.node_indices() {
+        //     if check_connections_and_remove(&mut self.ptgraph, ni, self.in_neighbours_min(ni), self.out_neighbours_min(ni), &checkednodes) {
+        //         dididoanything = true;
+        //     }
+        //     checkednodes.insert(ni);
+        // }
+        //
+        // return dididoanything;
+
+    }
 }
+
+// TEST TEMP for creating function for removing conflictive links, but it is better to do it while shrinking the graph the first time
+// fn check_connections_and_remove(ptgraph: &mut PtGraph, ni : NodeIndex, inneighs : Vec<(NodeIndex, EdgeType)>, outneighs : Vec<(NodeIndex, EdgeType)>, nodeset : &BTreeSet<NodeIndex>) -> bool {
+//     let mut didierasedanything = false;
+//     let nodecounts = ptgraph.node_weight(ni).unwrap().counts as f32;
+//
+//     for (neigh, edge) in inneighs {
+//         if ptgraph.node_weight(neigh).unwrap().counts as f32 >
+//     }
+//
+//
+//
+//
+//     return didierasedanything;
+// }
+
 
 /// Checks whether the candidate area can be a good bubble for error correction.
 fn check_bubble_structure(ptgraph: &PtGraph, startn : NodeIndex, invec : Vec<EdgeIndex>) -> bool {
