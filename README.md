@@ -45,7 +45,6 @@ Current **main features** (see the [sparrowhawk](https://github.com/bacpop/sparr
 :construction: In-progress future main (not all) features: :construction:
 - Incorporate 64bit memory addresses, removing the restriction on 4GB.
 - Add progress information in the assembly.
-- Add automatic parameter setting for the minimum k-mer counts.
 
 
 
