@@ -51,7 +51,7 @@ Current **main features**:
 Currently the only option is to compile from source.
 
 ## Compilation from source
-Development has been done only on x86_64 GNU/Linux-based systems, and most surely will probably stay that way (i.e. no other systems have been tested). To compile our project from source as we did, you will need the [rust toolchain](https://www.rust-lang.org/tools/install) installed in your system. Then, you can download the code of the e.g. version v0.1.1 using
+Development has been done only on x86_64 GNU/Linux-based systems, and most surely will probably stay that way (i.e. no other systems have been tested). To compile our project from source as we did, you will need the [rust toolchain](https://www.rust-lang.org/tools/install) installed in your system. To get an in principle working version (up to some degree), always clone a versioned tag. E.g. to get version v0.1.1, you could use:
 
 ```
 git clone --branch v0.1.1 https://github.com/bacpop/sparrowhawk.git
@@ -98,7 +98,7 @@ Currently, only the `build` option is present (apart from `help`), that allows a
 An example execution could be the following:
 
 ```
-./sparrowhawk -f ./reads.tsv -k 31 --threads 1 -v --min-count 5 --output-dir ./ --output-prefix prefix
+./sparrowhawk build -f ./reads.tsv -k 31 --threads 1 -v --min-count 5 --output-dir ./ --output-prefix prefix
 ```
 
 This will assemble your reads, with k=31 and using only one thread. The minimum repeats of one particular k-mer to be considered are 5 (which is also the default). The output contigs will be written in the current directory as a fasta file called `prefix_contigs.fasta`, given that we have indicated, using the `--output-prefix` argument the word "prefix" as prefix. The input files in this case are provided through a `reads.tsv` tab-separated file, that contains an identifier for your reads and the two file paths separated by a space, i.e. a file that contains this line
@@ -110,7 +110,7 @@ IDENTIFIER     /path/to/the/read_1.fastq /path/to/the/read_2.fastq
 Alternatively, you could have run:
 
 ```
-./sparrowhawk /path/to/the/read_1.fastq /path/to/the/read_2.fastq -k 31 --threads 1 -v --min-count 5 --output-dir ./ --output-prefix prefix
+./sparrowhawk build /path/to/the/read_1.fastq /path/to/the/read_2.fastq -k 31 --threads 1 -v --min-count 5 --output-dir ./ --output-prefix prefix
 ```
 
 In the same folder as the output FASTA file, the graph before collapsing will be exported in [DOT](https://en.wikipedia.org/wiki/DOT_%28graph_description_language%29), and [GFA](https://gfa-spec.github.io/GFA-spec/) versions 1.1 and 2 as `prefix_graph.dot`, `prefix_graph.gfa`, and `prefix_graph.gfa2` respectively. A histogram of the k-mer frequency spectrum will be saved in the same directory as `prefix_kmerspectrum.png`. These optional files can be avoided with the corresponding arguments.
