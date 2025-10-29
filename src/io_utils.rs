@@ -54,40 +54,14 @@ pub fn get_input_list(
             for line in f.lines() {
                 let line = line.expect("Unable to read line in file_list");
                 let fields: Vec<&str> = line.split_whitespace().collect();
-                // Should be 2 entries for fasta, 3 for fastq
-                let second_file = match fields.len() {
-                    0..=1 => {
-                        panic!("Unable to parse line in file_list")
-                    }
-//                     2 => None,
-                    2 => panic!("Single-stranded reads are not supported at this moment."),
-                    3 => Some(fields[2].to_string()),
-                    _ => {
-                        panic!("Unable to parse line in file_list")
-                    }
-                };
-                input_files.push((fields[0].to_string(), fields[1].to_string(), second_file));
+                let files: Vec<String> = fields.iter().skip(1).map(|x| x.to_string()).collect();
+                input_files.push((fields[0].to_string(), files));
             }
             input_files
         }
         None => {
-            let mut input_files: Vec<InputFastx> = Vec::new();
-            let tmpvec = seq_files.as_ref().unwrap();
-            input_files.push(("reads".to_owned(), tmpvec[0].clone(), Some(tmpvec[1].clone()) ));
-            input_files
+            vec![("reads".to_owned(), seq_files.clone().unwrap() )]
         },
         // None => panic!("Single-stranded reads are not supported at this moment."),
     }
-}
-
-/// Checks if any input files are fastq
-pub fn any_fastq(files: &[InputFastx]) -> bool {
-    let mut fastq = false;
-    for file in files {
-        if file.2.is_some() {
-            fastq = true;
-            break;
-        }
-    }
-    fastq
 }
