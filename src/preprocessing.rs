@@ -25,8 +25,8 @@ use plotters::prelude::*;
 use super::QualOpts;
 use super::HashInfoSimple;
 
-#[cfg(not(feature = "wasm"))]
-use super::bit_encoding::{encode_base, rc_base};
+// #[cfg(not(feature = "wasm"))]
+// use super::bit_encoding::{encode_base, rc_base};
 
 use crate::bit_encoding::UInt;
 use crate::kmer::Kmer;
@@ -51,72 +51,75 @@ const MAXSIZEHISTO : usize = 500;
 
 // =====================================================================================================
 
+// NOTE: these two functions were implemented to save the whole sequence in memory for GPGPU processing.
+// This might be useful again in the future, but now it was just meaning that we were wasting memory!
+// I'm disabling them for the moment
+//
+// #[cfg(not(feature = "wasm"))]
+// fn put_these_nts_into_an_efficient_vector(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
+//     let mut tmpu64 : u64 = 0;
+//     let mut tmpind : u8  = 0;
+//
+//     if occ != 0 {
+//         tmpind = occ;
+//         tmpu64 = compseq.pop().unwrap();
+//     }
+// //     log::debug!("{}", tmpind);
+//
+//     for nt in charseq {
+// //         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (encode_base(*nt) as u64));
+//         tmpu64 <<= 2;
+//         tmpu64 |= encode_base(*nt) as u64;
+// //         log::debug!("{:#066b}", tmpu64);
+//         if tmpind == 31 {
+//             compseq.push(tmpu64);
+//             tmpu64 = 0;
+//             tmpind = 0;
+//         } else {
+//             tmpind += 1;
+//         }
+// //         log::debug!("{}", tmpind);
+//     }
+//
+//     if tmpind != 0 {
+//         compseq.push(tmpu64);
+//     }
+// }
+
+// #[cfg(not(feature = "wasm"))]
+// fn put_these_nts_into_an_efficient_vector_rc(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
+//     let mut tmpu64 : u64 = 0;
+//     let mut tmpind : u8  = 0;
+//
+//     if occ != 0 {
+//         tmpind = occ;
+//         tmpu64 = compseq.pop().unwrap();
+//     }
+// //     log::debug!("{}", tmpind);
+//     for nt in charseq.iter().rev() {
+// //         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (rc_base(encode_base(*nt)) as u64));
+//         tmpu64 <<= 2;
+//         tmpu64 |= rc_base(encode_base(*nt)) as u64;
+// //         log::debug!("{:#066b}", tmpu64);
+//         if tmpind == 31 {
+//             compseq.push(tmpu64);
+//             tmpu64 = 0;
+//             tmpind = 0;
+//         } else {
+//             tmpind += 1;
+//         }
+//     }
+//
+//     if tmpind != 0 {
+//         compseq.push(tmpu64);
+//     }
+// }
+
+
 
 #[cfg(not(feature = "wasm"))]
-fn put_these_nts_into_an_efficient_vector(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
-    let mut tmpu64 : u64 = 0;
-    let mut tmpind : u8  = 0;
-
-    if occ != 0 {
-        tmpind = occ;
-        tmpu64 = compseq.pop().unwrap();
-    }
-//     log::debug!("{}", tmpind);
-
-    for nt in charseq {
-//         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (encode_base(*nt) as u64));
-        tmpu64 <<= 2;
-        tmpu64 |= encode_base(*nt) as u64;
-//         log::debug!("{:#066b}", tmpu64);
-        if tmpind == 31 {
-            compseq.push(tmpu64);
-            tmpu64 = 0;
-            tmpind = 0;
-        } else {
-            tmpind += 1;
-        }
-//         log::debug!("{}", tmpind);
-    }
-
-    if tmpind != 0 {
-        compseq.push(tmpu64);
-    }
-}
-
-#[cfg(not(feature = "wasm"))]
-fn put_these_nts_into_an_efficient_vector_rc(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
-    let mut tmpu64 : u64 = 0;
-    let mut tmpind : u8  = 0;
-
-    if occ != 0 {
-        tmpind = occ;
-        tmpu64 = compseq.pop().unwrap();
-    }
-//     log::debug!("{}", tmpind);
-    for nt in charseq.iter().rev() {
-//         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (rc_base(encode_base(*nt)) as u64));
-        tmpu64 <<= 2;
-        tmpu64 |= rc_base(encode_base(*nt)) as u64;
-//         log::debug!("{:#066b}", tmpu64);
-        if tmpind == 31 {
-            compseq.push(tmpu64);
-            tmpu64 = 0;
-            tmpind = 0;
-        } else {
-            tmpind += 1;
-        }
-    }
-
-    if tmpind != 0 {
-        compseq.push(tmpu64);
-    }
-}
-
-
-
-#[cfg(not(feature = "wasm"))]
-fn get_kmers_from_both_files_and_the_dict_and_the_seq<IntT>(
-    filenames: &[String],
+fn bulk_preprocessing_standalone<IntT>(
+    files: &[String],
     k:         usize,
     qual:      &QualOpts,
     outvec:    &mut Vec<(u64, u64, u8)>,
@@ -127,30 +130,31 @@ where
     let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
 
-    let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
-    let mut theseq   : Vec<u64> = Vec::new();
+    // let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
+    // let mut theseq   : Vec<u64> = Vec::new();
+    let theseq   : Vec<u64> = Vec::new();
 
     // Memory usage optimisations
-    let cseq = theseq.capacity();
-    let lseq = theseq.len();
-    if cseq < 2 * lseq {
-        theseq.reserve_exact(2 * lseq);
-    } else {
-        theseq.shrink_to(2 * lseq);
-    }
+    // let cseq = theseq.capacity();
+    // let lseq = theseq.len();
+    // if cseq < 2 * lseq {
+    //     theseq.reserve_exact(2 * lseq);
+    // } else {
+    //     theseq.shrink_to(2 * lseq);
+    // }
 
-    for filename in filenames {
-        log::info!("Getting kmers from file {filename}. Creating reader...");
+    for file in files {
+        log::info!("Getting kmers from file {file}. Creating reader...");
         let mut reader =
-            parse_fastx_file(filename).unwrap_or_else(|_| panic!("Invalid path/file: {filename}"));
+            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
 
-        log::info!("Entering while loop...");
+        log::info!("Parsing...");
 
         //     let maxkmers = 200;
         //     let mut numkmers = 0;
         while let Some(record) = reader.next() {
             let seqrec = record.expect("Invalid FASTQ record");
-            put_these_nts_into_an_efficient_vector(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
+            // put_these_nts_into_an_efficient_vector(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
 
             let rl = seqrec.num_bases();
             let kmer_opt = Kmer::<IntT>::new(
@@ -196,21 +200,21 @@ where
                 }
             }
             //         if numkmers >= maxkmers {itrecord += rl as u32;break};
-            itrecord += rl as u32;
+            // itrecord += rl as u32;
         }
-        log::info!("Finished getting kmers from file {filename}.");
+        log::info!("Finished getting kmers from file {file}.");
         //     numkmers = 0;
     }
 
-    if (itrecord % 32) != 0 {
-        let mut tmpu64 = theseq.pop().unwrap();
-        tmpu64 <<= 2 * (32 - itrecord % 32);
-//         log::debug!("{:#066b}", tmpu64);
-        theseq.push(tmpu64);
-    }
+//     if (itrecord % 32) != 0 {
+//         let mut tmpu64 = theseq.pop().unwrap();
+//         tmpu64 <<= 2 * (32 - itrecord % 32);
+// //         log::debug!("{:#066b}", tmpu64);
+//         theseq.push(tmpu64);
+//     }
 
-    log::info!("Finished getting kmers from {} file(s)", filenames.len());
-    log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
+    log::info!("Finished getting kmers from {} file(s)", files.len());
+    // log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
     // log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
 
 
@@ -401,9 +405,9 @@ where
         if i_record >= csize {
             // Processssssss! And reset.
             if !outvec.is_empty() {
-                logw("Processing chunk. Sorting k-mers...", Some("info"));
+                logw("Processing chunk. Sorting k-mers...", Some("debug"));
                 outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-                logw("k-mers sorted. Counting k-mers...", Some("info"));
+                logw("k-mers sorted. Counting k-mers...", Some("debug"));
                 // Then, do a counting of everything and save the results in a dictionary and return it
 
                 update_countmap(&outvec, &mut countmap);
@@ -774,8 +778,6 @@ where
 
     outdict.shrink_to_fit();
     minmaxdict.shrink_to_fit();
-    // coses
-
 
     (outdict, minmaxdict, themap, histovec, minc)
 }
@@ -792,7 +794,7 @@ fn bloom_filter_preprocessing_standalone<IntT>(
 where
     IntT: for<'a> UInt<'a>,
 {
-    log::info!("Getting kmers from first file with Bloom filter. Creating reader and initialising filter...");
+    log::info!("Initialising variables and filter...");
 
     let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
@@ -803,13 +805,15 @@ where
     let mut kmer_filter = KmerFilter::new(qual.min_count);
     kmer_filter.init();
 
+
+    // NOTE, potential TODO? : This could be slightly improved by filling outdict and minmaxdict only once, though it'd require saving also km, but it could be better
     for file in files {
-        log::info!("Getting kmers from file {file}...");
+        log::info!("Getting kmers from file {file}. Initialising reader...");
 
         let mut reader =
             parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
 
-        logw(format!("Entering while loop for the first file...").as_str(), Some("info"));
+        logw(format!("Parsing...").as_str(), Some("info"));
 
         while let Some(record) = reader.next() {
             let seqrec = record.expect("Invalid FASTQ record");
@@ -839,10 +843,11 @@ where
 
 
         }
-    }
 
-    log::info!("Finished getting kmers");
-    log::info!("Second part of filtering...");
+        logw(format!("Finished getting kmers from file {file}.").as_str(), Some("info"));
+    }
+    log::info!("Finished getting kmers from {} file(s)", files.len());
+    log::info!("Finishing filtering...");
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
     let countmap = kmer_filter.get_counts_map();
@@ -862,7 +867,7 @@ where
 
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
-        log::info!("Counting finished. Starting fit...");
+        log::info!("Starting fit...");
         let mut fit = SpectrumFitter::new();
 
         let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
@@ -880,7 +885,7 @@ where
             minc = 3;
         }
 
-        log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
+        log::info!("Fit done! Minimum count value to be used: {}. Filtering k-mers...", minc);
 
         countmap.retain(|h, tup| {
             if tup.0 >= minc {
@@ -901,6 +906,7 @@ where
             false
         });
     } else {
+        log::info!("Filtering k-mers...");
         minc = qual.min_count;
 
         countmap.retain(|h, tup| {
@@ -962,7 +968,6 @@ where
                 .style(RED.filled())
                 .data(histovec.iter().enumerate().map(|(i, x)| (i as u32, *x))),
         ).unwrap();
-
 
 
         // TODO: I have spent too much time trying to draw a vertical line or a rectangle to show in the
@@ -1138,7 +1143,6 @@ fn get_map_with_counts(
     }
     return outdict;
 }
-
 
 
 #[cfg(not(feature = "wasm"))]
@@ -1498,7 +1502,7 @@ fn update_countmap(
 
 
 #[cfg(not(feature = "wasm"))]
-fn chunked_processing_standalone<IntT>(
+fn chunked_preprocessing_standalone<IntT>(
     files:    &[String],
     k:        usize,
     qual:     &QualOpts,
@@ -1510,7 +1514,7 @@ fn chunked_processing_standalone<IntT>(
 where
     IntT: for<'a> UInt<'a>,
 {
-    log::info!("Getting kmers from first file. Creating reader...");
+    log::info!("Getting kmers from files. Creating reader...");
 
     let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
@@ -1559,9 +1563,9 @@ where
             if i_record >= csize {
                 // Processssssss! And reset.
                 if !outvec.is_empty() {
-                    log::info!("Processing chunk. Sorting k-mers...");
+                    log::debug!("Processing chunk. Sorting k-mers...");
                     outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-                    log::info!("k-mers sorted. Counting k-mers...");
+                    log::debug!("k-mers sorted. Counting k-mers...");
                     // Then, do a counting of everything and save the results in a dictionary and return it
 
                     update_countmap(&outvec, &mut countmap);
@@ -1776,12 +1780,20 @@ where
 {
     log::info!("Starting preprocessing_standalone with k = {k}");
 
+    // This is temporal, to be changed in the future.
+    let mut all_files : Vec<String> = input_files[0].1.clone();
+    if input_files.len() > 1 {
+        for i in 1..input_files.len() {
+            all_files.extend(input_files[i].1.clone());
+        }
+    }
+
     if do_bloom {
         // Build indexes
         log::info!("Processing using a Bloom filter");
 
         let (thedict, maxmindict, themap) = bloom_filter_preprocessing_standalone::<IntT>(
-            &input_files[0].1,
+            &all_files,
             k,
             qual,
             do_fit,
@@ -1790,24 +1802,18 @@ where
         return (themap, Vec::new(), thedict, maxmindict);
 
     } else if csize <= 0 {
-
-        let total_size  = input_files.len();
-        if total_size > 1 {panic!("Not expecting more than a pair of pair-end reads right now!");};
-
-
         // First, we want to fill our mega-vector with all k-mers from both paired-end reads
-        log::info!("Filling vector");
-            println!("checks enabled!");
+        log::info!("Processing in bulk");
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
-        let (theseq, thedict, maxmindict) = get_kmers_from_both_files_and_the_dict_and_the_seq::<IntT>(&input_files[0].1,
+        let (theseq, thedict, maxmindict) = bulk_preprocessing_standalone::<IntT>(&all_files,
             k,
             qual,
             &mut tmpvec);
 
         //exit(0);
         timevec.push(Instant::now());
-        log::info!("Kmers extracted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+        log::info!("k-mers extracted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
 
         // Then, we want to sort it according to the hash
@@ -1816,11 +1822,10 @@ where
         tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
         timevec.push(Instant::now());
-        log::info!("Kmers sorted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+        log::info!("k-mers sorted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
         // Then, do a counting of everything and save the results in a dictionary and return it
-        timevec.push(Instant::now());
-        log::info!("Counting k-mers");
+        log::info!("Counting and filtering k-mers");
         let themap;
 
         if !do_fit {
@@ -1831,16 +1836,15 @@ where
         drop(tmpvec);
 
         timevec.push(Instant::now());
-        log::info!("Kmers counted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+        log::info!("k-mers counted and filtered in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
         return (themap, theseq, thedict, maxmindict)
     } else {
-        // Build indexes
-        log::info!("Processing in chunks of size {} the input files", csize);
+        log::info!("Processing in chunks of size {}", csize);
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
-        let (thedict, maxmindict, themap) = chunked_processing_standalone::<IntT>(
-            &input_files[0].1,
+        let (thedict, maxmindict, themap) = chunked_preprocessing_standalone::<IntT>(
+            &all_files,
             k,
             qual,
             &mut tmpvec,
@@ -1849,6 +1853,9 @@ where
             out_path,
         );
         drop(tmpvec);
+
+        timevec.push(Instant::now());
+        log::info!("Chunked preprocessing done in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
         return (themap, Vec::new(), thedict, maxmindict);
     }
 
@@ -1898,7 +1905,7 @@ where
                                                                            &mut tmpvec
         );
 
-        logw("Kmers extracted", Some("info"));
+        logw("k-mers extracted", Some("info"));
 
 
         // Then, we want to sort it according to the hash
@@ -1906,7 +1913,7 @@ where
         logw("Sorting vector", Some("info"));
         tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-        logw("Kmers sorted.", Some("info"));
+        logw("k-mers sorted.", Some("info"));
 
 
         // Then, do a counting of everything and save the results in a dictionary and return it
@@ -1915,7 +1922,7 @@ where
         histovec.shrink_to_fit();
         drop(tmpvec);
 
-        logw("Kmers counted.", Some("info"));
+        logw("k-mers counted.", Some("info"));
 
         return (themap, Some(thedict), maxmindict, histovec, used_min_count);
     } else {

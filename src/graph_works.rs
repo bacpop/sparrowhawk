@@ -274,29 +274,30 @@ impl Assemble for BasicAsm {
                         do_dead_end_removal          : bool,
                         do_conflictive_links_removal : bool,
     ) -> Contigs {
-        logw("Starting assembler!", Some("info"));
+        logw("Constructing graph. Searching for neighbours...", Some("info"));
+        timevec.push(Instant::now());
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
-        let mut i = 0;
-        let mut ialone = 0;
-        let mut nedges = 0;
+        // let mut i = 0;
+        // let mut ialone = 0;
+        // let mut nedges = 0;
         indict.iter().for_each(|(h, hi)| {
             let mut himutref = hi.borrow_mut();
 
             himutref.pre  = check_bkg(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
             himutref.post = check_fwd(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
-            let tmpnedges = himutref.pre.len() + himutref.post.len();
-            nedges += tmpnedges;
-            i += 1;
-            if tmpnedges == 0 { ialone += 1};
+            // let tmpnedges = himutref.pre.len() + himutref.post.len();
+            // nedges += tmpnedges;
+            // i += 1;
+            // if tmpnedges == 0 { ialone += 1};
         });
 
 //         drop(maxmindict);
-        logw(format!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0).as_str(), Some("info"));
-        logw(format!("Number of edges {}", (nedges as f64) / (2 as f64)).as_str(), Some("info"));
+        // logw(format!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0).as_str(), Some("info"));
+        // logw(format!("Number of edges {}", (nedges as f64) / (2 as f64)).as_str(), Some("info"));
 
         timevec.push(Instant::now());
-        logw(format!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
+        logw(format!("Neighbours searched for in {} s. Creating graph...", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
 
         // indict.iter().for_each(|(h, hi)| {
         //     let himutref = hi.borrow();
@@ -316,6 +317,8 @@ impl Assemble for BasicAsm {
 
         let mut ptgraph = G::create_from_map::<G>(k, indict);
 
+        timevec.push(Instant::now());
+        logw(format!("Graph created in {} s.", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
 
         // log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
         // if path_.is_some() {
@@ -361,7 +364,8 @@ impl Assemble for BasicAsm {
             // break;
         }
 
-        logw("Shrinkage and pruning finished", Some("info"));
+        timevec.push(Instant::now());
+        logw(format!("Graph correction finished in {} s.", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
 
         if path.is_some() {
             logw("Saving graph (post-shrink, pre-collapse, w/o one-node contigs) as DOT, GFAv1.1, and GFAv2 files...", Some("info"));
@@ -381,7 +385,10 @@ impl Assemble for BasicAsm {
         }
 
 
+        timevec.push(Instant::now());
         let serialized_contigs = ptgraph.collapse();
+        timevec.push(Instant::now());
+        logw(format!("Graph collapse finished in {} s.", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
         logw(format!("I created {} contigs", serialized_contigs.len()).as_str(), Some("info"));
 
         let mut contigs = Contigs::new(serialized_contigs);

@@ -337,7 +337,7 @@ pub fn main() {
 
     timevec.push(Instant::now());
 
-    eprintln!("Sparrowhawk done in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+    log::info!("Sparrowhawk done in {} s", timevec.last().unwrap().duration_since(*timevec.get(0).unwrap()).as_secs());
     log::info!("Finishing program!");
 }
 

@@ -36,11 +36,8 @@ pub fn set_ostream(oprefix: &Option<String>) -> BufWriter<Box<dyn Write>> {
 
 /// Obtain a list of input files and names from command line input.
 ///
-/// If `file_list` is provided, read each line as `name\tseq1\tseq2`, where
-/// `seq2` is optional, and if present the reverse fastqs. Otherwise, treat
-/// as fasta.
-///
-/// If `seq_files` are provided use [`read_input_fastas`].
+/// If `file_list` is provided, its entries will be parsed but currently they will be all assembled together.
+/// If `seq_files` are provided use, all input files will be merged.
 pub fn get_input_list(
     file_list: &Option<String>,
     seq_files: &Option<Vec<String>>,
@@ -51,6 +48,7 @@ pub fn get_input_list(
             let mut input_files: Vec<InputFastx> = Vec::new();
             let f = File::open(files).expect("Unable to open file_list");
             let f = BufReader::new(f);
+            log::warn!("You have provided a input TSV file. Currently, all input read files will be considered as only one assembly. This might change in the future.");
             for line in f.lines() {
                 let line = line.expect("Unable to read line in file_list");
                 let fields: Vec<&str> = line.split_whitespace().collect();
@@ -60,8 +58,7 @@ pub fn get_input_list(
             input_files
         }
         None => {
-            vec![("reads".to_owned(), seq_files.clone().unwrap() )]
+            vec![("reads".to_owned(), seq_files.clone().expect("Neither input TSV file nor inputs as arguments have been provided") )]
         },
-        // None => panic!("Single-stranded reads are not supported at this moment."),
     }
 }
