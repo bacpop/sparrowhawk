@@ -146,9 +146,10 @@ pub enum Commands {
         #[arg(long, default_value_t = false)]
         do_bloom: bool,
 
-        /// Set a value for the chunks of the reads during preprocessing. A value of zero (the default) ignores chunking.
-        /// Nonzero values enable it, allowing for potential peak memory reduction and speed increase.
-        #[arg(long, default_value_t = 0)]
+        /// Set a value for the chunks of the reads during preprocessing. A value of zero ignores chunking.
+        /// Nonzero values enable it, allowing for potential peak memory reduction. There is a tradeoff with computing time:
+        /// very low values will make the whole execution slower.
+        #[arg(long, default_value_t = 100000)]
         chunk_size: usize,
 
         /// By default, Sparrowhawk will draw your k-mer spectrum histogram and save it as PNG in the same folder
@@ -160,8 +161,17 @@ pub enum Commands {
         /// in the DOT, GFAv1.1 and GFAv2 formats. Use this argument if you want it to not do this
         #[arg(long, default_value_t = false)]
         no_graphs: bool,
+
+        /// Do not solve bubbles in the graph
+        #[arg(long, default_value_t = false)]
+        no_bubble_collapse: bool,
+
+        /// Do not remove dead endsin the graph
+        #[arg(long, default_value_t = false)]
+        no_dead_end_removal: bool,
     },
 }
+
 
 /// Function to parse command line args into [`Args`] struct
 pub fn cli_args() -> Args {

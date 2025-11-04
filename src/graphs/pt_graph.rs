@@ -16,6 +16,7 @@ use nohash_hasher::NoHashHasher;
 use petgraph::Direction::Outgoing;
 use std::{collections::HashMap, hash::BuildHasherDefault, cell::*};
 use crate::HashInfoSimple;
+use crate::logw;
 
 /// Type denoting index of edge.
 pub type EdgeIndex = petgraph::stable_graph::EdgeIndex<Idx>;
@@ -87,7 +88,7 @@ impl NodeStruct {
                 // Thus, we need to insert whatever comes at the beginning of the vector
 
                 if let Some(otherid) = other.innerdir {
-                    // This is a bit more complicated... // TODO
+                    // This is a bit more complicated...
                     let otherct = otherid.get_from_and_to().0;
                     if tytoother.get_from_and_to().1 == otherct {
                         // The other shrunk node is aligned with the edge that connects it with this one.
@@ -928,7 +929,7 @@ impl Build for PtGraph {
             }
         }
 
-        println!("Number of nodes: {}, number of edges: {}", collection.graph.node_count(), collection.graph.edge_count());
+        logw(format!("Number of nodes: {}, number of edges: {}", collection.graph.node_count(), collection.graph.edge_count()).as_str(), Some("debug"));
         collection
     }
 }

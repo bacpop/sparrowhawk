@@ -2,7 +2,7 @@
 
 use super::shrinker::Shrinkable;
 use crate::graphs::Graph;
-use super::pruner::Clean;
+use super::corrector::Correctable;
 use crate::graphs::pt_graph::{CarryType, NodeIndex, NodeStruct, PtGraph};
 use std::cmp::max;
 // use std::process::exit;

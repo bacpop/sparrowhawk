@@ -25,11 +25,8 @@ use plotters::prelude::*;
 use super::QualOpts;
 use super::HashInfoSimple;
 
-#[cfg(not(feature = "wasm"))]
-use super::bit_encoding::{encode_base, rc_base};
-
-#[cfg(not(feature = "wasm"))]
-use crate::io_utils::any_fastq;
+// #[cfg(not(feature = "wasm"))]
+// use super::bit_encoding::{encode_base, rc_base};
 
 use crate::bit_encoding::UInt;
 use crate::kmer::Kmer;
@@ -37,9 +34,8 @@ use crate::logw;
 use crate::spectrum_fitter::SpectrumFitter;
 use crate::bloom_filter::KmerFilter;
 
-
-/// Tuple for name and fasta or paired fastq input
-pub type InputFastx = (String, String, Option<String>);
+/// Tuple for name and list of input files
+pub type InputFastx = (String, Vec::<String>);
 
 // #[cfg(feature = "wasm")]
 // use wasm_bindgen::prelude::*;
@@ -55,73 +51,75 @@ const MAXSIZEHISTO : usize = 500;
 
 // =====================================================================================================
 
+// NOTE: these two functions were implemented to save the whole sequence in memory for GPGPU processing.
+// This might be useful again in the future, but now it was just meaning that we were wasting memory!
+// I'm disabling them for the moment
+//
+// #[cfg(not(feature = "wasm"))]
+// fn put_these_nts_into_an_efficient_vector(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
+//     let mut tmpu64 : u64 = 0;
+//     let mut tmpind : u8  = 0;
+//
+//     if occ != 0 {
+//         tmpind = occ;
+//         tmpu64 = compseq.pop().unwrap();
+//     }
+// //     log::debug!("{}", tmpind);
+//
+//     for nt in charseq {
+// //         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (encode_base(*nt) as u64));
+//         tmpu64 <<= 2;
+//         tmpu64 |= encode_base(*nt) as u64;
+// //         log::debug!("{:#066b}", tmpu64);
+//         if tmpind == 31 {
+//             compseq.push(tmpu64);
+//             tmpu64 = 0;
+//             tmpind = 0;
+//         } else {
+//             tmpind += 1;
+//         }
+// //         log::debug!("{}", tmpind);
+//     }
+//
+//     if tmpind != 0 {
+//         compseq.push(tmpu64);
+//     }
+// }
+
+// #[cfg(not(feature = "wasm"))]
+// fn put_these_nts_into_an_efficient_vector_rc(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
+//     let mut tmpu64 : u64 = 0;
+//     let mut tmpind : u8  = 0;
+//
+//     if occ != 0 {
+//         tmpind = occ;
+//         tmpu64 = compseq.pop().unwrap();
+//     }
+// //     log::debug!("{}", tmpind);
+//     for nt in charseq.iter().rev() {
+// //         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (rc_base(encode_base(*nt)) as u64));
+//         tmpu64 <<= 2;
+//         tmpu64 |= rc_base(encode_base(*nt)) as u64;
+// //         log::debug!("{:#066b}", tmpu64);
+//         if tmpind == 31 {
+//             compseq.push(tmpu64);
+//             tmpu64 = 0;
+//             tmpind = 0;
+//         } else {
+//             tmpind += 1;
+//         }
+//     }
+//
+//     if tmpind != 0 {
+//         compseq.push(tmpu64);
+//     }
+// }
+
+
 
 #[cfg(not(feature = "wasm"))]
-fn put_these_nts_into_an_efficient_vector(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
-    let mut tmpu64 : u64 = 0;
-    let mut tmpind : u8  = 0;
-
-    if occ != 0 {
-        tmpind = occ;
-        tmpu64 = compseq.pop().unwrap();
-    }
-//     log::debug!("{}", tmpind);
-
-    for nt in charseq {
-//         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (encode_base(*nt) as u64));
-        tmpu64 <<= 2;
-        tmpu64 |= encode_base(*nt) as u64;
-//         log::debug!("{:#066b}", tmpu64);
-        if tmpind == 31 {
-            compseq.push(tmpu64);
-            tmpu64 = 0;
-            tmpind = 0;
-        } else {
-            tmpind += 1;
-        }
-//         log::debug!("{}", tmpind);
-    }
-
-    if tmpind != 0 {
-        compseq.push(tmpu64);
-    }
-}
-
-#[cfg(not(feature = "wasm"))]
-fn put_these_nts_into_an_efficient_vector_rc(charseq : &[u8], compseq : &mut Vec<u64>, occ : u8) {
-    let mut tmpu64 : u64 = 0;
-    let mut tmpind : u8  = 0;
-
-    if occ != 0 {
-        tmpind = occ;
-        tmpu64 = compseq.pop().unwrap();
-    }
-//     log::debug!("{}", tmpind);
-    for nt in charseq.iter().rev() {
-//         log::debug!("\n{:#010b}\n{}\n{:#066b}\n{:#066b}", *nt, tmpind, tmpu64, (rc_base(encode_base(*nt)) as u64));
-        tmpu64 <<= 2;
-        tmpu64 |= rc_base(encode_base(*nt)) as u64;
-//         log::debug!("{:#066b}", tmpu64);
-        if tmpind == 31 {
-            compseq.push(tmpu64);
-            tmpu64 = 0;
-            tmpind = 0;
-        } else {
-            tmpind += 1;
-        }
-    }
-
-    if tmpind != 0 {
-        compseq.push(tmpu64);
-    }
-}
-
-
-
-#[cfg(not(feature = "wasm"))]
-fn get_kmers_from_both_files_and_the_dict_and_the_seq<IntT>(
-    filename1: &str,
-    filename2: &str,                    // Will get the "rc" automatically enabled
+fn bulk_preprocessing_standalone<IntT>(
+    files: &[String],
     k:         usize,
     qual:      &QualOpts,
     outvec:    &mut Vec<(u64, u64, u8)>,
@@ -131,140 +129,93 @@ where
 {
     let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
-    log::info!("Getting kmers from file {filename1}. Creating reader...");
-    let mut reader =
-        parse_fastx_file(filename1).unwrap_or_else(|_| panic!("Invalid path/file: {filename1}"));
 
-    log::info!("Entering while loop...");
+    // let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
+    // let mut theseq   : Vec<u64> = Vec::new();
+    let theseq   : Vec<u64> = Vec::new();
 
-//     let maxkmers = 200;
-//     let mut numkmers = 0;
-    let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
-    let mut theseq   : Vec<u64> = Vec::new();
-    while let Some(record) = reader.next() {
-        let seqrec = record.expect("Invalid FASTQ record");
-        put_these_nts_into_an_efficient_vector(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
-
-        let rl = seqrec.num_bases();
-        let kmer_opt = Kmer::<IntT>::new(
-            seqrec.seq(),
-            rl,
-            seqrec.qual(),
-            k,
-            qual.min_qual,
-            true,
-            // &itrecord,
-        );
-        if let Some(mut kmer_it) = kmer_opt {
-//             numkmers += 1;
-            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
-            outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
-            // let testkm = outdict.entry(hc).or_insert(km);
-            // if *testkm != km {
-            //     log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
-            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-            // }
-            // } else {
-            //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
-            // }
-            minmaxdict.entry(hnc).or_insert(hc);
-            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                let (hc, hnc, b, km) = tmptuple;
-                outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
-                // let testkm = outdict.entry(hc).or_insert(km);
-                // if *testkm != km {
-                //     log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
-                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                // }
-                // } else {
-                //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
-                // }
-                minmaxdict.entry(hnc).or_insert(hc);
-
-//                 numkmers += 1;
-//                 if numkmers >= maxkmers {break};
-            }
-        }
-//         if numkmers >= maxkmers {itrecord += rl as u32;break};
-        itrecord += rl as u32;
-    }
-    log::info!("Finished getting kmers from file {filename1}. Starting with {filename2}");
-//     numkmers = 0;
-
-    let mut reader =
-        parse_fastx_file(filename2).unwrap_or_else(|_| panic!("Invalid path/file: {filename2}"));
-
-//     log::debug!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
     // Memory usage optimisations
-    let cseq = theseq.capacity();
-    let lseq = theseq.len();
-    if cseq < 2 * lseq {
-        theseq.reserve_exact(2 * lseq);
-    } else {
-        theseq.shrink_to(2 * lseq);
-    }
-    // Filling the seq of the second file!
-    while let Some(record) = reader.next() {
-        let seqrec = record.expect("Invalid FASTQ record");
-        put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
-//         log::debug!("{}", seqrec.num_bases());
-        let rl = seqrec.num_bases();
-        let kmer_opt = Kmer::<IntT>::new(
-            seqrec.seq(),
-            rl,
-            seqrec.qual(),
-            k,
-            qual.min_qual,
-            true,
-            // &itrecord,
-        );
-        if let Some(mut kmer_it) = kmer_opt {
-//             numkmers += 1;
-            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
-            outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
-            // let testkm = outdict.entry(hc).or_insert(km);
-            // if *testkm != km {
-            //     log::debug!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc);
-            //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-            // }
-            // } else {
-            //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
-            // }
-            minmaxdict.entry(hnc).or_insert(hc);
-            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                let (hc, hnc, b, km) = tmptuple;
+    // let cseq = theseq.capacity();
+    // let lseq = theseq.len();
+    // if cseq < 2 * lseq {
+    //     theseq.reserve_exact(2 * lseq);
+    // } else {
+    //     theseq.shrink_to(2 * lseq);
+    // }
+
+    for file in files {
+        log::info!("Getting kmers from file {file}. Creating reader...");
+        let mut reader =
+            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
+
+        log::info!("Parsing...");
+
+        //     let maxkmers = 200;
+        //     let mut numkmers = 0;
+        while let Some(record) = reader.next() {
+            let seqrec = record.expect("Invalid FASTQ record");
+            // put_these_nts_into_an_efficient_vector(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
+
+            let rl = seqrec.num_bases();
+            let kmer_opt = Kmer::<IntT>::new(
+                seqrec.seq(),
+                rl,
+                seqrec.qual(),
+                k,
+                qual.min_qual,
+                true,
+                // &itrecord,
+            );
+            if let Some(mut kmer_it) = kmer_opt {
+                //             numkmers += 1;
+                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
                 outvec.push( (hc, hnc, b) );
                 outdict.entry(hc).or_insert(km);
                 // let testkm = outdict.entry(hc).or_insert(km);
                 // if *testkm != km {
-                //     log::debug!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc);
+                //     log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
                 //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                //     ncols += 1;
                 // }
                 // } else {
                 //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
                 minmaxdict.entry(hnc).or_insert(hc);
+                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                    let (hc, hnc, b, km) = tmptuple;
+                    outvec.push( (hc, hnc, b) );
+                    outdict.entry(hc).or_insert(km);
+                    // let testkm = outdict.entry(hc).or_insert(km);
+                    // if *testkm != km {
+                    //     log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
+                    //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
+                    // }
+                    // } else {
+                    //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
+                    // }
+                    minmaxdict.entry(hnc).or_insert(hc);
 
-//                 numkmers += 1;
-//                 if numkmers >= maxkmers {break};
+                    //                 numkmers += 1;
+                    //                 if numkmers >= maxkmers {break};
+                }
             }
+            //         if numkmers >= maxkmers {itrecord += rl as u32;break};
+            // itrecord += rl as u32;
         }
-//         if numkmers >= maxkmers {itrecord += rl as u32;break};
-        itrecord += rl as u32;
+        log::info!("Finished getting kmers from file {file}.");
+        //     numkmers = 0;
     }
 
-    if (itrecord % 32) != 0 {
-        let mut tmpu64 = theseq.pop().unwrap();
-        tmpu64 <<= 2 * (32 - itrecord % 32);
-//         log::debug!("{:#066b}", tmpu64);
-        theseq.push(tmpu64);
-    }
+//     if (itrecord % 32) != 0 {
+//         let mut tmpu64 = theseq.pop().unwrap();
+//         tmpu64 <<= 2 * (32 - itrecord % 32);
+// //         log::debug!("{:#066b}", tmpu64);
+//         theseq.push(tmpu64);
+//     }
 
-    log::info!("Finished getting kmers from file {filename2}");
-    log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
+    log::info!("Finished getting kmers from {} file(s)", files.len());
+    // log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
+    // log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
 
 
     (theseq, outdict, minmaxdict)
@@ -454,9 +405,9 @@ where
         if i_record >= csize {
             // Processssssss! And reset.
             if !outvec.is_empty() {
-                logw("Processing chunk. Sorting k-mers...", Some("info"));
+                logw("Processing chunk. Sorting k-mers...", Some("debug"));
                 outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-                logw("k-mers sorted. Counting k-mers...", Some("info"));
+                logw("k-mers sorted. Counting k-mers...", Some("debug"));
                 // Then, do a counting of everything and save the results in a dictionary and return it
 
                 update_countmap(&outvec, &mut countmap);
@@ -552,10 +503,19 @@ where
         // large (and so that we can detect it).
         logw("Counting finished. Starting fit...", Some("info"));
         let mut fit = SpectrumFitter::new();
-        minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -755,10 +715,19 @@ where
         // large (and so that we can detect it).
         logw("Counting finished. Starting fit...", Some("info"));
         let mut fit = SpectrumFitter::new();
-        minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -809,8 +778,6 @@ where
 
     outdict.shrink_to_fit();
     minmaxdict.shrink_to_fit();
-    // coses
-
 
     (outdict, minmaxdict, themap, histovec, minc)
 }
@@ -818,8 +785,7 @@ where
 
 #[cfg(not(feature = "wasm"))]
 fn bloom_filter_preprocessing_standalone<IntT>(
-    file1:  &str,
-    file2:  &str,
+    files:  &[String],
     k:      usize,
     qual:   &QualOpts,
     do_fit: bool,
@@ -828,90 +794,65 @@ fn bloom_filter_preprocessing_standalone<IntT>(
 where
     IntT: for<'a> UInt<'a>,
 {
-    log::info!("Getting kmers from first file with Bloom filter. Creating reader and initialising filter...");
+    log::info!("Initialising variables and filter...");
 
     let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
     let mut themap     = HashMap::with_hasher(BuildHasherDefault::default());
 
-    let mut reader =
-        parse_fastx_file(file1).unwrap_or_else(|_| panic!("Invalid path/file: {file1}"));
     let mut histovec : Vec<u32> = vec![0; MAXSIZEHISTO];
 
     let mut kmer_filter = KmerFilter::new(qual.min_count);
     kmer_filter.init();
 
-    logw(format!("Entering while loop for the first file...").as_str(), Some("info"));
 
-    while let Some(record) = reader.next() {
-        let seqrec = record.expect("Invalid FASTQ record");
-        let rl = seqrec.seq().len();
-        let kmer_opt = Kmer::<IntT>::new(
-            seqrec.seq(),
-            rl,
-            seqrec.qual(),
-            k,
-            qual.min_qual,
-            true,
-        );
-        if let Some(mut kmer_it) = kmer_opt {
-            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer(); // TODO: potential really small improvement, get only hash for the bloom filter, then get the rest.
-            if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
-                outdict.entry(hc).or_insert(km);
-                minmaxdict.entry(hnc).or_insert(hc);
-            }
-            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                let (hc, hnc, b, km) = tmptuple;
+    // NOTE, potential TODO? : This could be slightly improved by filling outdict and minmaxdict only once, though it'd require saving also km, but it could be better
+    for file in files {
+        log::info!("Getting kmers from file {file}. Initialising reader...");
+
+        let mut reader =
+            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
+
+        logw(format!("Parsing...").as_str(), Some("info"));
+
+        while let Some(record) = reader.next() {
+            let seqrec = record.expect("Invalid FASTQ record");
+            let rl = seqrec.seq().len();
+            let kmer_opt = Kmer::<IntT>::new(
+                seqrec.seq(),
+                rl,
+                seqrec.qual(),
+                k,
+                qual.min_qual,
+                true,
+            );
+            if let Some(mut kmer_it) = kmer_opt {
+                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer(); // TODO: potential really small improvement, get only hash for the bloom filter, then get the rest.
                 if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
                     outdict.entry(hc).or_insert(km);
                     minmaxdict.entry(hnc).or_insert(hc);
                 }
-            }
-        }
-
-
-    }
-    log::info!("Finished getting kmers from first file. Starting with the second...");
-
-    reader =
-        parse_fastx_file(file2).unwrap_or_else(|_| panic!("Invalid path/file: {file2}"));
-
-    // Filling the seq of the second file!
-    while let Some(record) = reader.next() {
-        let seqrec = record.expect("Invalid FASTQ record");
-        // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
-        let rl = seqrec.seq().len();
-        let kmer_opt = Kmer::<IntT>::new(
-            seqrec.seq(),
-            rl,
-            seqrec.qual(),
-            k,
-            qual.min_qual,
-            true,
-        );
-        if let Some(mut kmer_it) = kmer_opt {
-            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
-            if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
-                outdict.entry(hc).or_insert(km);
-                minmaxdict.entry(hnc).or_insert(hc);
-            }
-            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                let (hc, hnc, b, km) = tmptuple;
-                if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
-                    outdict.entry(hc).or_insert(km);
-                    minmaxdict.entry(hnc).or_insert(hc);
+                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                    let (hc, hnc, b, km) = tmptuple;
+                    if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
+                        outdict.entry(hc).or_insert(km);
+                        minmaxdict.entry(hnc).or_insert(hc);
+                    }
                 }
             }
-        }
-    }
 
-    log::info!("Finished getting kmers from the second file");
-    log::info!("Second part of filtering...");
+
+        }
+
+        logw(format!("Finished getting kmers from file {file}.").as_str(), Some("info"));
+    }
+    log::info!("Finished getting kmers from {} file(s)", files.len());
+    log::info!("Finishing filtering...");
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
     let countmap = kmer_filter.get_counts_map();
     countmap.shrink_to_fit();
-    let minc;
+    let mut minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
@@ -926,15 +867,25 @@ where
 
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
-        log::info!("Counting finished. Starting fit...");
+        log::info!("Starting fit...");
         let mut fit = SpectrumFitter::new();
-        let minc = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
-        log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
+        log::info!("Fit done! Minimum count value to be used: {}. Filtering k-mers...", minc);
 
         countmap.retain(|h, tup| {
             if tup.0 >= minc {
@@ -955,6 +906,7 @@ where
             false
         });
     } else {
+        log::info!("Filtering k-mers...");
         minc = qual.min_count;
 
         countmap.retain(|h, tup| {
@@ -1016,7 +968,6 @@ where
                 .style(RED.filled())
                 .data(histovec.iter().enumerate().map(|(i, x)| (i as u32, *x))),
         ).unwrap();
-
 
 
         // TODO: I have spent too much time trying to draw a vertical line or a rectangle to show in the
@@ -1114,6 +1065,12 @@ fn get_map_with_counts(
         plotvec.shrink_to_fit();
 
         // Plotting!
+        // // TEST
+        // for i in 0..plotvec.len() {
+        //     logw(format!("#######{:?}-{:?}", i, plotvec[i]).as_str(), Some("info"));
+        // }
+        // // TEST END
+
 
         let root = BitMapBackend::new(out_path.as_ref().unwrap().as_path(), (1280, 960)).into_drawing_area();
 
@@ -1188,7 +1145,6 @@ fn get_map_with_counts(
 }
 
 
-
 #[cfg(not(feature = "wasm"))]
 fn get_map_with_counts_and_fit(
     invec:      &mut Vec<(u64, u64, u8)>,
@@ -1256,15 +1212,32 @@ fn get_map_with_counts_and_fit(
 
     invec.clear(); invec.shrink_to_fit(); // Quick optimisation
 
+    // // TEST
+    // for i in 0..plotvec.len() {
+    //     logw(format!("#######{:?}-{:?}", i, plotvec[i]).as_str(), Some("info"));
+    // }
+    // // TEST END
     // We need to do the fit!
     log::info!("Counting finished. Starting fit...");
     let mut fit = SpectrumFitter::new();
     // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
     // large (and so that we can detect it).
-    let fitted_min_count = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+    // let fitted_min_count = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+    let mut fitted_min_count : u16;
+
+    let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
+    if result.is_ok() {
+        fitted_min_count = result.unwrap() as u16;
+    } else {
+        logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+        fitted_min_count = 3;
+    }
 
     if fitted_min_count <= 0 {
         panic!("Fitted min_count value is zero or negative!");
+    } else if fitted_min_count <= 10 {
+        logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+        fitted_min_count = 3;
     }
 
     log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", fitted_min_count);
@@ -1419,10 +1392,21 @@ fn get_map_wasm(
         let mut fit = SpectrumFitter::new();
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
-        minc = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        // minc = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+
+        let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         logw(format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(), Some("info"));
@@ -1518,9 +1502,8 @@ fn update_countmap(
 
 
 #[cfg(not(feature = "wasm"))]
-fn chunked_processing_standalone<IntT>(
-    file1:    &str,
-    file2:    &str,
+fn chunked_preprocessing_standalone<IntT>(
+    files:    &[String],
     k:        usize,
     qual:     &QualOpts,
     outvec:   &mut Vec<(u64, u64, u8)>,
@@ -1531,112 +1514,70 @@ fn chunked_processing_standalone<IntT>(
 where
     IntT: for<'a> UInt<'a>,
 {
-    log::info!("Getting kmers from first file. Creating reader...");
+    log::info!("Getting kmers from files. Creating reader...");
 
     let mut outdict    = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
     let mut themap     = HashMap::with_hasher(BuildHasherDefault::default());
     let mut countmap : HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>> = HashMap::with_hasher(BuildHasherDefault::default());
 
-    log::info!("Getting kmers from file {file1}. Creating reader...");
-    let mut reader =
-        parse_fastx_file(file1).unwrap_or_else(|_| panic!("Invalid path/file: {file1}"));
-
     let mut histovec : Vec<u32> = vec![0; MAXSIZEHISTO];
-
-    log::info!("Entering while loop...");
-
     let mut i_record = 0;
+    // let mut ncols : usize = 0;
 
-    while let Some(record) = reader.next() {
-        let seqrec = record.expect("Invalid FASTQ record");
-        let rl = seqrec.seq().len();
-        let kmer_opt = Kmer::<IntT>::new(
-            seqrec.seq(),
-            rl,
-            seqrec.qual(),
-            k,
-            qual.min_qual,
-            true,
-        );
-        if let Some(mut kmer_it) = kmer_opt {
-            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
-            outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
-            minmaxdict.entry(hnc).or_insert(hc);
-            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                let (hc, hnc, b, km) = tmptuple;
+    for file in files {
+        log::info!("Getting kmers from file {file}. Creating reader...");
+        let mut reader =
+            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
+
+        log::info!("Entering while loop...");
+        while let Some(record) = reader.next() {
+            let seqrec = record.expect("Invalid FASTQ record");
+            let rl = seqrec.seq().len();
+            let kmer_opt = Kmer::<IntT>::new(
+                seqrec.seq(),
+                rl,
+                seqrec.qual(),
+                k,
+                qual.min_qual,
+                true,
+            );
+            if let Some(mut kmer_it) = kmer_opt {
+                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
                 outvec.push( (hc, hnc, b) );
                 outdict.entry(hc).or_insert(km);
+                // let testkm = outdict.entry(hc).or_insert(km);
+                // if *testkm != km {
+                //     ncols += 1;
+                // }
                 minmaxdict.entry(hnc).or_insert(hc);
-            }
-        }
-
-        i_record += 1;
-        if i_record >= csize {
-            // Processssssss! And reset.
-            if !outvec.is_empty() {
-                log::info!("Processing chunk. Sorting k-mers...");
-                outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-                log::info!("k-mers sorted. Counting k-mers...");
-                // Then, do a counting of everything and save the results in a dictionary and return it
-
-                update_countmap(&outvec, &mut countmap);
+                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                    let (hc, hnc, b, km) = tmptuple;
+                    outvec.push( (hc, hnc, b) );
+                    outdict.entry(hc).or_insert(km);
+                    minmaxdict.entry(hnc).or_insert(hc);
+                }
             }
 
-            // Reset
-            outvec.clear();
-            i_record = 0;
-        }
+            i_record += 1;
+            if i_record >= csize {
+                // Processssssss! And reset.
+                if !outvec.is_empty() {
+                    log::debug!("Processing chunk. Sorting k-mers...");
+                    outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                    log::debug!("k-mers sorted. Counting k-mers...");
+                    // Then, do a counting of everything and save the results in a dictionary and return it
 
-    }
-    log::info!("Finished getting kmers from first file. Starting with the second...");
+                    update_countmap(&outvec, &mut countmap);
+                }
 
-    reader =
-        parse_fastx_file(file2).unwrap_or_else(|_| panic!("Invalid path/file: {file2}"));
-
-    // Filling the seq of the second file!
-    while let Some(record) = reader.next() {
-        let seqrec = record.expect("Invalid FASTQ record");
-        // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
-        let rl = seqrec.seq().len();
-        let kmer_opt = Kmer::<IntT>::new(
-            seqrec.seq(),
-            rl,
-            seqrec.qual(),
-            k,
-            qual.min_qual,
-            true,
-        );
-        if let Some(mut kmer_it) = kmer_opt {
-            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
-            outvec.push( (hc, hnc, b) );
-            outdict.entry(hc).or_insert(km);
-            minmaxdict.entry(hnc).or_insert(hc);
-            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                let (hc, hnc, b, km) = tmptuple;
-                outvec.push( (hc, hnc, b) );
-                outdict.entry(hc).or_insert(km);
-                minmaxdict.entry(hnc).or_insert(hc);
-            }
-        }
-
-        i_record += 1;
-        if i_record >= csize {
-            // Processssssss! And reset.
-            if !outvec.is_empty() {
-                log::info!("Processing chunk. Sorting k-mers...");
-                outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-                log::info!("k-mers sorted. Counting k-mers...");
-                // Then, do a counting of everything and save the results in a dictionary and return it
-
-                update_countmap(&outvec, &mut countmap);
+                // Reset
+                outvec.clear();
+                i_record = 0;
             }
 
-            // Reset
-            outvec.clear();
-            i_record = 0;
         }
+        log::info!("Finished getting kmers from file {file}.");
     }
 
     if i_record > 0 {
@@ -1653,11 +1594,17 @@ where
         outvec.clear();
     }
     log::info!("Finished getting kmers from the second file");
+
+
+    // println!("k | Number of collisions =+=+ {} {}", k, ncols);
+    //exit(0);
+
+
     log::info!("Filtering...");
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
     countmap.shrink_to_fit();
-    let minc;
+    let mut minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
@@ -1669,15 +1616,32 @@ where
                 histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
             }
         }
+
+        // // TEST
+        // for i in 0..histovec.len() {
+        //     logw(format!("#######{:?}-{:?}", i, histovec[i]).as_str(), Some("info"));
+        // }
+        // // TEST END
+
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
         log::info!("Counting finished. Starting fit...");
         let mut fit = SpectrumFitter::new();
-        let minc = fit.fit_histogram(histovec.clone()[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        // let minc = fit.fit_histogram(histovec.clone()[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
 
+        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
+        if result.is_ok() {
+            minc = result.unwrap() as u16;
+        } else {
+            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
+        }
 
         if minc <= 0 {
             panic!("Fitted min_count value is zero or negative!");
+        } else if minc <= 10 {
+            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+            minc = 3;
         }
 
         log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
@@ -1816,13 +1780,20 @@ where
 {
     log::info!("Starting preprocessing_standalone with k = {k}");
 
+    // This is temporal, to be changed in the future.
+    let mut all_files : Vec<String> = input_files[0].1.clone();
+    if input_files.len() > 1 {
+        for i in 1..input_files.len() {
+            all_files.extend(input_files[i].1.clone());
+        }
+    }
+
     if do_bloom {
         // Build indexes
         log::info!("Processing using a Bloom filter");
 
         let (thedict, maxmindict, themap) = bloom_filter_preprocessing_standalone::<IntT>(
-            &input_files[0].1,
-            input_files[0].2.as_ref().expect("No paired reads!"),
+            &all_files,
             k,
             qual,
             do_fit,
@@ -1831,28 +1802,18 @@ where
         return (themap, Vec::new(), thedict, maxmindict);
 
     } else if csize <= 0 {
-        if any_fastq(input_files) {
-            log::info!("FASTQ files filtered with: {qual}");
-        } else {
-            panic!("Input files are not FASTQ");
-        }
-
-        let total_size  = input_files.len();
-        if total_size > 1 {panic!("Not expecting more than a pair of pair-end reads right now!");};
-
-
         // First, we want to fill our mega-vector with all k-mers from both paired-end reads
-        log::info!("Filling vector");
+        log::info!("Processing in bulk");
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
-        let (theseq, thedict, maxmindict) = get_kmers_from_both_files_and_the_dict_and_the_seq::<IntT>(&input_files[0].1,
-            input_files[0].2.as_ref().expect("No paired reads!"),
+        let (theseq, thedict, maxmindict) = bulk_preprocessing_standalone::<IntT>(&all_files,
             k,
             qual,
             &mut tmpvec);
 
+        //exit(0);
         timevec.push(Instant::now());
-        log::info!("Kmers extracted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+        log::info!("k-mers extracted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
 
         // Then, we want to sort it according to the hash
@@ -1861,11 +1822,10 @@ where
         tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
         timevec.push(Instant::now());
-        log::info!("Kmers sorted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+        log::info!("k-mers sorted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
         // Then, do a counting of everything and save the results in a dictionary and return it
-        timevec.push(Instant::now());
-        log::info!("Counting k-mers");
+        log::info!("Counting and filtering k-mers");
         let themap;
 
         if !do_fit {
@@ -1876,17 +1836,15 @@ where
         drop(tmpvec);
 
         timevec.push(Instant::now());
-        log::info!("Kmers counted in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
+        log::info!("k-mers counted and filtered in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
         return (themap, theseq, thedict, maxmindict)
     } else {
-        // Build indexes
-        log::info!("Processing in chunks of size {} the input files", csize);
+        log::info!("Processing in chunks of size {}", csize);
 
         let mut tmpvec : Vec<(u64, u64, u8)> = Vec::new();
-        let (thedict, maxmindict, themap) = chunked_processing_standalone::<IntT>(
-            &input_files[0].1,
-            input_files[0].2.as_ref().expect("No paired reads!"),
+        let (thedict, maxmindict, themap) = chunked_preprocessing_standalone::<IntT>(
+            &all_files,
             k,
             qual,
             &mut tmpvec,
@@ -1895,6 +1853,9 @@ where
             out_path,
         );
         drop(tmpvec);
+
+        timevec.push(Instant::now());
+        log::info!("Chunked preprocessing done in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
         return (themap, Vec::new(), thedict, maxmindict);
     }
 
@@ -1944,7 +1905,7 @@ where
                                                                            &mut tmpvec
         );
 
-        logw("Kmers extracted", Some("info"));
+        logw("k-mers extracted", Some("info"));
 
 
         // Then, we want to sort it according to the hash
@@ -1952,7 +1913,7 @@ where
         logw("Sorting vector", Some("info"));
         tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-        logw("Kmers sorted.", Some("info"));
+        logw("k-mers sorted.", Some("info"));
 
 
         // Then, do a counting of everything and save the results in a dictionary and return it
@@ -1961,7 +1922,7 @@ where
         histovec.shrink_to_fit();
         drop(tmpvec);
 
-        logw("Kmers counted.", Some("info"));
+        logw("k-mers counted.", Some("info"));
 
         return (themap, Some(thedict), maxmindict, histovec, used_min_count);
     } else {

@@ -1,9 +1,11 @@
 //! Shrink the given graph
 use crate::graphs::Graph;
 use crate::graphs::pt_graph::{CarryType, EdgeIndex, EdgeType, EmptyEdge, NodeIndex, PtGraph};
+use crate::logw;
 
 use petgraph::Direction::{Incoming, Outgoing};
 use petgraph::visit::EdgeRef;
+
 // use std::process::exit;
 
 /// Mark graph as shrinkable.
@@ -30,91 +32,95 @@ pub trait Shrinkable {
 
 }
 
-
-
 impl Shrinkable for PtGraph {
     type EdgeIdx = EdgeIndex;
     type NodeIdx = NodeIndex;
 
     fn shrink(&mut self) -> bool {
-        let ambnodes = self.get_ambiguous_nodes_bi(); // Just in case we hadn't got them yet
-        log::info!("Starting shrinking the graph with {} nodes and {} edges, beginning from {} ambiguous nodes",
-              self.graph.node_count(),
-              self.graph.edge_count(),
-              ambnodes.len());
 
         // Shrinkage here means to only find consecutive nodes, w/o bifurcations
 
         let mut dididoanything = false;
+        loop {
+            let mut dididoanythingnow = false;
+            let ambnodes = self.get_ambiguous_nodes_bi(); // Just in case we hadn't got them yet
+            logw(format!("Starting shrinking the graph with {} nodes and {} edges, beginning from {} ambiguous nodes",
+                  self.graph.node_count(),
+                  self.graph.edge_count(),
+                  ambnodes.len()).as_str(), Some("trace"));
+            for an in ambnodes.iter() {
+                // println!("it");
+                // We need to see the forward edges from here
 
-        for an in ambnodes.iter() {
-            // println!("it");
-            // We need to see the forward edges from here
-
-            if !self.graph.contains_node(*an) {
-                continue;
-            }
-
-            let neigh = self.get_good_neighbours_bi(*an);
-            let conns = neigh.len();
-
-            if conns == 1 {
-                // println!("1 conn");
-                // This means that this is the outermost k-mer of a dead-end, that might also have self-loops.
-                // I.e. this k-mer itself, if no self-loops are present, can be susceptible of being shrunk.
-
-                // Let's check for self-loops first:
-                if self.node_has_self_loops(*an) {
+                if !self.graph.contains_node(*an) {
                     continue;
                 }
 
-                let tmpty = neigh[0].1.get_from_and_to().1;
-                let outn = self.out_neighbours_bi(neigh[0].0, tmpty);
-                if outn.len() == 1 && (outn[0].0 == *an || ambnodes.contains(&outn[0].0)) {
-                    continue;
-                } else if outn.len() <= 1 && self.in_neighbours_bi(neigh[0].0, tmpty).len() == 1 {
-                    // println!("yes1");
-                    self.shrink_single_path(*an, neigh[0].0, &ambnodes, neigh[0].1);
-                    dididoanything = true;
-                }
+                let neigh = self.get_good_neighbours_bi(*an);
+                let conns = neigh.len();
 
-            } else {
-                // println!("various conn");
-                // This situation means that apart from possible self-loops, we have various valid connections. This
-                // k-mer is not valid itself for shrinkage, but one of those with which is connected might be.
+                if conns == 1 {
+                    // println!("1 conn");
+                    // This means that this is the outermost k-mer of a dead-end, that might also have self-loops.
+                    // I.e. this k-mer itself, if no self-loops are present, can be susceptible of being shrunk.
 
-                // println!("> number of true neighbours: {:?}", neigh.len(),);
-                for n in neigh {
-                    // println!("\t- neighid {:?}, type of edge that connects an with it: {:?}", n.0, n.1);
-
-                    if ambnodes.contains(&n.0) || n.0 == *an {
-                        // println!("\t- It's an ambiguous node!");
+                    // Let's check for self-loops first:
+                    if self.node_has_self_loops(*an) {
                         continue;
-                    } else {
-                        // println!("\t- It's NOT an ambiguous node!");
-                        let tmpty = n.1.get_from_and_to().1;
-                        let outn = self.out_neighbours_bi(n.0, tmpty);
+                    }
 
-                        if outn.len() == 0 {
+                    let tmpty = neigh[0].1.get_from_and_to().1;
+                    let outn = self.out_neighbours_bi(neigh[0].0, tmpty);
+                    if outn.len() == 1 && (outn[0].0 == *an || ambnodes.contains(&outn[0].0)) {
+                        continue;
+                    } else if outn.len() <= 1 && self.in_neighbours_bi(neigh[0].0, tmpty).len() == 1 {
+                        // println!("yes1");
+                        self.shrink_single_path(*an, neigh[0].0, &ambnodes, neigh[0].1);
+                        dididoanything = true;
+                        dididoanythingnow = true;
+                    }
+
+                } else {
+                    // println!("various conn");
+                    // This situation means that apart from possible self-loops, we have various valid connections. This
+                    // k-mer is not valid itself for shrinkage, but one of those with which is connected might be.
+
+                    // println!("> number of true neighbours: {:?}", neigh.len(),);
+                    for n in neigh {
+                        // println!("\t- neighid {:?}, type of edge that connects an with it: {:?}", n.0, n.1);
+
+                        if ambnodes.contains(&n.0) || n.0 == *an {
+                            // println!("\t- It's an ambiguous node!");
                             continue;
-                        }
+                        } else {
+                            // println!("\t- It's NOT an ambiguous node!");
+                            let tmpty = n.1.get_from_and_to().1;
+                            let outn = self.out_neighbours_bi(n.0, tmpty);
 
-                        if outn.len() == 1 && outn[0].0 != n.0 && outn[0].0 != *an &&
-                            (!ambnodes.contains(&outn[0].0) || self.get_good_neighbours_bi(*an).len() == 1) { // This last condition allow us to catch
-                                                                                        // cases where from a junction you try to shrink a path that ends.
-                            let incn = self.in_neighbours_bi(n.0, tmpty);
-                            if incn.len() == 1 {
-                                // println!("yes2");
-                                self.shrink_single_path(n.0, outn[0].0, &ambnodes, outn[0].1);
-                                dididoanything = true;
+                            if outn.len() == 0 {
+                                continue;
+                            }
+
+                            if outn.len() == 1 && outn[0].0 != n.0 && outn[0].0 != *an &&
+                                (!ambnodes.contains(&outn[0].0) || self.get_good_neighbours_bi(*an).len() == 1) { // This last condition allow us to catch
+                                                                                            // cases where from a junction you try to shrink a path that ends.
+                                let incn = self.in_neighbours_bi(n.0, tmpty);
+                                if incn.len() == 1 {
+                                    // println!("yes2");
+                                    self.shrink_single_path(n.0, outn[0].0, &ambnodes, outn[0].1);
+                                    dididoanything = true;
+                                    dididoanythingnow = true;
+                                }
                             }
                         }
                     }
                 }
-
-                // exit(1);
+            }
+            if !dididoanythingnow {
+                break;
             }
         }
+
 
         log::info!("Shrinking ended. Shrunk graph has {} nodes and {} edges",
               self.graph.node_count(),
