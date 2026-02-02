@@ -97,7 +97,7 @@ impl Shrinkable for PtGraph {
                             let tmpty = n.1.get_from_and_to().1;
                             let outn = self.out_neighbours_bi(n.0, tmpty);
 
-                            if outn.len() == 0 {
+                            if outn.is_empty() {
                                 continue;
                             }
 
@@ -208,7 +208,7 @@ impl Shrinkable for PtGraph {
             if curredge.is_direct() {
                 self.graph.node_weight_mut(base_node).unwrap().set_internal_edge(curredge);
 
-            } else if ind.len() == 0 {
+            } else if ind.is_empty() {
                 // NOTE: now, this is set to MintoMin by default. IT IS A LIE
                 self.graph.node_weight_mut(base_node).unwrap().set_internal_edge(EdgeType::MinToMin);
 
@@ -300,7 +300,7 @@ impl Shrinkable for PtGraph {
 
                 if curredge.is_direct(){
                     self.graph.node_weight_mut(base_node).unwrap().set_internal_edge(curredge);
-                } else if ind.len() == 0 {
+                } else if ind.is_empty() {
                     // NOTE: now, this is set to MintoMin by default. IT IS A LIE
                     self.graph.node_weight_mut(base_node).unwrap().set_internal_edge(EdgeType::MinToMin);
                 } else {
@@ -323,7 +323,7 @@ impl Shrinkable for PtGraph {
                 // ======================================= CHANGING INTERNAL EDGES IF NEEDED END
 
                 // =================== DEBUG
-                if self.out_degree(base_node) != 1 && ind.len() != 0 {
+                if self.out_degree(base_node) != 1 && !ind.is_empty() {
                     println!("{:?} {:?}", self.out_degree(base_node), self.in_degree(base_node));
                     panic!("EY2!");
                 }
@@ -351,7 +351,7 @@ impl Shrinkable for PtGraph {
                     self.graph.node_weight_mut(base_node).unwrap().set_internal_edge(curredge);
                     newoutedge = prospective_node.1;
                     // println!("DIRECT");
-                } else if ind.len() == 0 {
+                } else if ind.is_empty() {
                     // We need to change the FOLLOWING edges, not the previous ones!
                     // println!("indlenzero");
                     match curredge {
@@ -390,7 +390,7 @@ impl Shrinkable for PtGraph {
                 // ======================================= CHANGING INTERNAL EDGES IF NEEDED END
 
                 // =================== DEBUG
-                if self.out_degree_min(base_node) != 1 && ind.len() != 0 || self.out_degree(base_node) != 1 && ind.len() == 0{
+                if self.out_degree_min(base_node) != 1 && !ind.is_empty() || self.out_degree(base_node) != 1 && ind.is_empty() {
                     println!("Base node: {:?}, internal type: {:?}", base_node, self.graph.node_weight(base_node).unwrap().innerdir.unwrap());
                     println!("Incoming node to base_node from before: {:?}, prospective_node: {:?}", ind[0].0, prospective_node.0);
                     println!("OUTGOING");

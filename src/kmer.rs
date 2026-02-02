@@ -215,10 +215,10 @@ impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
 //         println!("{} {} {}", canhash, notcanhash, isittherevcomp);
 //         println!("{:#0194b}\n{:#0194b}\n", self.kmer, self.kmer.rev_comp(self.k));
         if isittherevcomp {
-            thebases = (rc_base((self.kmer >> (self.k - 1)*2).as_u8()) & 3) | (rc_base((self.kmer).as_u8() & 3) << 2);
+            thebases = (rc_base((self.kmer >> ((self.k - 1)*2)).as_u8()) & 3) | (rc_base((self.kmer).as_u8() & 3) << 2);
             thekmer  = self.kmer.rev_comp(self.k);
         } else {
-            thebases = ((self.kmer >> (self.k - 1)*2) << 2).as_u8() | ((self.kmer).as_u8() & 3);
+            thebases = ((self.kmer >> ((self.k - 1)*2)) << 2).as_u8() | ((self.kmer).as_u8() & 3);
             thekmer  = self.kmer;
         }
 //         println!("{:#010b}\n", thebases);

@@ -17,12 +17,6 @@ use std::{
 
 extern crate num_cpus;
 
-#[cfg(not(feature = "wasm"))]
-use fern;
-
-#[cfg(not(feature = "wasm"))]
-use humantime;
-
 /// Construction, assembly, shrinkage, pruning, and collapse of DNA de Bruijn graphs
 pub mod graph_works;
 
@@ -81,16 +75,13 @@ extern crate console_error_panic_hook;
 pub mod fastx_wasm;
 #[cfg(feature = "wasm")]
 use crate::graph_works::Contigs;
-#[cfg(feature = "wasm")]
-use json;
-
 
 
 /// Logging wrapper function for the WebAssembly version
 #[cfg(feature = "wasm")]
 pub fn logw(text : &str, typ : Option<&str>) {
-    if typ.is_some() {
-        log((String::from("Sparrowhawk::") + typ.unwrap() + "::" + text).as_str());
+    if let Some(thetyp) = typ {
+        log((String::from("Sparrowhawk::") + thetyp + "::" + text).as_str());
     } else {
         log(text);
     }
@@ -337,7 +328,7 @@ pub fn main() {
 
     timevec.push(Instant::now());
 
-    log::info!("Sparrowhawk done in {} s", timevec.last().unwrap().duration_since(*timevec.get(0).unwrap()).as_secs());
+    log::info!("Sparrowhawk done in {} s", timevec.last().unwrap().duration_since(*timevec.first().unwrap()).as_secs());
     log::info!("Finishing program!");
 }
 
@@ -401,8 +392,8 @@ impl AssemblyHelper {
 
         // Read input
         let quality = QualOpts {
-            min_count: min_count,
-            min_qual:  min_qual,
+            min_count,
+            min_qual,
         };
 
         // logw("Checking requested threads and creating pool if needed", Some("info"));
@@ -421,7 +412,7 @@ impl AssemblyHelper {
         let mut thedict256 = None;
         let mut thedict512 = None;
 
-        if k % 2 == 0 {
+        if k.is_multiple_of(2) {
             panic!("Support for even k-mer lengths not implemented");
 
         } else if k < 3 {
@@ -460,15 +451,15 @@ impl AssemblyHelper {
         // logw("Sparrowhawk done!", Some("info"));
 
         Self {
-            k : k,
-            preprocessed_data : preprocessed_data,
-            maxmindict        : maxmindict,
+            k,
+            preprocessed_data,
+            maxmindict,
             seqdict64         : thedict64,
             seqdict128        : thedict128,
             seqdict256        : thedict256,
             seqdict512        : thedict512,
             histovec          : histovalues,
-            used_min_count    : used_min_count,
+            used_min_count,
             contigs           : Contigs::default(),
             outfasta          : "".to_owned(),
             outdot            : "".to_owned(),
@@ -487,7 +478,7 @@ impl AssemblyHelper {
 
         let outfasta   : String;
 
-        if self.k % 2 == 0 {
+        if self.k.is_multiple_of(2) {
             panic!("Support for even k-mer lengths not implemented");
 
         } else if self.k < 3 {
@@ -525,7 +516,7 @@ impl AssemblyHelper {
         results["outgfav2"] = json::JsonValue::String(self.outgfav2.clone());
         results["ncontigs"] = json::JsonValue::Number(self.contigs.contig_sequences.as_ref().unwrap().len().into());
 
-        return results.dump();
+        results.dump()
     }
 
 
@@ -541,6 +532,6 @@ impl AssemblyHelper {
 
         logw(results.dump().as_str(), Some("debug"));
 
-        return results.dump();
+        results.dump()
     }
 }

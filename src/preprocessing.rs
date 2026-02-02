@@ -410,7 +410,7 @@ where
                 logw("k-mers sorted. Counting k-mers...", Some("debug"));
                 // Then, do a counting of everything and save the results in a dictionary and return it
 
-                update_countmap(&outvec, &mut countmap);
+                update_countmap(outvec, &mut countmap);
             }
 
             // Reset
@@ -458,7 +458,7 @@ where
                 logw("k-mers sorted. Counting k-mers...", Some("info"));
                 // Then, do a counting of everything and save the results in a dictionary and return it
 
-                update_countmap(&outvec, &mut countmap);
+                update_countmap(outvec, &mut countmap);
             }
 
             // Reset
@@ -475,7 +475,7 @@ where
             logw("k-mers sorted. Counting k-mers...", Some("info"));
             // Then, do a counting of everything and save the results in a dictionary and return it
 
-            update_countmap(&outvec, &mut countmap);
+            update_countmap(outvec, &mut countmap);
         }
         // Reset
         outvec.clear();
@@ -504,14 +504,14 @@ where
         logw("Counting finished. Starting fit...", Some("info"));
         let mut fit = SpectrumFitter::new();
         let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
-        if result.is_ok() {
-            minc = result.unwrap() as u16;
+        if let Ok(theres) = result {
+            minc = theres as u16;
         } else {
             logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
             minc = 3;
         }
 
-        if minc <= 0 {
+        if minc == 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
             logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
@@ -716,14 +716,14 @@ where
         logw("Counting finished. Starting fit...", Some("info"));
         let mut fit = SpectrumFitter::new();
         let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
-        if result.is_ok() {
-            minc = result.unwrap() as u16;
+        if let Ok(theres) = result {
+            minc = theres as u16;
         } else {
             logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
             minc = 3;
         }
 
-        if minc <= 0 {
+        if minc == 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
             logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
@@ -813,7 +813,7 @@ where
         let mut reader =
             parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
 
-        logw(format!("Parsing...").as_str(), Some("info"));
+        logw("Parsing...", Some("info"));
 
         while let Some(record) = reader.next() {
             let seqrec = record.expect("Invalid FASTQ record");
@@ -871,14 +871,14 @@ where
         let mut fit = SpectrumFitter::new();
 
         let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
-        if result.is_ok() {
-            minc = result.unwrap() as u16;
+        if let Ok(theres) = result {
+            minc = theres as u16;
         } else {
             logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
             minc = 3;
         }
 
-        if minc <= 0 {
+        if minc == 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
             logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
@@ -1005,7 +1005,7 @@ where
 
 #[cfg(not(feature = "wasm"))]
 fn get_map_with_counts(
-    invec:      &Vec<(u64, u64, u8)>,
+    invec:      &[(u64, u64, u8)],
     min_count:  u16,
     out_path:   &mut Option<PathBuf>,
 ) -> HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>
@@ -1095,7 +1095,8 @@ fn get_map_with_counts(
         chart.draw_series(
             Histogram::vertical(&chart)
                 .style(RED.filled())
-                .data(plotvec.iter().map(|x: &u16| (*x as u32, 1)).chain(outdict.iter().map(|(_, x)| (x.borrow().counts as u32, 1)))),
+                // .data(plotvec.iter().map(|x: &u16| (*x as u32, 1)).chain(outdict.iter().map(|(_, x)| (x.borrow().counts as u32, 1)))),
+                .data(plotvec.iter().map(|x: &u16| (*x as u32, 1)).chain(outdict.values().map(|x| (x.borrow().counts as u32, 1)))),
         ).unwrap();
 
         root.present().expect("Unable to write result to file. Does the output folder exist?");
@@ -1141,7 +1142,7 @@ fn get_map_with_counts(
                     }) );
         }
     }
-    return outdict;
+    outdict
 }
 
 
@@ -1159,7 +1160,7 @@ fn get_map_with_counts_and_fit(
     // let mut tmpcounter = 0;
 
     // Here we don't have the same issue as with the pre-defined min_count setting.
-    let mut plotvec : Vec<u32> = vec![0 as u32; MAXSIZEHISTO]; // For plotting
+    let mut plotvec : Vec<u32> = vec![0_u32; MAXSIZEHISTO]; // For plotting
 
     // We need to construct the histogram as well
 
@@ -1226,14 +1227,14 @@ fn get_map_with_counts_and_fit(
     let mut fitted_min_count : u16;
 
     let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
-    if result.is_ok() {
-        fitted_min_count = result.unwrap() as u16;
+    if let Ok(theres) = result {
+        fitted_min_count = theres as u16;
     } else {
         logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
         fitted_min_count = 3;
     }
 
-    if fitted_min_count <= 0 {
+    if fitted_min_count == 0 {
         panic!("Fitted min_count value is zero or negative!");
     } else if fitted_min_count <= 10 {
         logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
@@ -1335,7 +1336,7 @@ fn get_map_wasm(
     let mut tmphash = invec[i].0;
     // let mut tmpcounter = 0;
 
-    let mut plotvec : Vec<u32> = vec![0 as u32; MAXSIZEHISTO]; // For plotting
+    let mut plotvec : Vec<u32> = vec![0_u32; MAXSIZEHISTO]; // For plotting
 
     if do_fit {
         while i < invec.len() {
@@ -1395,14 +1396,14 @@ fn get_map_wasm(
         // minc = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
 
         let result = fit.fit_histogram(plotvec[..(MAXSIZEHISTO - 1)].to_vec());
-        if result.is_ok() {
-            minc = result.unwrap() as u16;
+        if let Ok(theres) = result {
+            minc = theres as u16;
         } else {
             logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
             minc = 3;
         }
 
-        if minc <= 0 {
+        if minc == 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
             logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
@@ -1467,12 +1468,12 @@ fn get_map_wasm(
         }
         // logw(format!("Good kmers {}", tmpcounter).as_str(), Some("debug"));
     }
-    return (outdict, plotvec, minc);
+    (outdict, plotvec, minc)
 }
 
 
 fn update_countmap(
-    invec    : &    Vec<(u64, u64, u8)>,
+    invec    : &    [(u64, u64, u8)],
     countmap : &mut HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>>,
 ) {
 
@@ -1568,7 +1569,7 @@ where
                     log::debug!("k-mers sorted. Counting k-mers...");
                     // Then, do a counting of everything and save the results in a dictionary and return it
 
-                    update_countmap(&outvec, &mut countmap);
+                    update_countmap(outvec, &mut countmap);
                 }
 
                 // Reset
@@ -1588,7 +1589,7 @@ where
             log::info!("k-mers sorted. Counting k-mers...");
             // Then, do a counting of everything and save the results in a dictionary and return it
 
-            update_countmap(&outvec, &mut countmap);
+            update_countmap(outvec, &mut countmap);
         }
         // Reset
         outvec.clear();
@@ -1630,14 +1631,14 @@ where
         // let minc = fit.fit_histogram(histovec.clone()[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
 
         let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
-        if result.is_ok() {
-            minc = result.unwrap() as u16;
+        if let Ok(theres) = result {
+            minc = theres as u16;
         } else {
             logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
             minc = 3;
         }
 
-        if minc <= 0 {
+        if minc == 0 {
             panic!("Fitted min_count value is zero or negative!");
         } else if minc <= 10 {
             logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
@@ -1783,8 +1784,8 @@ where
     // This is temporal, to be changed in the future.
     let mut all_files : Vec<String> = input_files[0].1.clone();
     if input_files.len() > 1 {
-        for i in 1..input_files.len() {
-            all_files.extend(input_files[i].1.clone());
+        for ifile in input_files.iter().skip(1) {
+            all_files.extend(ifile.1.clone());
         }
     }
 
@@ -1799,9 +1800,9 @@ where
             do_fit,
             out_path,
         );
-        return (themap, Vec::new(), thedict, maxmindict);
+        (themap, Vec::new(), thedict, maxmindict)
 
-    } else if csize <= 0 {
+    } else if csize == 0 {
         // First, we want to fill our mega-vector with all k-mers from both paired-end reads
         log::info!("Processing in bulk");
 
@@ -1826,19 +1827,17 @@ where
 
         // Then, do a counting of everything and save the results in a dictionary and return it
         log::info!("Counting and filtering k-mers");
-        let themap;
-
-        if !do_fit {
-            themap = get_map_with_counts(&mut tmpvec, qual.min_count, out_path);
+        let themap = if !do_fit {
+            get_map_with_counts(&tmpvec, qual.min_count, out_path)
         } else {
-            themap = get_map_with_counts_and_fit(&mut tmpvec, out_path);
-        }
+            get_map_with_counts_and_fit(&mut tmpvec, out_path)
+        };
         drop(tmpvec);
 
         timevec.push(Instant::now());
         log::info!("k-mers counted and filtered in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
-        return (themap, theseq, thedict, maxmindict)
+        (themap, theseq, thedict, maxmindict)
     } else {
         log::info!("Processing in chunks of size {}", csize);
 
@@ -1856,7 +1855,7 @@ where
 
         timevec.push(Instant::now());
         log::info!("Chunked preprocessing done in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
-        return (themap, Vec::new(), thedict, maxmindict);
+        (themap, Vec::new(), thedict, maxmindict)
     }
 
 }
@@ -1888,9 +1887,9 @@ where
             qual,
             do_fit
         );
-        return (themap, Some(thedict), maxmindict, histovec, used_min_count);
+        (themap, Some(thedict), maxmindict, histovec, used_min_count)
 
-    } else if csize <= 0 {
+    } else if csize == 0 {
         // Build indexes
         logw("Starting preprocessing with k = {k}", Some("info"));
 
@@ -1924,7 +1923,7 @@ where
 
         logw("k-mers counted.", Some("info"));
 
-        return (themap, Some(thedict), maxmindict, histovec, used_min_count);
+        (themap, Some(thedict), maxmindict, histovec, used_min_count)
     } else {
         // Build indexes
         logw(format!("Processing in chunks of size {} the input files", csize).as_str(), Some("info"));
@@ -1941,6 +1940,6 @@ where
         );
         drop(tmpvec);
         histovec.shrink_to_fit();
-        return (themap, Some(thedict), maxmindict, histovec, used_min_count);
+        (themap, Some(thedict), maxmindict, histovec, used_min_count)
     }
 }

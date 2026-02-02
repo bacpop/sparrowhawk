@@ -64,14 +64,12 @@ pub struct SpectrumFitter {
 impl SpectrumFitter {
     /// Count split k-mers from a pair of input FASTQ files.
     pub fn new() -> Self {
-        let cov_counts = Self {
+        Self {
             w0     : INIT_W0,
             c      : INIT_C,
             cutoff : 0,
             fitted : false,
-        };
-
-        cov_counts
+        }
     }
 
     /// Fit the coverage model to the histogram of counts

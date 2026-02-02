@@ -155,7 +155,7 @@ impl<'a> UInt<'a> for u64 {
 
     #[inline(always)]
     fn to_u64(self) -> u64 {
-        self as u64
+        self
     }
 
     #[inline(always)]
@@ -175,12 +175,12 @@ impl<'a> UInt<'a> for u64 {
 
     #[inline(always)]
     fn get_one_nucleotide(self, i: usize) -> u8 {
-        decode_base(((self >> i * 2) & 0x3) as u8)
+        decode_base(((self >> (i * 2)) & 0x3) as u8)
     }
 
     #[inline(always)]
     fn get_one_nucleotide_rc(self, i: usize) -> u8 {
-        decode_base(rc_base(((self >> i * 2) & 0x3) as u8))
+        decode_base(rc_base(((self >> (i * 2)) & 0x3) as u8))
     }
 }
 
@@ -230,7 +230,7 @@ impl<'a> UInt<'a> for u128 {
 
     #[inline(always)]
     fn to_u128(self) -> u128 {
-        self as u128
+        self
     }
 
     #[inline(always)]
@@ -245,11 +245,11 @@ impl<'a> UInt<'a> for u128 {
 
     #[inline(always)]
     fn get_one_nucleotide(self, i: usize) -> u8 {
-        decode_base(((self >> i * 2) & 0x3) as u8)
+        decode_base(((self >> (i * 2)) & 0x3) as u8)
     }
     #[inline(always)]
     fn get_one_nucleotide_rc(self, i: usize) -> u8 {
-        decode_base(rc_base(((self >> i * 2) & 0x3) as u8))
+        decode_base(rc_base(((self >> (i * 2)) & 0x3) as u8))
     }
 }
 
@@ -341,11 +341,11 @@ impl<'a> UInt<'a> for U256 {
 
     #[inline(always)]
     fn get_one_nucleotide(self, i: usize) -> u8 {
-        decode_base(((self >> i * 2) & U256::from_digit(0x3)).as_u8())
+        decode_base(((self >> (i * 2)) & U256::from_digit(0x3)).as_u8())
     }
     #[inline(always)]
     fn get_one_nucleotide_rc(self, i: usize) -> u8 {
-        decode_base(rc_base(((self >> i * 2) & U256::from_digit(0x3)).as_u8()))
+        decode_base(rc_base(((self >> (i * 2)) & U256::from_digit(0x3)).as_u8()))
     }
 }
 
@@ -443,11 +443,11 @@ impl<'a> UInt<'a> for U512 {
 
     #[inline(always)]
     fn get_one_nucleotide(self, i: usize) -> u8 {
-        decode_base(((self >> i * 2) & U512::from_digit(0x3)).as_u8())
+        decode_base(((self >> (i * 2)) & U512::from_digit(0x3)).as_u8())
     }
     #[inline(always)]
     fn get_one_nucleotide_rc(self, i: usize) -> u8 {
-        decode_base(rc_base(((self >> i * 2) & U512::from_digit(0x3)).as_u8()))
+        decode_base(rc_base(((self >> (i * 2)) & U512::from_digit(0x3)).as_u8()))
     }
 }
 

@@ -50,7 +50,7 @@ impl Collapsable for PtGraph {
                 // get all starting nodes, i.e. nodes with in_degree == 0
                 let externals = self.externals_bi();
                 log::debug!("\t- Loop over {} external nodes.", externals.len());
-                if externals.len() == 0 {
+                if externals.is_empty() {
                     break;
                 }
                 // create contigs from each starting node
@@ -69,7 +69,7 @@ impl Collapsable for PtGraph {
         //                         tobreak = false;
                         } else {
                                 // log::debug!("\t\t# Non-isolated node: creating contig.");
-                            stacker::maybe_grow(32 * 1024, 1 * 1024 * 1024, || {
+                            stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
                                 let contigs_ = contigs_from_vertex(&mut self, n);
                                 contigs.extend(contigs_.into_iter().filter(|c| get_contig_length(c) > limit).collect::<Vec<_>>());
                             });
@@ -126,7 +126,7 @@ impl Collapsable for PtGraph {
 }
 
 
-fn get_contig_length(vec : &Vec<NodeStruct>) -> usize {
+fn get_contig_length(vec : &[NodeStruct]) -> usize {
     let mut outnum = 0;
     for ns in vec.iter() {
         outnum += ns.abs_ind.len();

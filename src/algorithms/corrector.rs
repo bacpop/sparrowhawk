@@ -67,24 +67,21 @@ impl Correctable for PtGraph {
                 let mut vmin = Vec::with_capacity(2);
 
                 for e in self.graph.edges_directed(*n, Outgoing) {
-                    match e.weight().t.get_from_and_to().0 {
-                        CarryType::Min => {
-                            if vmin.len() == 2 {
-                                return false;
-                            } else {
-                                vmin.push(e.id());
-                            }
-                        },
-                        _ => {},
+                    if e.weight().t.get_from_and_to().0 == CarryType::Min {
+                        if vmin.len() == 2 {
+                            return false;
+                        } else {
+                            vmin.push(e.id());
+                        }
                     }
                 }
 
                 // We have two outgoing from min/max and one outgoing from max/min.
                 // We check whether this is actually a bubble or not.
                 if vmin.len() == 2 {
-                    return check_bubble_structure(&self, *n, vmin);
+                    check_bubble_structure(self, *n, vmin)
                 } else {
-                    return false;
+                    false
                 }
             }).collect::<BTreeSet<NodeIndex>>();
 
@@ -138,7 +135,7 @@ impl Correctable for PtGraph {
                                    self.graph.edges_directed(v, petgraph::EdgeDirection::Outgoing).next().unwrap().weight().t);
                 if !path_check_vec.is_empty() {
                     dididoanything = true;
-                    to_remove.extend(path_check_vec.drain(..));
+                    to_remove.append(&mut path_check_vec);
                 }
             }
 
@@ -159,7 +156,7 @@ impl Correctable for PtGraph {
     fn remove_conflictive_links(&mut self) -> bool {
         // Conflicting links: k-mers connected to others with a relatively larger count
         // TODO: apply
-        return false;
+        false
 
         // OLD-correct bad links (only one edge instead of two, or bad types) BEGIN
         // let mut dididoanything = false;
@@ -237,7 +234,7 @@ impl Correctable for PtGraph {
 fn check_bubble_structure(ptgraph: &PtGraph, startn : NodeIndex, invec : Vec<EdgeIndex>) -> bool {
     let mut midnodes = Vec::with_capacity(2);
     let mut midcts   = Vec::with_capacity(2);
-    let outnode : NodeIndex;
+    
     for e in invec {
         midnodes.push(ptgraph.graph.edge_endpoints(e).unwrap().1);
         midcts.push(ptgraph.graph.edge_weight(e).unwrap().t.get_from_and_to().1);
@@ -254,7 +251,7 @@ fn check_bubble_structure(ptgraph: &PtGraph, startn : NodeIndex, invec : Vec<Edg
     if tmpv0.len() != 1 || ptgraph.in_neighbours_bi(midnodes[0], midcts[0]).len() != 1 {
         return false
     }
-    outnode = tmpv0[0].0;
+    let outnode = tmpv0[0].0;
     let tmpv1 = ptgraph.out_neighbours_bi(midnodes[1], midcts[1]);
     let outct = tmpv0[0].1.get_from_and_to().1;
 
@@ -268,7 +265,7 @@ fn check_bubble_structure(ptgraph: &PtGraph, startn : NodeIndex, invec : Vec<Edg
         return false;
     }
 
-    return true;
+    true
 }
 
 
@@ -414,7 +411,7 @@ fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) -> bool {
     mutrefw.merge(&savedmidw, midconns[chosennode].1); // Intermediate node k-mer(s)
     mutrefw.set_internal_edge(EdgeType::MinToMin);     // Inner edge
     mutrefw.abs_ind.push(savedoutw.abs_ind[0]);        // Out node k-mer
-    mutrefw.set_mean_counts(&vec![mutrefw.counts, savedmidw.counts, savedoutw.counts]);
+    mutrefw.set_mean_counts(&[mutrefw.counts, savedmidw.counts, savedoutw.counts]);
 
     match outct {
         CarryType::Min => {
@@ -430,7 +427,7 @@ fn collapse_bubble(ptgraph: &mut PtGraph, startn : NodeIndex) -> bool {
             ptgraph.graph.add_edge(outconn.0, startn,    EmptyEdge{t : tmptype.rev()});
         },
     }
-    return true;
+    true
 }
 
 
@@ -451,10 +448,10 @@ fn check_dead_path(ptgraph: &PtGraph, vertex: NodeIndex, output_vec: &mut Vec<No
     output_vec.push(current_vertex);
     let cntopt = ptgraph.graph.node_weight(current_vertex);
     let mut cnt : usize;
-    if cntopt.is_none() {
-        return;
+    if let Some(thecntopt) = cntopt {
+        cnt = thecntopt.abs_ind.len();
     } else {
-        cnt = cntopt.unwrap().abs_ind.len();
+        return;
     }
 
     let (mut ty, _) = carryedge.get_from_and_to();
@@ -475,9 +472,7 @@ fn check_dead_path(ptgraph: &PtGraph, vertex: NodeIndex, output_vec: &mut Vec<No
 
         // This, when we change back to standard graphs surely will be more optimised. Now,
         // I don't know if we can do much better...
-        let fwdneigh;
-
-        fwdneigh = ptgraph.out_neighbours_bi(current_vertex, ty); // NOTE: as all shrunk nodes have straight
+        let fwdneigh = ptgraph.out_neighbours_bi(current_vertex, ty); // NOTE: as all shrunk nodes have straight
                                                                   // internal edges, we don't need to check them,
                                                                   // because the entry and exit types will
                                                                   // always be the same.
@@ -511,7 +506,7 @@ fn check_dead_path(ptgraph: &PtGraph, vertex: NodeIndex, output_vec: &mut Vec<No
                     continue;
                 } else {
                     let mut tmppath : Vec<NodeIndex> = Vec::new();
-                    check_backwards_path(&ptgraph, n.0, n.1.get_from_and_to().0, &mut tmppath, limit);
+                    check_backwards_path(ptgraph, n.0, n.1.get_from_and_to().0, &mut tmppath, limit);
                     let tmplen = tmppath.len();
                     if tmplen != 0 {
                         altpath.push(tmppath);

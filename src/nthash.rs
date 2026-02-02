@@ -693,6 +693,6 @@ impl NtHashIterator {
     /// Retrieve the current hash (minimum of forward and reverse complement hashes)
     pub fn curr_hash_and_whether_it_is_the_inverse(&self) -> (u64, u64, bool) {
         let rev = self.rh.unwrap();
-        (u64::min(self.fh, rev), u64::max(self.fh, rev), if rev < self.fh {true} else {false})
+        (u64::min(self.fh, rev), u64::max(self.fh, rev), rev < self.fh)
     }
 }

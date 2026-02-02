@@ -430,7 +430,7 @@ impl Assemble for BasicAsm {
 
 //         drop(maxmindict);
         logw(format!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0).as_str(), Some("trace"));
-        logw(format!("Number of edges {}", (nedges as f64) / (2 as f64)).as_str(), Some("trace"));
+        logw(format!("Number of edges {}", (nedges as f64) / (2_f64)).as_str(), Some("trace"));
 
         // log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 

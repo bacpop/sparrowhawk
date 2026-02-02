@@ -143,7 +143,7 @@ impl NodeStruct {
 
 
     /// Sets the counts of the node as the mean of the vector you give the function.
-    pub fn set_mean_counts(&mut self, countsvec: &Vec<u16>) {
+    pub fn set_mean_counts(&mut self, countsvec: &[u16]) {
         self.counts = (countsvec.iter().map(|&e| e as u32).sum::<u32>() as f32 / countsvec.len() as f32).round() as u16;
         // Note that counts still need to be recalculated BEFORE!!!!
     }
@@ -219,10 +219,7 @@ impl EdgeType {
     /// Answers whether the EdgeType is of the direct types (i.e. linkes a canonical hash with another canonical one,
     /// or the equivalent with non-canonicals).
     pub fn is_direct(&self) -> bool {
-        match self {
-            EdgeType::MinToMin | EdgeType::MaxToMax => true,
-            _                                       => false,
-        }
+        matches!(self, EdgeType::MinToMin | EdgeType::MaxToMax)
     }
 }
 
@@ -285,7 +282,7 @@ impl Graph for PtGraph {
                     }
                 }
 
-                return true;
+                true
             })
             .collect::<Self::AmbiguousNodes>()
     }
@@ -301,7 +298,7 @@ impl Graph for PtGraph {
     fn get_good_connections_degree(&self, node: Self::NodeIdentifier) -> usize {
         // TODO: optimise this, this most surely is very slow.
         // NOTE: this does not consider self-loops.
-        self.graph.edges_directed(node, Outgoing).filter(|e| e.source() != e.target()).map(|e| (e.target(), e.weight().t)).count()
+        self.graph.edges_directed(node, Outgoing).filter(|e| e.source() != e.target()).count()
     }
 
     #[inline]
@@ -314,7 +311,7 @@ impl Graph for PtGraph {
 
         // NOTE: add also the incoming???
 
-        return false;
+        false
     }
 
     #[inline]
@@ -481,12 +478,13 @@ impl Graph for PtGraph {
                 return true;
             }
 
-            while let Some(e) = it.next() {
+            // while let Some(e) = it.next() {
+            for e in it {
                 if e.weight().t.get_from_and_to().1 != ct {
                     return false;
                 }
             }
-            return true;
+            true
         }).collect::<Vec<NodeIndex>>()
     }
 
@@ -572,7 +570,7 @@ impl Graph for PtGraph {
             &|_, e| format!("label = \"{:?}\"", e.weight().t),
             &|_, n| format!("label = \"{:?} | {:?}\" counts = {:?} kmers = {:?}", n.1.counts, n.1.abs_ind.len(), n.1.counts, n.1.abs_ind.len()),));
 
-        return output;
+        output
     }
 
     fn write_to_gfa<W: Write>(&self, f: &mut W) {
@@ -592,44 +590,42 @@ impl Graph for PtGraph {
             let (sid, tid) = self.graph.edge_endpoints(ei).unwrap();
             let (st, tt)   = self.graph.edge_weight(ei).unwrap().t.get_from_and_to();
 
-            let ssign : &str;
-            let tsign : &str;
             // let sbeg  : String;
             // let send  : String;
             // let tbeg  : String;
             // let tend  : String;
 
-            match st {
+            let ssign : &str = match st {
                 CarryType::Min => {
-                    ssign = "+";
+                    "+"
 
                     // let tmplen = self.graph.node_weight(sid).unwrap().abs_ind.len();
                     // sbeg = format!("{}",  tmplen);
                     // send = format!("{}$", self.k + tmplen - 1);
                 },
                 CarryType::Max => {
-                    ssign = "-";
+                    "-"
 
                     // sbeg = format!("{}", 0);
                     // send = format!("{}", self.k - 1);
                 },
-            }
+            };
 
-            match tt {
+            let tsign : &str = match tt {
                 CarryType::Min => {
-                    tsign = "+";
+                    "+"
                     // tbeg = format!("{}", 0);
                     // tend = format!("{}", self.k - 1);
 
                 },
                 CarryType::Max => {
-                    tsign = "-";
+                    "-"
                     // let tmplen = self.graph.node_weight(tid).unwrap().abs_ind.len();
 
                     // tbeg = format!("{}", tmplen);
                     // tend = format!("{}$", self.k + tmplen - 1);
                 },
-            }
+            };
 
             output.push_str( format!("L\t{}\t{}\t{}\t{}\t{}M\tID:Z:{}\n",
                                      sid.index(),
@@ -662,44 +658,42 @@ impl Graph for PtGraph {
             let (sid, tid) = self.graph.edge_endpoints(ei).unwrap();
             let (st, tt)   = self.graph.edge_weight(ei).unwrap().t.get_from_and_to();
 
-            let ssign : &str;
-            let tsign : &str;
             // let sbeg  : String;
             // let send  : String;
             // let tbeg  : String;
             // let tend  : String;
 
-            match st {
+            let ssign : &str = match st {
                 CarryType::Min => {
-                    ssign = "+";
+                    "+"
 
                     // let tmplen = self.graph.node_weight(sid).unwrap().abs_ind.len();
                     // sbeg = format!("{}",  tmplen);
                     // send = format!("{}$", self.k + tmplen - 1);
                 },
                 CarryType::Max => {
-                    ssign = "-";
+                    "-"
 
                     // sbeg = format!("{}", 0);
                     // send = format!("{}", self.k - 1);
                 },
-            }
+            };
 
-            match tt {
+            let tsign : &str = match tt {
                 CarryType::Min => {
-                    tsign = "+";
+                    "+"
                     // tbeg = format!("{}", 0);
                     // tend = format!("{}", self.k - 1);
 
                 },
                 CarryType::Max => {
-                    tsign = "-";
+                    "-"
                     // let tmplen = self.graph.node_weight(tid).unwrap().abs_ind.len();
 
                     // tbeg = format!("{}", tmplen);
                     // tend = format!("{}$", self.k + tmplen - 1);
                 },
-            }
+            };
 
             output.push_str( format!("L\t{}\t{}\t{}\t{}\t{}M\tID:Z:{}\n",
                                      sid.index(),
@@ -855,14 +849,8 @@ impl Graph for PtGraph {
 
 impl Init for PtGraph {
     fn init(edge_count: Option<usize>, node_count: Option<usize>, kl : usize) -> PtGraph {
-        let nodes = match node_count {
-            Some(n) => n,
-            None => 0,
-        };
-        let edges = match edge_count {
-            Some(n) => n,
-            None => 0,
-        };
+        let nodes = node_count.unwrap_or_default();
+        let edges = edge_count.unwrap_or_default();
         PtGraph {graph : petgraph::stable_graph::StableGraph::with_capacity(nodes, edges),
                  k     : kl,}
     }
@@ -872,8 +860,7 @@ impl Build for PtGraph {
     fn create_from_map<T: Sized + Init + Build>(k : usize,
                                                     indict : &HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>) -> Self {
 
-        let mut collection = PtGraph::default();
-        collection.k = k;
+        let mut collection = PtGraph {k, ..Default::default() };
         let mut tmpdict : HashMap::<u64, NodeIndex, BuildHasherDefault<NoHashHasher<u64>>> = HashMap::with_capacity_and_hasher(indict.len(), BuildHasherDefault::default());
 
         for (h, hi) in indict {
@@ -891,26 +878,26 @@ impl Build for PtGraph {
 
             // ...and also all of its preceding edges...
             for hpre in hi.borrow().pre.iter() {
-                if !tmpdict.contains_key(&hpre.0) {
+                if let std::collections::hash_map::Entry::Vacant(e) = tmpdict.entry(hpre.0) {
                     // First, we add the node
                     let tmpid2 = collection.graph.add_node(NodeStruct {
                                                             counts : indict.get(&hpre.0).unwrap().borrow().counts,
                                                             abs_ind: vec![hpre.0],
                                                             innerdir: None,
                     });
-
-                    tmpdict.insert(hpre.0, tmpid2);
+ 
+                    e.insert(tmpid2);
                 }
 
                 // Then, we add the edge
-                if !collection.graph.edges_connecting(*tmpdict.get(&hpre.0).unwrap(), *tmpdict.get(&h).unwrap()).any(|e| e.weight().t == hpre.1) {
-                    collection.graph.add_edge(*tmpdict.get(&hpre.0).unwrap(), *tmpdict.get(&h).unwrap(), EmptyEdge{t:hpre.1});
+                if !collection.graph.edges_connecting(*tmpdict.get(&hpre.0).unwrap(), *tmpdict.get(h).unwrap()).any(|e| e.weight().t == hpre.1) {
+                    collection.graph.add_edge(*tmpdict.get(&hpre.0).unwrap(), *tmpdict.get(h).unwrap(), EmptyEdge{t:hpre.1});
                 }
 
             }
             // ...and the forward ones
             for hpost in hi.borrow().post.iter() {
-                if !tmpdict.contains_key(&hpost.0) {
+                if let std::collections::hash_map::Entry::Vacant(e) = tmpdict.entry(hpost.0) {
                     // First, we add the node
                     let tmpid2 = collection.graph.add_node(NodeStruct {
                                                             counts : indict.get(&hpost.0).unwrap().borrow().counts,
@@ -918,12 +905,12 @@ impl Build for PtGraph {
                                                             innerdir: None,
                     });
 
-                    tmpdict.insert(hpost.0, tmpid2);
+                    e.insert(tmpid2);
                 }
 
                 // Then, we add the edge
-                if !collection.graph.edges_connecting(*tmpdict.get(&h).unwrap(), *tmpdict.get(&hpost.0).unwrap()).any(|e| e.weight().t == hpost.1) {
-                    collection.graph.add_edge(*tmpdict.get(&h).unwrap(), *tmpdict.get(&hpost.0).unwrap(), EmptyEdge{t:hpost.1});
+                if !collection.graph.edges_connecting(*tmpdict.get(h).unwrap(), *tmpdict.get(&hpost.0).unwrap()).any(|e| e.weight().t == hpost.1) {
+                    collection.graph.add_edge(*tmpdict.get(h).unwrap(), *tmpdict.get(&hpost.0).unwrap(), EmptyEdge{t:hpost.1});
                 }
 
             }
