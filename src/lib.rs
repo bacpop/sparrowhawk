@@ -445,6 +445,7 @@ pub struct AssemblyHelper {
     outdot: String,
     outgfa: String,
     outgfav2: String,
+    state: String,
 }
 
 #[cfg(feature = "wasm")]
@@ -590,6 +591,7 @@ impl AssemblyHelper {
             outdot: "".to_owned(),
             outgfa: "".to_owned(),
             outgfav2: "".to_owned(),
+            state: "initialised".to_string()
         }
     }
 
@@ -604,7 +606,10 @@ impl AssemblyHelper {
                 !no_bubble_collapse,
                 !no_dead_end_removal,
                 false,
+                &mut self.state
             );
+        
+        self.state = "saving".to_string();
 
         logw("Assembly done!", Some("info"));
 
@@ -649,6 +654,7 @@ impl AssemblyHelper {
         self.outdot = outdot;
         self.outgfa = outgfa;
         self.outgfav2 = outgfav2;
+        self.state = "finished".to_string();
     }
 
     /// Getter to obtain the results as JSON of the assembly

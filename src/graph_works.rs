@@ -251,6 +251,7 @@ pub trait Assemble {
         do_bubble_collapse: bool,
         do_dead_end_removal: bool,
         do_conflictive_links_removal: bool,
+        state: &mut String,
     ) -> (Contigs, String, String, String);
 }
 
@@ -458,8 +459,11 @@ impl Assemble for BasicAsm {
         do_bubble_collapse: bool,
         do_dead_end_removal: bool,
         do_conflictive_links_removal: bool,
+        state: &mut String,
     ) -> (Contigs, String, String, String) {
         log::info!("Starting assembler!");
+
+        *state = "assembly:starting".to_string();
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
         let mut i = 0;
@@ -468,6 +472,7 @@ impl Assemble for BasicAsm {
 
         // TODO: explore parallelisation?
 
+        *state = "assembly:create_graph".to_string();
         indict.iter().for_each(|(h, hi)| {
             let mut himutref = hi.borrow_mut();
 
@@ -522,6 +527,7 @@ impl Assemble for BasicAsm {
         // }
         // log::info!("Done.");
 
+        *state = "assembly:correct_graph".to_string();
         logw("Starting graph correction", Some("info"));
 
         logw("Removing self-loops", Some("info"));
@@ -565,6 +571,7 @@ impl Assemble for BasicAsm {
         let outgfa = ptgraph.get_gfa_string();
         let outgfa2 = ptgraph.get_gfa2_string();
 
+        *state = "assembly:collapse_graph".to_string();
         let serialized_contigs = ptgraph.collapse();
         log::info!("I created {} contigs", serialized_contigs.len());
         let mut contigs = Contigs::new(serialized_contigs);
