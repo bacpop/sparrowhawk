@@ -591,7 +591,7 @@ impl AssemblyHelper {
             outdot: "".to_owned(),
             outgfa: "".to_owned(),
             outgfav2: "".to_owned(),
-            state: "initialised".to_string()
+            state: "initialised".to_string(),
         }
     }
 
@@ -606,9 +606,9 @@ impl AssemblyHelper {
                 !no_bubble_collapse,
                 !no_dead_end_removal,
                 false,
-                &mut self.state
+                &mut self.state,
             );
-        
+
         self.state = "saving".to_string();
 
         logw("Assembly done!", Some("info"));
