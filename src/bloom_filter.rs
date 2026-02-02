@@ -7,9 +7,8 @@
 use std::borrow::BorrowMut;
 use std::cmp::Ordering;
 
-use std::{collections::HashMap, hash::BuildHasherDefault};
 use nohash_hasher::NoHashHasher;
-
+use std::{collections::HashMap, hash::BuildHasherDefault};
 
 /// Default bloom filter width (expected number of k-mers)
 ///
@@ -37,7 +36,7 @@ pub struct KmerFilter {
     /// Buffer for the bloom filter
     buffer: Vec<u64>,
     /// Table of counts
-    counts: HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>>,
+    counts: HashMap<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>>,
     /// Minimum count to pass filter
     min_count: u16,
 }
@@ -112,7 +111,7 @@ impl KmerFilter {
 
     /// Add an observation of a k-mer and middle base to the filter, and return if it passed
     /// minimum count filtering criterion.
-    pub fn filter(&mut self, kmer_hash : u64, kmer_nc_hash : u64, bases : u8) -> Ordering {
+    pub fn filter(&mut self, kmer_hash: u64, kmer_nc_hash: u64, bases: u8) -> Ordering {
         // This is possible because of the k-mer size restriction, the top two
         // bit are always zero
         match self.min_count {
@@ -146,7 +145,9 @@ impl KmerFilter {
     }
 
     /// Get method to retrieve the count map
-    pub fn get_counts_map(&mut self) -> &mut HashMap::<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>> {
+    pub fn get_counts_map(
+        &mut self,
+    ) -> &mut HashMap<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>> {
         &mut self.counts
     }
 }

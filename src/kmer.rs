@@ -8,7 +8,6 @@ use super::nthash::NtHashIterator;
 
 // use std::process::exit;
 
-
 /// Struct to generate all k-mers from an input sequence
 ///
 /// Holds reference to input sequence, current encoded k-mer, and other
@@ -36,7 +35,6 @@ pub struct Kmer<'a, IntT> {
     // /// the index of the record
     // rec_ind: &'a u32,
 }
-
 
 impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
     /// Quality score is at least minimum.
@@ -68,7 +66,8 @@ impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
         let mut kmer = IntT::zero_init();
         let mut i = 0;
         while i < k {
-            if valid_base(seq[i + *idx]) && (Self::valid_qual(i + *idx, qual, min_qual)) { // Checks for N or n
+            if valid_base(seq[i + *idx]) && (Self::valid_qual(i + *idx, qual, min_qual)) {
+                // Checks for N or n
                 let next_base = encode_base(seq[i + *idx]);
                 kmer <<= 2;
                 // println!("Adding {:#0258b}", IntT::from_encoded_base(next_base));
@@ -82,14 +81,14 @@ impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
                     return None;
                 }
                 kmer = IntT::zero_init();
-                i    = 0;
+                i = 0;
             }
         }
         // println!("Final kmer:\t {:#0258b}", kmer);
         // println!("{:#064b} {:#064b} {:#064b}", ((kmer).as_u8() & 3), ((kmer >> (k - 1)*2) << 2).as_u8(), ((kmer).as_u8() & 3) | ((kmer >> (k - 1)*2) << 2).as_u8());
         let hash_gen = NtHashIterator::new(&seq[*idx..(*idx + k)], k, rc);
         *idx += k - 1;
-//         log::info!("kmer built!");
+        //         log::info!("kmer built!");
         Some((kmer, hash_gen))
     }
 
@@ -98,7 +97,7 @@ impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
     /// Usually the next base, but if an N skips over it.
     /// If end of sequence encountered then returns `false`.
     fn roll_fwd(&mut self) -> bool {
-//         log::info!("Rolling kmer");
+        //         log::info!("Rolling kmer");
         let mut success = false;
         self.index += 1;
         if self.index >= self.seq_len {
@@ -124,7 +123,7 @@ impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
         } else {
             // log::info!("Next base is valid, we're rolling, baby!");
             let new_base = encode_base(base);
-//             println!("");
+            //             println!("");
             // println!("cur kmer:\t {:#0258b}", self.kmer);
 
             let old_base = (self.kmer >> ((self.k - 1) * 2)).as_u8() & 3;
@@ -135,14 +134,14 @@ impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
             // Update the k-mer
             // println!("previous kmer:\t {:#0258b}", self.kmer);
             let cleanbits = self.kmer.n_bits() as usize - (self.k - 1) * 2;
-            self.kmer = (((self.kmer << cleanbits) >> cleanbits) << 2) | (IntT::from_encoded_base(new_base)) ;
+            self.kmer = (((self.kmer << cleanbits) >> cleanbits) << 2)
+                | (IntT::from_encoded_base(new_base));
             // println!("new kmer:\t {:#0258b}\n", self.kmer);
             success = true;
         }
         // log::info!("Finishing rolling");
         success
     }
-
 
     /// Create a [`Kmer`] iterator given reference to sequence input.
     ///
@@ -162,13 +161,7 @@ impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
     ) -> Option<Self> {
         let mut index = 0;
         let first_kmer = Self::build(
-            &seq,
-            seq_len,
-            qual,
-            k,
-            &mut index,
-            min_qual,
-            rc,
+            &seq, seq_len, qual, k, &mut index, min_qual, rc,
             // rec_ind,
         );
         if let Some((kmer, hash_gen)) = first_kmer {
@@ -195,36 +188,38 @@ impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
     /// Returns the canonical k-mer hash, the non-canonical one, the first and last bases, and the k-mer sequence
     pub fn get_curr_kmerhash_and_bases_and_kmer(&self) -> (u64, u64, u8, IntT) {
         // OLD bases extraction: we need now to see if we are
-        let (canhash, notcanhash, isittherevcomp) = self.hash_gen.curr_hash_and_whether_it_is_the_inverse();
-        let thebases : u8; // Last four bits correspond to the canonical kmer bases, first four bits to the alternative kmer bases
-//         if isittherevcomp {
-//             thebases = (rc_base((self.kmer >> (self.k - 1)*2).as_u8()) & 3)
-//                         | (rc_base((self.kmer).as_u8() & 3) << 2)
-//                         | ((self.kmer >> (self.k - 1)*2) << 6).as_u8()
-//                         | (((self.kmer).as_u8() & 3) << 4);
-//         } else {
-//             thebases =  (((self.kmer >> (self.k - 1)*2).as_u8() & 3) << 2)
-//                         | ((self.kmer).as_u8() & 3)
-//                         | (rc_base((self.kmer).as_u8() & 3) << 6)
-//                         | (rc_base((self.kmer >> (self.k - 1)*2).as_u8() & 3) << 4);
-//         }
-//             thebases =  (((self.kmer >> (self.k - 1)*2).as_u8() & 3) << 2)
-//                         | ((self.kmer).as_u8() & 3);
+        let (canhash, notcanhash, isittherevcomp) =
+            self.hash_gen.curr_hash_and_whether_it_is_the_inverse();
+        let thebases: u8; // Last four bits correspond to the canonical kmer bases, first four bits to the alternative kmer bases
+                          //         if isittherevcomp {
+                          //             thebases = (rc_base((self.kmer >> (self.k - 1)*2).as_u8()) & 3)
+                          //                         | (rc_base((self.kmer).as_u8() & 3) << 2)
+                          //                         | ((self.kmer >> (self.k - 1)*2) << 6).as_u8()
+                          //                         | (((self.kmer).as_u8() & 3) << 4);
+                          //         } else {
+                          //             thebases =  (((self.kmer >> (self.k - 1)*2).as_u8() & 3) << 2)
+                          //                         | ((self.kmer).as_u8() & 3)
+                          //                         | (rc_base((self.kmer).as_u8() & 3) << 6)
+                          //                         | (rc_base((self.kmer >> (self.k - 1)*2).as_u8() & 3) << 4);
+                          //         }
+                          //             thebases =  (((self.kmer >> (self.k - 1)*2).as_u8() & 3) << 2)
+                          //                         | ((self.kmer).as_u8() & 3);
 
-        let thekmer : IntT;
-//         println!("{} {} {}", canhash, notcanhash, isittherevcomp);
-//         println!("{:#0194b}\n{:#0194b}\n", self.kmer, self.kmer.rev_comp(self.k));
+        let thekmer: IntT;
+        //         println!("{} {} {}", canhash, notcanhash, isittherevcomp);
+        //         println!("{:#0194b}\n{:#0194b}\n", self.kmer, self.kmer.rev_comp(self.k));
         if isittherevcomp {
-            thebases = (rc_base((self.kmer >> ((self.k - 1)*2)).as_u8()) & 3) | (rc_base((self.kmer).as_u8() & 3) << 2);
-            thekmer  = self.kmer.rev_comp(self.k);
+            thebases = (rc_base((self.kmer >> ((self.k - 1) * 2)).as_u8()) & 3)
+                | (rc_base((self.kmer).as_u8() & 3) << 2);
+            thekmer = self.kmer.rev_comp(self.k);
         } else {
-            thebases = ((self.kmer >> ((self.k - 1)*2)) << 2).as_u8() | ((self.kmer).as_u8() & 3);
-            thekmer  = self.kmer;
+            thebases = ((self.kmer >> ((self.k - 1) * 2)) << 2).as_u8() | ((self.kmer).as_u8() & 3);
+            thekmer = self.kmer;
         }
-//         println!("{:#010b}\n", thebases);
+        //         println!("{:#010b}\n", thebases);
 
-//         println!("{:#066b} {}", self.kmer.to_u64(), self.get_hash());
-//         println!("{:#066b}", thebases);
+        //         println!("{:#066b} {}", self.kmer.to_u64(), self.get_hash());
+        //         println!("{:#066b}", thebases);
 
         (canhash, notcanhash, thebases, thekmer)
     }
@@ -280,5 +275,3 @@ impl<'a, IntT: for<'b> UInt<'b>> Kmer<'a, IntT> {
 //
 //     outind | ((*seq_ind as u64) & 33u64)
 // }
-
-

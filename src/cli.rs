@@ -10,7 +10,7 @@ pub const DEFAULT_MINCOUNT: u16 = 5;
 /// Default minimum base quality (PHRED score) for FASTQ files
 pub const DEFAULT_MINQUAL: u8 = 20;
 /// Default output directory
-pub const DEFAULT_OUTPUT_DIR:    &str = "./";
+pub const DEFAULT_OUTPUT_DIR: &str = "./";
 /// Default output prefix
 pub const DEFAULT_OUTPUT_PREFIX: &str = "sphk";
 
@@ -25,7 +25,6 @@ fn valid_kmer(s: &str) -> Result<usize, String> {
         Ok(k)
     }
 }
-
 
 #[doc(hidden)]
 fn valid_cpus(s: &str) -> Result<usize, String> {
@@ -103,7 +102,7 @@ pub enum Commands {
             .required(true)
             .args(["seq_files", "file_list"]),
     ))]
-    /// Assemble these input fastq files 
+    /// Assemble these input fastq files
     Build {
         /// List of input FASTQ files
         #[arg(group = "input")]
@@ -171,7 +170,6 @@ pub enum Commands {
         no_dead_end_removal: bool,
     },
 }
-
 
 /// Function to parse command line args into [`Args`] struct
 pub fn cli_args() -> Args {

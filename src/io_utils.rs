@@ -18,8 +18,6 @@ use crate::preprocessing::InputFastx;
 //     DEFAULT_KMER, DEFAULT_MINCOUNT, DEFAULT_MINQUAL, DEFAULT_STRAND,
 // };
 
-
-
 /// Set a buffered stream to write to.
 ///
 /// Either a file (if [`Some`]) or stdout otherwise (if [`None`]).
@@ -58,7 +56,12 @@ pub fn get_input_list(
             input_files
         }
         None => {
-            vec![("reads".to_owned(), seq_files.clone().expect("Neither input TSV file nor inputs as arguments have been provided") )]
-        },
+            vec![(
+                "reads".to_owned(),
+                seq_files
+                    .clone()
+                    .expect("Neither input TSV file nor inputs as arguments have been provided"),
+            )]
+        }
     }
 }

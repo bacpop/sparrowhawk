@@ -19,8 +19,8 @@
 //!
 //! There are also lookup tables to support ambiguity using IUPAC codes.
 
-use num_traits::{PrimInt, Unsigned};
 use bnum::BUint;
+use num_traits::{PrimInt, Unsigned};
 
 /// Table from bits 0-3 to ASCII (use [`decode_base()`] not this table).
 const LETTER_CODE: [u8; 4] = [b'A', b'C', b'T', b'G'];
@@ -126,9 +126,9 @@ impl<'a> UInt<'a> for u64 {
     fn rev_comp(mut self, k_size: usize) -> Self {
         // This part reverses the bases by shuffling them using an on/off pattern
         // of bits
-        self = (self >> 2 & 0x3333333333333333)  | (self & 0x3333333333333333) << 2;
-        self = (self >> 4 & 0x0F0F0F0F0F0F0F0F)  | (self & 0x0F0F0F0F0F0F0F0F) << 4;
-        self = (self >> 8 & 0x00FF00FF00FF00FF)  | (self & 0x00FF00FF00FF00FF) << 8;
+        self = (self >> 2 & 0x3333333333333333) | (self & 0x3333333333333333) << 2;
+        self = (self >> 4 & 0x0F0F0F0F0F0F0F0F) | (self & 0x0F0F0F0F0F0F0F0F) << 4;
+        self = (self >> 8 & 0x00FF00FF00FF00FF) | (self & 0x00FF00FF00FF00FF) << 8;
         self = (self >> 16 & 0x0000FFFF0000FFFF) | (self & 0x0000FFFF0000FFFF) << 16;
         self = (self >> 32 & 0x00000000FFFFFFFF) | (self & 0x00000000FFFFFFFF) << 32;
         // This reverse complements
@@ -189,18 +189,18 @@ impl<'a> UInt<'a> for u128 {
     fn rev_comp(mut self, k_size: usize) -> u128 {
         // This part reverses the bases by shuffling them using an on/off pattern
         // of bits
-        self = (self >> 2  & 0x33333333333333333333333333333333)
-            |  (self       & 0x33333333333333333333333333333333) << 2;
-        self = (self >> 4  & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F)
-            |  (self       & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F) << 4;
-        self = (self >> 8  & 0x00FF00FF00FF00FF00FF00FF00FF00FF)
-            |  (self       & 0x00FF00FF00FF00FF00FF00FF00FF00FF) << 8;
+        self = (self >> 2 & 0x33333333333333333333333333333333)
+            | (self & 0x33333333333333333333333333333333) << 2;
+        self = (self >> 4 & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F)
+            | (self & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F) << 4;
+        self = (self >> 8 & 0x00FF00FF00FF00FF00FF00FF00FF00FF)
+            | (self & 0x00FF00FF00FF00FF00FF00FF00FF00FF) << 8;
         self = (self >> 16 & 0x0000FFFF0000FFFF0000FFFF0000FFFF)
-            |  (self       & 0x0000FFFF0000FFFF0000FFFF0000FFFF) << 16;
+            | (self & 0x0000FFFF0000FFFF0000FFFF0000FFFF) << 16;
         self = (self >> 32 & 0x00000000FFFFFFFF00000000FFFFFFFF)
-            |  (self       & 0x00000000FFFFFFFF00000000FFFFFFFF) << 32;
+            | (self & 0x00000000FFFFFFFF00000000FFFFFFFF) << 32;
         self = (self >> 64 & 0x0000000000000000FFFFFFFFFFFFFFFF)
-            |  (self       & 0x0000000000000000FFFFFFFFFFFFFFFF) << 64;
+            | (self & 0x0000000000000000FFFFFFFFFFFFFFFF) << 64;
         // This reverse complements
         self ^= 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA;
 
@@ -253,7 +253,6 @@ impl<'a> UInt<'a> for u128 {
     }
 }
 
-
 // ADDING NEW UINTS TO INCREASE K-MER LENGTH UP TO 256/255.
 // pub type u192 = BUint<3>;
 
@@ -267,7 +266,6 @@ pub type U256 = BUint<4>;
 /// New created type of 512 bits
 pub type U512 = BUint<8>;
 
-
 impl<'a> UInt<'a> for U256 {
     #[inline(always)]
     fn rev_comp(mut self, k_size: usize) -> U256 {
@@ -277,24 +275,107 @@ impl<'a> UInt<'a> for U256 {
         // IMPORTANT NOTE: from_digits() takes an array and incorporates the digits in LITTLE ENDIAN,
         // i.e. the FIRST element of the array contains the LEAST SIGNIFICANT DIGITS.
 
-        self = (self >> 2  & U256::from_digits([0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64]))
-            | ( self       & U256::from_digits([0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64])) << 2;
-        self = (self >> 4  & U256::from_digits([0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64]))
-            | ( self       & U256::from_digits([0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64])) << 4;
-        self = (self >> 8  & U256::from_digits([0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64]))
-            | ( self       & U256::from_digits([0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64])) << 8;
-        self = (self >> 16 & U256::from_digits([0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64]))
-            | ( self       & U256::from_digits([0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64])) << 16;
-        self = (self >> 32 & U256::from_digits([0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64]))
-            | ( self       & U256::from_digits([0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64])) << 32;
+        self = (self >> 2
+            & U256::from_digits([
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+            ]))
+            | (self
+                & U256::from_digits([
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                ]))
+                << 2;
+        self = (self >> 4
+            & U256::from_digits([
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+            ]))
+            | (self
+                & U256::from_digits([
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                ]))
+                << 4;
+        self = (self >> 8
+            & U256::from_digits([
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+            ]))
+            | (self
+                & U256::from_digits([
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                ]))
+                << 8;
+        self = (self >> 16
+            & U256::from_digits([
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+            ]))
+            | (self
+                & U256::from_digits([
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                ]))
+                << 16;
+        self = (self >> 32
+            & U256::from_digits([
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+            ]))
+            | (self
+                & U256::from_digits([
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                ]))
+                << 32;
 
         self = (self >> 64 & U256::from_digits([0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64])) // Remember: LITTLE ENDIAN!
             | ( self       & U256::from_digits([0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64])) << 64;
-        self = (self >> 128& U256::from_digits([0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0x0000000000000000u64]))
-            | ( self       & U256::from_digits([0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0x0000000000000000u64])) << 128;
+        self = (self >> 128
+            & U256::from_digits([
+                0xFFFFFFFFFFFFFFFFu64,
+                0xFFFFFFFFFFFFFFFFu64,
+                0x0000000000000000u64,
+                0x0000000000000000u64,
+            ]))
+            | (self
+                & U256::from_digits([
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0x0000000000000000u64,
+                    0x0000000000000000u64,
+                ]))
+                << 128;
 
         // This reverse complements
-        self ^= U256::from_digits([0xAAAAAAAAAAAAAAAAu64, 0xAAAAAAAAAAAAAAAAu64, 0xAAAAAAAAAAAAAAAAu64, 0xAAAAAAAAAAAAAAAAu64]);
+        self ^= U256::from_digits([
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+        ]);
 
         // Shifts so LSB is at the bottom
         self >> (2 * (128 - k_size))
@@ -323,7 +404,7 @@ impl<'a> UInt<'a> for U256 {
     #[inline(always)]
     fn to_u128(self) -> u128 {
         let thed = self.digits();
-        let leastsig        = thed[0] as u128;
+        let leastsig = thed[0] as u128;
         let mut notleastsig = thed[1] as u128;
         notleastsig <<= 64;
         leastsig | notleastsig
@@ -349,7 +430,6 @@ impl<'a> UInt<'a> for U256 {
     }
 }
 
-
 impl<'a> UInt<'a> for U512 {
     #[inline(always)]
     fn rev_comp(mut self, k_size: usize) -> U512 {
@@ -359,44 +439,203 @@ impl<'a> UInt<'a> for U512 {
         // IMPORTANT NOTE: from_digits() takes an array and incorporates the digits in LITTLE ENDIAN,
         // i.e. the FIRST element of the array contains the LEAST SIGNIFICANT DIGITS.
 
-        self = (self >> 2  & U512::from_digits([0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64,
-                                                0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64,]))
-            | ( self       & U512::from_digits([0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64,
-                                                0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64, 0x3333333333333333u64,])) << 2;
-        self = (self >> 4  & U512::from_digits([0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64,
-                                                0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64,]))
-            | ( self       & U512::from_digits([0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64,
-                                                0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64, 0x0F0F0F0F0F0F0F0Fu64,])) << 4;
-        self = (self >> 8  & U512::from_digits([0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64,
-                                                0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64,]))
-            | ( self       & U512::from_digits([0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64,
-                                                0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64, 0x00FF00FF00FF00FFu64,])) << 8;
-        self = (self >> 16 & U512::from_digits([0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64,
-                                                0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64,]))
-            | ( self       & U512::from_digits([0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64,
-                                                0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64, 0x0000FFFF0000FFFFu64,])) << 16;
-        self = (self >> 32 & U512::from_digits([0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64,
-                                                0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64,]))
-            | ( self       & U512::from_digits([0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64,
-                                                0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64, 0x00000000FFFFFFFFu64,])) << 32;
+        self = (self >> 2
+            & U512::from_digits([
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+                0x3333333333333333u64,
+            ]))
+            | (self
+                & U512::from_digits([
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                    0x3333333333333333u64,
+                ]))
+                << 2;
+        self = (self >> 4
+            & U512::from_digits([
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+                0x0F0F0F0F0F0F0F0Fu64,
+            ]))
+            | (self
+                & U512::from_digits([
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                    0x0F0F0F0F0F0F0F0Fu64,
+                ]))
+                << 4;
+        self = (self >> 8
+            & U512::from_digits([
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+                0x00FF00FF00FF00FFu64,
+            ]))
+            | (self
+                & U512::from_digits([
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                    0x00FF00FF00FF00FFu64,
+                ]))
+                << 8;
+        self = (self >> 16
+            & U512::from_digits([
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+                0x0000FFFF0000FFFFu64,
+            ]))
+            | (self
+                & U512::from_digits([
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                    0x0000FFFF0000FFFFu64,
+                ]))
+                << 16;
+        self = (self >> 32
+            & U512::from_digits([
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+                0x00000000FFFFFFFFu64,
+            ]))
+            | (self
+                & U512::from_digits([
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                    0x00000000FFFFFFFFu64,
+                ]))
+                << 32;
 
-        self = (self >> 64 & U512::from_digits([0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, // Remember: LITTLE ENDIAN!!
-                                                0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64]))
-            | ( self       & U512::from_digits([0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64,
-                                                0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64])) << 64;
-        self = (self >> 128& U512::from_digits([0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0x0000000000000000u64,
-                                                0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0x0000000000000000u64]))
-            | ( self       & U512::from_digits([0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0x0000000000000000u64,
-                                                0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0x0000000000000000u64, 0x0000000000000000u64])) << 128;
-        self = (self >> 256& U512::from_digits([0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64,
-                                                0x0000000000000000u64, 0x0000000000000000u64, 0x0000000000000000u64, 0x0000000000000000u64]))
-            | ( self       & U512::from_digits([0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64,
-                                                0x0000000000000000u64, 0x0000000000000000u64, 0x0000000000000000u64, 0x0000000000000000u64])) << 256;
-
+        self = (self >> 64
+            & U512::from_digits([
+                0xFFFFFFFFFFFFFFFFu64,
+                0x0000000000000000u64,
+                0xFFFFFFFFFFFFFFFFu64,
+                0x0000000000000000u64, // Remember: LITTLE ENDIAN!!
+                0xFFFFFFFFFFFFFFFFu64,
+                0x0000000000000000u64,
+                0xFFFFFFFFFFFFFFFFu64,
+                0x0000000000000000u64,
+            ]))
+            | (self
+                & U512::from_digits([
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0x0000000000000000u64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0x0000000000000000u64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0x0000000000000000u64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0x0000000000000000u64,
+                ]))
+                << 64;
+        self = (self >> 128
+            & U512::from_digits([
+                0xFFFFFFFFFFFFFFFFu64,
+                0xFFFFFFFFFFFFFFFFu64,
+                0x0000000000000000u64,
+                0x0000000000000000u64,
+                0xFFFFFFFFFFFFFFFFu64,
+                0xFFFFFFFFFFFFFFFFu64,
+                0x0000000000000000u64,
+                0x0000000000000000u64,
+            ]))
+            | (self
+                & U512::from_digits([
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0x0000000000000000u64,
+                    0x0000000000000000u64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0x0000000000000000u64,
+                    0x0000000000000000u64,
+                ]))
+                << 128;
+        self = (self >> 256
+            & U512::from_digits([
+                0xFFFFFFFFFFFFFFFFu64,
+                0xFFFFFFFFFFFFFFFFu64,
+                0xFFFFFFFFFFFFFFFFu64,
+                0xFFFFFFFFFFFFFFFFu64,
+                0x0000000000000000u64,
+                0x0000000000000000u64,
+                0x0000000000000000u64,
+                0x0000000000000000u64,
+            ]))
+            | (self
+                & U512::from_digits([
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0xFFFFFFFFFFFFFFFFu64,
+                    0x0000000000000000u64,
+                    0x0000000000000000u64,
+                    0x0000000000000000u64,
+                    0x0000000000000000u64,
+                ]))
+                << 256;
 
         // This reverse complements
-        self ^= U512::from_digits([0xAAAAAAAAAAAAAAAAu64, 0xAAAAAAAAAAAAAAAAu64, 0xAAAAAAAAAAAAAAAAu64, 0xAAAAAAAAAAAAAAAAu64,
-                                   0xAAAAAAAAAAAAAAAAu64, 0xAAAAAAAAAAAAAAAAu64, 0xAAAAAAAAAAAAAAAAu64, 0xAAAAAAAAAAAAAAAAu64]);
+        self ^= U512::from_digits([
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+            0xAAAAAAAAAAAAAAAAu64,
+        ]);
 
         // Shifts so LSB is at the bottom
         self >> (2 * (256 - k_size))
@@ -425,7 +664,7 @@ impl<'a> UInt<'a> for U512 {
     #[inline(always)]
     fn to_u128(self) -> u128 {
         let thed = self.digits();
-        let leastsig        = thed[0] as u128;
+        let leastsig = thed[0] as u128;
         let mut notleastsig = thed[1] as u128;
         notleastsig <<= 64;
         leastsig | notleastsig
@@ -450,8 +689,6 @@ impl<'a> UInt<'a> for U512 {
         decode_base(rc_base(((self >> (i * 2)) & U512::from_digit(0x3)).as_u8()))
     }
 }
-
-
 
 /// Decodes an encoded and packed split k-mer (64-bits) into strings for upper
 /// and lower parts.

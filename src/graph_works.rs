@@ -1,16 +1,8 @@
 use nohash_hasher::NoHashHasher;
-use std::{
-    cell::*,
-    collections::HashMap,
-    hash::BuildHasherDefault,
-};
+use std::{cell::*, collections::HashMap, hash::BuildHasherDefault};
 
 #[cfg(not(feature = "wasm"))]
-use std::{
-    time::Instant,
-    path::PathBuf,
-    io::Write,
-};
+use std::{io::Write, path::PathBuf, time::Instant};
 
 // use rayon::prelude::*;
 
@@ -20,47 +12,49 @@ use super::io_utils::*;
 #[cfg(not(feature = "wasm"))]
 use needletail::parser::write_fasta;
 
-
 // use std::process::exit;
 extern crate petgraph;
 use super::HashInfoSimple;
 
-use crate::graphs::Graph;
 use crate::algorithms::collapser::SerializedContigs;
-use crate::nthash;
 use crate::graphs::pt_graph::EdgeType;
+use crate::graphs::Graph;
+use crate::nthash;
 
 use crate::bit_encoding::rc_base;
 use crate::logw;
 
 /// Get backwards neighbours, i.e. incoming edges to either the canonical or non-canonical hashes
-pub fn check_bkg( // backwards here mean INCOMING edges, whether from the rev.-comp. strand, or the direct one
-    hc:         u64,
-    hnc:        u64,
-    k:          usize,
-    bases:      u8,
-    thedict:    &HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
-    maxmindict: &HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
-) -> Vec<(u64, EdgeType)>
-{
+pub fn check_bkg(
+    // backwards here mean INCOMING edges, whether from the rev.-comp. strand, or the direct one
+    hc: u64,
+    hnc: u64,
+    k: usize,
+    bases: u8,
+    thedict: &HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
+    maxmindict: &HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
+) -> Vec<(u64, EdgeType)> {
     let mut outvec = Vec::new();
     // Let's start first with the canonical one
-    let thecbase  = bases & 3;
+    let thecbase = bases & 3;
     let thencbase = (bases >> 2) & 3;
-    for i in 0..4 {             //ACTG, in that order
+    for i in 0..4 {
+        //ACTG, in that order
         // let tmphashc = (nthash::swapbits033(hc ^ nthash::HASH_LOOKUP[thecbase as usize]
         //                                        ^ (nthash::MS_TAB_31L[(i as usize * 31) + (k % 31)]
         //                                         | nthash::MS_TAB_33R[(i as usize) * 33 + (k % 33)])
         //                 )).rotate_right(1u32);
 
-        let tmphashc = nthash::swapbits_18_31_42_51_58_63((hc ^ nthash::HASH_LOOKUP[thecbase as usize]
-                                               ^ (nthash::MS_TAB_5LL[( i as usize * 5)  + (k % 5)]
-                                                | nthash::MS_TAB_7L[(  i as usize * 7)  + (k % 7)]
-                                                | nthash::MS_TAB_9LC[( i as usize * 9)  + (k % 9)]
-                                                | nthash::MS_TAB_11CR[(i as usize * 11) + (k % 11)]
-                                                | nthash::MS_TAB_13R[( i as usize * 13) + (k % 13)]
-                                                | nthash::MS_TAB_19RR[(i as usize * 19) + (k % 19)])
-        ).rotate_right(1u32));
+        let tmphashc = nthash::swapbits_18_31_42_51_58_63(
+            (hc ^ nthash::HASH_LOOKUP[thecbase as usize]
+                ^ (nthash::MS_TAB_5LL[(i as usize * 5) + (k % 5)]
+                    | nthash::MS_TAB_7L[(i as usize * 7) + (k % 7)]
+                    | nthash::MS_TAB_9LC[(i as usize * 9) + (k % 9)]
+                    | nthash::MS_TAB_11CR[(i as usize * 11) + (k % 11)]
+                    | nthash::MS_TAB_13R[(i as usize * 13) + (k % 13)]
+                    | nthash::MS_TAB_19RR[(i as usize * 19) + (k % 19)]))
+                .rotate_right(1u32),
+        );
         // let tmphashc = (nthash::swapbits_0_19_32_43_52_59(hc ^ nthash::HASH_LOOKUP[thecbase as usize]
         //                                        ^ (nthash::MS_TAB_5LL[( i as usize * 5)  + (k % 5)]
         //                                         | nthash::MS_TAB_7L[(  i as usize * 7)  + (k % 7)]
@@ -86,16 +80,15 @@ pub fn check_bkg( // backwards here mean INCOMING edges, whether from the rev.-c
         // tmphashnc = tmphashnc.rotate_right(1_u32);
         // tmphashnc = nthash::swapbits3263(tmphashnc);
         let mut tmphashnc = hnc
-            ^ (  nthash::MS_TAB_5LL[( rc_base(i) as usize * 5)  + (k % 5)]
-               | nthash::MS_TAB_7L[(  rc_base(i) as usize * 7)  + (k % 7)]
-               | nthash::MS_TAB_9LC[( rc_base(i) as usize * 9)  + (k % 9)]
-               | nthash::MS_TAB_11CR[(rc_base(i) as usize * 11) + (k % 11)]
-               | nthash::MS_TAB_13R[( rc_base(i) as usize * 13) + (k % 13)]
-               | nthash::MS_TAB_19RR[(rc_base(i) as usize * 19) + (k % 19)]);
+            ^ (nthash::MS_TAB_5LL[(rc_base(i) as usize * 5) + (k % 5)]
+                | nthash::MS_TAB_7L[(rc_base(i) as usize * 7) + (k % 7)]
+                | nthash::MS_TAB_9LC[(rc_base(i) as usize * 9) + (k % 9)]
+                | nthash::MS_TAB_11CR[(rc_base(i) as usize * 11) + (k % 11)]
+                | nthash::MS_TAB_13R[(rc_base(i) as usize * 13) + (k % 13)]
+                | nthash::MS_TAB_19RR[(rc_base(i) as usize * 19) + (k % 19)]);
         tmphashnc ^= nthash::RC_HASH_LOOKUP[thencbase as usize];
         tmphashnc = tmphashnc.rotate_right(1_u32);
         tmphashnc = nthash::swapbits_18_31_42_51_58_63(tmphashnc);
-
 
         if thedict.contains_key(&tmphashnc) {
             outvec.push((tmphashnc, EdgeType::MinToMax));
@@ -110,37 +103,36 @@ pub fn check_bkg( // backwards here mean INCOMING edges, whether from the rev.-c
     outvec
 }
 
-
 /// Get forward neighbours, i.e. outgoing edges from either the canonical or non-canonical hashes
-pub fn check_fwd( // Here FORWARD means OUTGOING
-    hc:      u64,
-    hnc:     u64,
-    k:       usize,
-    bases:   u8,
-    thedict: &HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
-    maxmindict: &HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
-) -> Vec<(u64, EdgeType)>
-{
+pub fn check_fwd(
+    // Here FORWARD means OUTGOING
+    hc: u64,
+    hnc: u64,
+    k: usize,
+    bases: u8,
+    thedict: &HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
+    maxmindict: &HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
+) -> Vec<(u64, EdgeType)> {
     let mut outvec = Vec::new();
 
     // Let's start first with the canonical one
-    let thecbase  = (bases >> 2) & 3;
-    let thencbase  = bases & 3;
-    for i in 0..4 {             //ACTG, in that order
+    let thecbase = (bases >> 2) & 3;
+    let thencbase = bases & 3;
+    for i in 0..4 {
+        //ACTG, in that order
         let mut tmphashc = hc.rotate_left(1);
         // tmphashc =  nthash::swapbits033(tmphashc);
         // tmphashc ^= nthash::HASH_LOOKUP[i as usize];
         // tmphashc ^= nthash::MS_TAB_31L[(thecbase as usize * 31) + (k % 31)]
         //           | nthash::MS_TAB_33R[(thecbase as usize) * 33 + (k % 33)];
-        tmphashc =  nthash::swapbits_0_19_32_43_52_59(tmphashc);
+        tmphashc = nthash::swapbits_0_19_32_43_52_59(tmphashc);
         tmphashc ^= nthash::HASH_LOOKUP[i as usize];
-        tmphashc ^=  nthash::MS_TAB_5LL[( thecbase as usize * 5)  + (k % 5)]
-                   | nthash::MS_TAB_7L[(  thecbase as usize * 7)  + (k % 7)]
-                   | nthash::MS_TAB_9LC[( thecbase as usize * 9)  + (k % 9)]
-                   | nthash::MS_TAB_11CR[(thecbase as usize * 11) + (k % 11)]
-                   | nthash::MS_TAB_13R[( thecbase as usize * 13) + (k % 13)]
-                   | nthash::MS_TAB_19RR[(thecbase as usize * 19) + (k % 19)];
-
+        tmphashc ^= nthash::MS_TAB_5LL[(thecbase as usize * 5) + (k % 5)]
+            | nthash::MS_TAB_7L[(thecbase as usize * 7) + (k % 7)]
+            | nthash::MS_TAB_9LC[(thecbase as usize * 9) + (k % 9)]
+            | nthash::MS_TAB_11CR[(thecbase as usize * 11) + (k % 11)]
+            | nthash::MS_TAB_13R[(thecbase as usize * 13) + (k % 13)]
+            | nthash::MS_TAB_19RR[(thecbase as usize * 19) + (k % 19)];
 
         if thedict.contains_key(&tmphashc) {
             outvec.push((tmphashc, EdgeType::MinToMin));
@@ -157,12 +149,12 @@ pub fn check_fwd( // Here FORWARD means OUTGOING
         //      | nthash::MS_TAB_33R[(rc_base(thencbase) as usize) * 33 + (k % 33)]);
         let tmphashnc = nthash::swapbits_0_19_32_43_52_59(hnc.rotate_left(1u32))
             ^ nthash::RC_HASH_LOOKUP[i as usize]
-            ^ (  nthash::MS_TAB_5LL[( rc_base(thencbase) as usize * 5)  + (k % 5)]
-               | nthash::MS_TAB_7L[(  rc_base(thencbase) as usize * 7)  + (k % 7)]
-               | nthash::MS_TAB_9LC[( rc_base(thencbase) as usize * 9)  + (k % 9)]
-               | nthash::MS_TAB_11CR[(rc_base(thencbase) as usize * 11) + (k % 11)]
-               | nthash::MS_TAB_13R[( rc_base(thencbase) as usize * 13) + (k % 13)]
-               | nthash::MS_TAB_19RR[(rc_base(thencbase) as usize * 19) + (k % 19)]);
+            ^ (nthash::MS_TAB_5LL[(rc_base(thencbase) as usize * 5) + (k % 5)]
+                | nthash::MS_TAB_7L[(rc_base(thencbase) as usize * 7) + (k % 7)]
+                | nthash::MS_TAB_9LC[(rc_base(thencbase) as usize * 9) + (k % 9)]
+                | nthash::MS_TAB_11CR[(rc_base(thencbase) as usize * 11) + (k % 11)]
+                | nthash::MS_TAB_13R[(rc_base(thencbase) as usize * 13) + (k % 13)]
+                | nthash::MS_TAB_19RR[(rc_base(thencbase) as usize * 19) + (k % 19)]);
         // let tmphashnc = (nthash::swapbits_18_31_42_51_58_63(hnc)).rotate_left(1u32)
         //     ^ nthash::RC_HASH_LOOKUP[i as usize]
         //     ^ (  nthash::MS_TAB_5LL[( rc_base(thencbase) as usize * 5)  + (k % 5)]
@@ -171,7 +163,6 @@ pub fn check_fwd( // Here FORWARD means OUTGOING
         //        | nthash::MS_TAB_11CR[(rc_base(thencbase) as usize * 11) + (k % 11)]
         //        | nthash::MS_TAB_13R[( rc_base(thencbase) as usize * 13) + (k % 13)]
         //        | nthash::MS_TAB_19RR[(rc_base(thencbase) as usize * 19) + (k % 19)]);
-
 
         if thedict.contains_key(&tmphashnc) {
             outvec.push((tmphashnc, EdgeType::MaxToMin));
@@ -186,7 +177,6 @@ pub fn check_fwd( // Here FORWARD means OUTGOING
     outvec
 }
 
-
 ////////////////////////////////////////////////////////////////////////
 /// Output from the assembler.
 #[derive(Default)]
@@ -198,7 +188,6 @@ pub struct Contigs {
     pub contig_sequences: Option<Vec<Vec<u8>>>,
 }
 
-
 impl Contigs {
     /// Create new `Contigs`.
     pub fn new(serialized: SerializedContigs) -> Contigs {
@@ -207,7 +196,6 @@ impl Contigs {
             contig_sequences: None,
         }
     }
-
 
     /// Temporal and historical function to simplify contigs. To be removed in the future
     pub fn shrink(&mut self) {
@@ -224,11 +212,10 @@ impl Contigs {
         }
     }
 
-
     /// Save contigs in a file
     #[cfg(not(feature = "wasm"))]
     pub fn write_fasta<W: Write>(&self, f: &mut W) {
-//         self.print_coverage_stats();
+        //         self.print_coverage_stats();
         for i in 0..self.contig_sequences.as_ref().unwrap().len() {
             let _ = write_fasta(
                 i.to_string().as_bytes(),
@@ -240,41 +227,53 @@ impl Contigs {
     }
 }
 
-
 /// Public API for assemblers.
 pub trait Assemble {
     #[cfg(not(feature = "wasm"))]
     /// Assembles given data using specified `Graph` and writes results into the output file.
-    fn assemble<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
-                          maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, timevec : &mut Vec<Instant>,
-                          path : &mut Option<PathBuf>, do_bubble_collapse : bool, do_dead_end_removal : bool,
-                          do_conflictive_links_removal : bool) -> Contigs;
+    fn assemble<G: Graph>(
+        k: usize,
+        indict: &mut HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
+        maxminsize: &mut HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
+        timevec: &mut Vec<Instant>,
+        path: &mut Option<PathBuf>,
+        do_bubble_collapse: bool,
+        do_dead_end_removal: bool,
+        do_conflictive_links_removal: bool,
+    ) -> Contigs;
 
     #[cfg(feature = "wasm")]
     /// Assembles given data using specified `Graph` and prepares all info for being later transferred to Javascript.
-    fn assemble_wasm<G: Graph>(k : usize, indict : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
-                               maxminsize : &mut HashMap::<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>, do_bubble_collapse : bool,
-                               do_dead_end_removal : bool, do_conflictive_links_removal : bool) -> (Contigs, String, String, String);
+    fn assemble_wasm<G: Graph>(
+        k: usize,
+        indict: &mut HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
+        maxminsize: &mut HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
+        do_bubble_collapse: bool,
+        do_dead_end_removal: bool,
+        do_conflictive_links_removal: bool,
+    ) -> (Contigs, String, String, String);
 }
-
 
 ///////////////////////////////////////////////////////////
 /// Basic standalone assembler.
 pub struct BasicAsm {}
 
-
 impl Assemble for BasicAsm {
     #[cfg(not(feature = "wasm"))]
-    fn assemble<G: Graph>(k        : usize,
-                        indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
-                        maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
-                        timevec    : &mut Vec<Instant>,
-                        path       : &mut Option<PathBuf>,
-                        do_bubble_collapse           : bool,
-                        do_dead_end_removal          : bool,
-                        do_conflictive_links_removal : bool,
+    fn assemble<G: Graph>(
+        k: usize,
+        indict: &mut HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
+        maxmindict: &mut HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
+        timevec: &mut Vec<Instant>,
+        path: &mut Option<PathBuf>,
+        do_bubble_collapse: bool,
+        do_dead_end_removal: bool,
+        do_conflictive_links_removal: bool,
     ) -> Contigs {
-        logw("Constructing graph. Searching for neighbours...", Some("info"));
+        logw(
+            "Constructing graph. Searching for neighbours...",
+            Some("info"),
+        );
         timevec.push(Instant::now());
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
@@ -284,7 +283,7 @@ impl Assemble for BasicAsm {
         indict.iter().for_each(|(h, hi)| {
             let mut himutref = hi.borrow_mut();
 
-            himutref.pre  = check_bkg(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
+            himutref.pre = check_bkg(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
             himutref.post = check_fwd(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
             // let tmpnedges = himutref.pre.len() + himutref.post.len();
             // nedges += tmpnedges;
@@ -292,12 +291,23 @@ impl Assemble for BasicAsm {
             // if tmpnedges == 0 { ialone += 1};
         });
 
-//         drop(maxmindict);
+        //         drop(maxmindict);
         // logw(format!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0).as_str(), Some("info"));
         // logw(format!("Number of edges {}", (nedges as f64) / (2 as f64)).as_str(), Some("info"));
 
         timevec.push(Instant::now());
-        logw(format!("Neighbours searched for in {} s. Creating graph...", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
+        logw(
+            format!(
+                "Neighbours searched for in {} s. Creating graph...",
+                timevec
+                    .last()
+                    .unwrap()
+                    .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
+                    .as_secs()
+            )
+            .as_str(),
+            Some("info"),
+        );
 
         // indict.iter().for_each(|(h, hi)| {
         //     let himutref = hi.borrow();
@@ -318,7 +328,18 @@ impl Assemble for BasicAsm {
         let mut ptgraph = G::create_from_map::<G>(k, indict);
 
         timevec.push(Instant::now());
-        logw(format!("Graph created in {} s.", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
+        logw(
+            format!(
+                "Graph created in {} s.",
+                timevec
+                    .last()
+                    .unwrap()
+                    .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
+                    .as_secs()
+            )
+            .as_str(),
+            Some("info"),
+        );
 
         // log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
         // if path_.is_some() {
@@ -338,10 +359,10 @@ impl Assemble for BasicAsm {
         }
 
         let mut didanyofusdoanything = true;
-        let mut bool1 : bool;
-        let mut bool2 : bool = false;
-        let mut bool3 : bool = false;
-        let mut bool4 : bool = false;
+        let mut bool1: bool;
+        let mut bool2: bool = false;
+        let mut bool3: bool = false;
+        let mut bool4: bool = false;
         while didanyofusdoanything {
             bool1 = ptgraph.shrink();
             // let bool1 = false;
@@ -359,37 +380,67 @@ impl Assemble for BasicAsm {
                 // let bool4 = false;
             }
 
-    //             println!("{} {}", bools, boolr);
+            //             println!("{} {}", bools, boolr);
             didanyofusdoanything = bool1 || bool2 || bool3 || bool4;
             // break;
         }
 
         timevec.push(Instant::now());
-        logw(format!("Graph correction finished in {} s.", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
+        logw(
+            format!(
+                "Graph correction finished in {} s.",
+                timevec
+                    .last()
+                    .unwrap()
+                    .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
+                    .as_secs()
+            )
+            .as_str(),
+            Some("info"),
+        );
 
         if path.is_some() {
             logw("Saving graph (post-shrink, pre-collapse, w/o one-node contigs) as DOT, GFAv1.1, and GFAv2 files...", Some("info"));
             let pathmutref = path.as_mut().unwrap();
             pathmutref.set_extension("dot");
-            let mut wbufdot = set_ostream(&Some(pathmutref.clone().into_os_string().into_string().unwrap()));
+            let mut wbufdot = set_ostream(&Some(
+                pathmutref.clone().into_os_string().into_string().unwrap(),
+            ));
             ptgraph.write_to_dot(&mut wbufdot);
 
             pathmutref.set_extension("gfa");
-            let mut wbufgfa = set_ostream(&Some(pathmutref.clone().into_os_string().into_string().unwrap()));
+            let mut wbufgfa = set_ostream(&Some(
+                pathmutref.clone().into_os_string().into_string().unwrap(),
+            ));
             ptgraph.write_to_gfa(&mut wbufgfa);
 
             pathmutref.set_extension("gfa2");
-            let mut wbufgfa2 = set_ostream(&Some(pathmutref.clone().into_os_string().into_string().unwrap()));
+            let mut wbufgfa2 = set_ostream(&Some(
+                pathmutref.clone().into_os_string().into_string().unwrap(),
+            ));
             ptgraph.write_to_gfa2(&mut wbufgfa2);
             logw("Done.", Some("info"));
         }
 
-
         timevec.push(Instant::now());
         let serialized_contigs = ptgraph.collapse();
         timevec.push(Instant::now());
-        logw(format!("Graph collapse finished in {} s.", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs()).as_str(), Some("info"));
-        logw(format!("I created {} contigs", serialized_contigs.len()).as_str(), Some("info"));
+        logw(
+            format!(
+                "Graph collapse finished in {} s.",
+                timevec
+                    .last()
+                    .unwrap()
+                    .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
+                    .as_secs()
+            )
+            .as_str(),
+            Some("info"),
+        );
+        logw(
+            format!("I created {} contigs", serialized_contigs.len()).as_str(),
+            Some("info"),
+        );
 
         let mut contigs = Contigs::new(serialized_contigs);
 
@@ -399,15 +450,15 @@ impl Assemble for BasicAsm {
         contigs
     }
 
-
     #[cfg(feature = "wasm")]
-    fn assemble_wasm<G: Graph>(k        : usize,
-                        indict     : &mut HashMap::<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
-                        maxmindict : &mut HashMap::<u64, u64,                     BuildHasherDefault<NoHashHasher<u64>>>,
-                        do_bubble_collapse           : bool,
-                        do_dead_end_removal          : bool,
-                        do_conflictive_links_removal : bool,
-        ) -> (Contigs, String, String, String) {
+    fn assemble_wasm<G: Graph>(
+        k: usize,
+        indict: &mut HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
+        maxmindict: &mut HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
+        do_bubble_collapse: bool,
+        do_dead_end_removal: bool,
+        do_conflictive_links_removal: bool,
+    ) -> (Contigs, String, String, String) {
         log::info!("Starting assembler!");
 
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
@@ -420,17 +471,29 @@ impl Assemble for BasicAsm {
         indict.iter().for_each(|(h, hi)| {
             let mut himutref = hi.borrow_mut();
 
-            himutref.pre  = check_bkg(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
+            himutref.pre = check_bkg(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
             himutref.post = check_fwd(*h, himutref.hnc, k, himutref.b, indict, maxmindict);
             let tmpnedges = himutref.pre.len() + himutref.post.len();
             nedges += tmpnedges;
             i += 1;
-            if tmpnedges == 0 { ialone += 1};
+            if tmpnedges == 0 {
+                ialone += 1
+            };
         });
 
-//         drop(maxmindict);
-        logw(format!("Prop. of alone kmers: {:.1} %", (ialone as f64) / (i as f64) * 100.0).as_str(), Some("trace"));
-        logw(format!("Number of edges {}", (nedges as f64) / (2_f64)).as_str(), Some("trace"));
+        //         drop(maxmindict);
+        logw(
+            format!(
+                "Prop. of alone kmers: {:.1} %",
+                (ialone as f64) / (i as f64) * 100.0
+            )
+            .as_str(),
+            Some("trace"),
+        );
+        logw(
+            format!("Number of edges {}", (nedges as f64) / (2_f64)).as_str(),
+            Some("trace"),
+        );
 
         // log::info!("Neighbours searched for in {} s", timevec.last().unwrap().duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap()).as_secs());
 
@@ -452,7 +515,6 @@ impl Assemble for BasicAsm {
 
         let mut ptgraph = G::create_from_map::<G>(k, indict);
 
-
         // log::info!("Saving graph (pre-shrink w/o one-node contigs) as DOT file...");
         // if path_.is_some() {
         //     let mut wbuf = set_ostream(&Some(path_.unwrap().clone().replace(".dot", "_preshrink.dot")));
@@ -471,10 +533,10 @@ impl Assemble for BasicAsm {
         }
 
         let mut didanyofusdoanything = true;
-        let mut bool1 : bool;
-        let mut bool2 : bool = false;
-        let mut bool3 : bool = false;
-        let mut bool4 : bool = false;
+        let mut bool1: bool;
+        let mut bool2: bool = false;
+        let mut bool3: bool = false;
+        let mut bool4: bool = false;
         while didanyofusdoanything {
             bool1 = ptgraph.shrink();
             // let bool1 = false;
@@ -492,15 +554,15 @@ impl Assemble for BasicAsm {
                 // let bool4 = false;
             }
 
-    //             println!("{} {}", bools, boolr);
+            //             println!("{} {}", bools, boolr);
             didanyofusdoanything = bool1 || bool2 || bool3 || bool4;
             // break;
         }
 
         logw("Shrinkage and pruning finished", Some("info"));
 
-        let outdot  = ptgraph.get_dot_string();
-        let outgfa  = ptgraph.get_gfa_string();
+        let outdot = ptgraph.get_dot_string();
+        let outgfa = ptgraph.get_gfa_string();
         let outgfa2 = ptgraph.get_gfa2_string();
 
         let serialized_contigs = ptgraph.collapse();
@@ -513,4 +575,3 @@ impl Assemble for BasicAsm {
         (contigs, outdot, outgfa, outgfa2)
     }
 }
-

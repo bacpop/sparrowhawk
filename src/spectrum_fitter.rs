@@ -23,25 +23,20 @@ use argmin::{
         TerminationReason::SolverConverged,
     },
     solver::{
-        linesearch::{
-            condition::ArmijoCondition,
-            BacktrackingLineSearch,
-        },
+        linesearch::{condition::ArmijoCondition, BacktrackingLineSearch},
         quasinewton::BFGS,
     },
 };
 use argmin_observer_slog::SlogLogger;
 use libm::lgamma;
 
-use log;
 use crate::logw;
-
+use log;
 
 // const MAX_COUNT : usize = 500;
-const MIN_FREQ  : u32   = 50;
-const INIT_W0   : f64   = 0.8f64;
-const INIT_C    : f64   = 20.0f64;
-
+const MIN_FREQ: u32 = 50;
+const INIT_W0: f64 = 0.8f64;
+const INIT_C: f64 = 20.0f64;
 
 /// K-mer counts and a coverage model for a single sample, using a pair of FASTQ files as input
 ///
@@ -60,15 +55,14 @@ pub struct SpectrumFitter {
     fitted: bool,
 }
 
-
 impl SpectrumFitter {
     /// Count split k-mers from a pair of input FASTQ files.
     pub fn new() -> Self {
         Self {
-            w0     : INIT_W0,
-            c      : INIT_C,
-            cutoff : 0,
-            fitted : false,
+            w0: INIT_W0,
+            c: INIT_C,
+            cutoff: 0,
+            fitted: false,
         }
     }
 
@@ -83,7 +77,7 @@ impl SpectrumFitter {
     ///
     /// # Panics
     /// - If the fit has already been run
-    pub fn fit_histogram(&mut self, mut counts : Vec<u32>) -> Result<usize, Error> {
+    pub fn fit_histogram(&mut self, mut counts: Vec<u32>) -> Result<usize, Error> {
         if self.fitted {
             panic!("Model already fitted");
         }
@@ -100,7 +94,10 @@ impl SpectrumFitter {
 
         // Fit with maximum likelihood. Using BFGS optimiser and simple line search
         // seems to work fine
-        logw("Fitting Poisson mixture model using maximum likelihood", Some("info"));
+        logw(
+            "Fitting Poisson mixture model using maximum likelihood",
+            Some("info"),
+        );
         let mixture_fit = MixPoisson { counts: counts_f64 };
         let init_param: Vec<f64> = vec![self.w0, self.c];
 
@@ -146,16 +143,13 @@ impl SpectrumFitter {
         } else {
             Err(Error::msg("Optimiser did not finish running"))
         }
-
     }
 }
-
 
 // Helper struct for optimisation which keep counts as state
 struct MixPoisson {
     counts: Vec<f64>,
 }
-
 
 // These just use Vec rather than ndarray, simpler packaging and doubt
 // there's any performance difference with two params
@@ -172,7 +166,6 @@ impl CostFunction for MixPoisson {
     }
 }
 
-
 // negative grad(ll)
 impl Gradient for MixPoisson {
     /// Type of the parameter vector
@@ -187,7 +180,6 @@ impl Gradient for MixPoisson {
     }
 }
 
-
 // log-sum-exp needed to combine components likelihoods
 // (hard coded as two here, of course could be generalised to N)
 fn lse(a: f64, b: f64) -> f64 {
@@ -195,24 +187,20 @@ fn lse(a: f64, b: f64) -> f64 {
     xstar + f64::ln(f64::exp(a - xstar) + f64::exp(b - xstar))
 }
 
-
 // Natural log of Poisson density
 fn ln_dpois(x: f64, lambda: f64) -> f64 {
     x * f64::ln(lambda) - lgamma(x + 1.0) - lambda
 }
-
 
 // error component (mean of 1)
 fn a(w0: f64, i: f64) -> f64 {
     f64::ln(w0) + ln_dpois(i, 1.0)
 }
 
-
 // coverage component (mean of coverage)
 fn b(w0: f64, c: f64, i: f64) -> f64 {
     f64::ln(1.0 - w0) + ln_dpois(i, c)
 }
-
 
 // Mixture model likelihood
 fn log_likelihood(pars: &[f64], counts: &[f64]) -> f64 {
@@ -231,7 +219,6 @@ fn log_likelihood(pars: &[f64], counts: &[f64]) -> f64 {
     }
     ll
 }
-
 
 // Analytic gradient. Bounds not needed as this is only evaluated
 // when the ll is valid
@@ -252,7 +239,6 @@ fn grad_ll(pars: &[f64], counts: &[f64]) -> Vec<f64> {
     }
     vec![grad_w0, grad_c]
 }
-
 
 // Root finder at integer steps -- when is the responsibility of
 // the b component higher than the a component
