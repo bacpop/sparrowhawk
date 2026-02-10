@@ -65,8 +65,6 @@ use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use wasm_bindgen_file_reader::WebSysFile;
 #[cfg(feature = "wasm")]
-use js_sys;
-#[cfg(feature = "wasm")]
 extern crate console_error_panic_hook;
 #[cfg(feature = "wasm")]
 pub mod fastx_wasm;
@@ -622,7 +620,6 @@ impl AssemblyHelper {
                 !no_dead_end_removal,
                 false,
             );
-
 
         post_state("assembly:saving");
         logw("Assembly done!", Some("info"));

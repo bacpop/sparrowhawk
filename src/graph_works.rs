@@ -573,7 +573,10 @@ impl Assemble for BasicAsm {
         post_state("assembly:collapse_graph");
 
         let serialized_contigs = ptgraph.collapse();
-        logw(format!("I created {} contigs", serialized_contigs.len()).as_str(), Some("info"));
+        logw(
+            format!("I created {} contigs", serialized_contigs.len()).as_str(),
+            Some("info"),
+        );
         let mut contigs = Contigs::new(serialized_contigs);
 
         // TEMPORAL RESTRICTION, WIP
