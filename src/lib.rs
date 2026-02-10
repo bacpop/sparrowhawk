@@ -65,6 +65,8 @@ use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use wasm_bindgen_file_reader::WebSysFile;
 #[cfg(feature = "wasm")]
+use js_sys;
+#[cfg(feature = "wasm")]
 extern crate console_error_panic_hook;
 #[cfg(feature = "wasm")]
 pub mod fastx_wasm;
@@ -418,6 +420,21 @@ pub fn main() {
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
+
+    #[wasm_bindgen(js_name = postMessage)]
+    fn post_message(data: &JsValue);
+}
+
+#[cfg(feature = "wasm")]
+/// Posts a state update message to the main thread via postMessage
+pub fn post_state(state: &str) {
+    let obj = js_sys::Object::new();
+    let _ = js_sys::Reflect::set(
+        &obj,
+        &JsValue::from_str("assemblyState"),
+        &JsValue::from_str(state),
+    );
+    post_message(&obj.into());
 }
 
 #[cfg(feature = "wasm")]
@@ -445,7 +462,6 @@ pub struct AssemblyHelper {
     outdot: String,
     outgfa: String,
     outgfav2: String,
-    state: String,
 }
 
 #[cfg(feature = "wasm")]
@@ -591,7 +607,6 @@ impl AssemblyHelper {
             outdot: "".to_owned(),
             outgfa: "".to_owned(),
             outgfav2: "".to_owned(),
-            state: "initialised".to_string(),
         }
     }
 
@@ -606,11 +621,10 @@ impl AssemblyHelper {
                 !no_bubble_collapse,
                 !no_dead_end_removal,
                 false,
-                &mut self.state,
             );
 
-        self.state = "saving".to_string();
 
+        post_state("assembly:saving");
         logw("Assembly done!", Some("info"));
 
         let outfasta: String;
@@ -654,7 +668,6 @@ impl AssemblyHelper {
         self.outdot = outdot;
         self.outgfa = outgfa;
         self.outgfav2 = outgfav2;
-        self.state = "finished".to_string();
     }
 
     /// Getter to obtain the results as JSON of the assembly

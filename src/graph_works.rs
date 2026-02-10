@@ -23,6 +23,8 @@ use crate::nthash;
 
 use crate::bit_encoding::rc_base;
 use crate::logw;
+#[cfg(feature = "wasm")]
+use crate::post_state;
 
 /// Get backwards neighbours, i.e. incoming edges to either the canonical or non-canonical hashes
 pub fn check_bkg(
@@ -251,7 +253,6 @@ pub trait Assemble {
         do_bubble_collapse: bool,
         do_dead_end_removal: bool,
         do_conflictive_links_removal: bool,
-        state: &mut String,
     ) -> (Contigs, String, String, String);
 }
 
@@ -459,12 +460,10 @@ impl Assemble for BasicAsm {
         do_bubble_collapse: bool,
         do_dead_end_removal: bool,
         do_conflictive_links_removal: bool,
-        state: &mut String,
     ) -> (Contigs, String, String, String) {
-        log::info!("Starting assembler!");
+        logw("Starting assembler!", Some("info"));
 
-        *state = "assembly:starting".to_string();
-
+        post_state("assembly:starting");
         // FIRST: iterate over all k-mers, check the existance of forwards/backwards neighbours in the dictionary.
         let mut i = 0;
         let mut ialone = 0;
@@ -472,7 +471,7 @@ impl Assemble for BasicAsm {
 
         // TODO: explore parallelisation?
 
-        *state = "assembly:create_graph".to_string();
+        post_state("assembly:create_graph");
         indict.iter().for_each(|(h, hi)| {
             let mut himutref = hi.borrow_mut();
 
@@ -527,7 +526,7 @@ impl Assemble for BasicAsm {
         // }
         // log::info!("Done.");
 
-        *state = "assembly:correct_graph".to_string();
+        post_state("assembly:correct_graph");
         logw("Starting graph correction", Some("info"));
 
         logw("Removing self-loops", Some("info"));
@@ -571,9 +570,10 @@ impl Assemble for BasicAsm {
         let outgfa = ptgraph.get_gfa_string();
         let outgfa2 = ptgraph.get_gfa2_string();
 
-        *state = "assembly:collapse_graph".to_string();
+        post_state("assembly:collapse_graph");
+
         let serialized_contigs = ptgraph.collapse();
-        log::info!("I created {} contigs", serialized_contigs.len());
+        logw(format!("I created {} contigs", serialized_contigs.len()).as_str(), Some("info"));
         let mut contigs = Contigs::new(serialized_contigs);
 
         // TEMPORAL RESTRICTION, WIP
