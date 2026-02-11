@@ -38,6 +38,8 @@ pub type InputFastx = (String, Vec<String>);
 #[cfg(feature = "wasm")]
 use crate::fastx_wasm::open_fastq;
 #[cfg(feature = "wasm")]
+use crate::post_state;
+#[cfg(feature = "wasm")]
 use seq_io::fastq::Record;
 #[cfg(feature = "wasm")]
 use wasm_bindgen_file_reader::WebSysFile;
@@ -606,6 +608,7 @@ fn bloom_filter_preprocessing_wasm<IntT>(
 where
     IntT: for<'a> UInt<'a>,
 {
+    post_state("preprocess:bloom:starting");
     logw("Getting kmers from first file with Bloom filter. Creating reader and initialising filter...", Some("info"));
 
     let mut outdict = HashMap::with_hasher(BuildHasherDefault::default());
@@ -619,6 +622,9 @@ where
     kmer_filter.init();
 
     logw("Entering while loop for the first file...", Some("info"));
+    post_state("preprocess:bloom:loop:start");
+
+    let mut count: usize = 0;
 
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
@@ -645,11 +651,17 @@ where
                 }
             }
         }
+        count += 1;
+        if count.is_multiple_of(150000) {
+            post_state(&format!("preprocess:bloom:loop:{:?}", count));
+        }
     }
     logw(
         "Finished getting kmers from first file. Starting with the second...",
         Some("info"),
     );
+    post_state(&format!("preprocess:bloom:loop:{:?}:50", count));
+    let percentageblock = (count as f64 / 10_f64) as usize;
 
     let mut reader = open_fastq(file2);
 
@@ -680,8 +692,19 @@ where
                 }
             }
         }
+        count += 1;
+
+        // This might be done slightly more efficiently??
+        if count.is_multiple_of(percentageblock) {
+            post_state(&format!(
+                "preprocess:bloom:loop:{:?}:{:?}",
+                count,
+                count / percentageblock
+            ));
+        }
     }
 
+    post_state("preprocess:bloom:loop:end");
     logw("Finished getting kmers from the second file", Some("info"));
     logw("Second part of filtering...", Some("info"));
 
@@ -689,40 +712,11 @@ where
     let countmap = kmer_filter.get_counts_map();
     countmap.shrink_to_fit();
 
-    // countmap.retain(|h, tup| {
-    //     if tup.0 >= qual.min_count {
-    //         themap
-    //             .entry(*h)
-    //             .or_insert( RefCell::new(HashInfoSimple {
-    //                         hnc:    tup.1,
-    //                         b:      tup.2,
-    //                         pre:    Vec::new(),
-    //                         post:   Vec::new(),
-    //                         counts: tup.0,
-    //                 }) );
-    //     } else {
-    //         outdict.remove(h);
-    //         minmaxdict.remove(&tup.1);
-    //     }
-    //
-    //     if tup.0 as usize > MAXSIZEHISTO {
-    //         histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-    //     } else {
-    //         histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
-    //     }
-    //
-    //     false
-    // });
-    //
-    // outdict.shrink_to_fit();
-    // minmaxdict.shrink_to_fit();
-
-    // coses
-
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
     let mut minc = qual.min_count;
     if do_fit {
+        post_state("preprocess:bloom:fitting");
         for (_, tup) in countmap.iter() {
             if tup.0 as usize > MAXSIZEHISTO {
                 histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
@@ -759,6 +753,7 @@ where
             Some("info"),
         );
 
+        post_state("preprocess:bloom:filtering");
         countmap.retain(|h, tup| {
             if tup.0 >= minc {
                 themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
@@ -776,6 +771,7 @@ where
             false
         });
     } else {
+        post_state("preprocess:bloom:filtering");
         countmap.retain(|h, tup| {
             if tup.0 >= minc {
                 themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {

@@ -446,14 +446,23 @@ pub fn init_panic_hook() {
 #[wasm_bindgen]
 /// Main struct that acts as wrapper of the assembler when compiling to wasm
 pub struct AssemblyHelper {
+    verbose: bool,
     k: usize,
-    preprocessed_data: HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
-    maxmindict: HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
+    min_count: u16,
+    min_qual: u8,
+    chunk_size: usize,
+    do_bloom: bool,
+    do_fit: bool,
+    no_bubble_collapse: bool,
+    no_dead_end_removal: bool,
+    preprocessed_data:
+        Option<HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>>,
+    maxmindict: Option<HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>>,
     seqdict64: Option<HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>>,
     seqdict128: Option<HashMap<u64, u128, BuildHasherDefault<NoHashHasher<u64>>>>,
     seqdict256: Option<HashMap<u64, U256, BuildHasherDefault<NoHashHasher<u64>>>>,
     seqdict512: Option<HashMap<u64, U512, BuildHasherDefault<NoHashHasher<u64>>>>,
-    histovec: Vec<u32>,
+    histovec: Option<Vec<u32>>,
     used_min_count: u16,
     contigs: Contigs,
     outfasta: String,
@@ -467,8 +476,6 @@ pub struct AssemblyHelper {
 impl AssemblyHelper {
     /// Constructor/initialiser of the wasm assembler. It also performs the preprocessing.
     pub fn new(
-        file1: web_sys::File,
-        file2: web_sys::File,
         k: usize,
         verbose: bool,
         min_count: u16,
@@ -476,6 +483,8 @@ impl AssemblyHelper {
         chunk_size: usize,
         do_bloom: bool,
         do_fit: bool,
+        no_bubble_collapse: bool,
+        no_dead_end_removal: bool,
     ) -> Self {
         if cfg!(debug_assertions) {
             init_panic_hook();
@@ -483,20 +492,48 @@ impl AssemblyHelper {
 
         // TODO: improve verbose with the creation of a logging class and object that carries the verbose level and affects the logw functions, or something similar.
 
+        logw("Beginning processing", Some("info"));
+        post_state("initialised");
+
+        Self {
+            verbose,
+            k,
+            min_count,
+            min_qual,
+            chunk_size,
+            do_bloom,
+            do_fit,
+            no_bubble_collapse,
+            no_dead_end_removal,
+            preprocessed_data: None,
+            maxmindict: None,
+            seqdict64: None,
+            seqdict128: None,
+            seqdict256: None,
+            seqdict512: None,
+            histovec: None,
+            used_min_count: 0,
+            contigs: Contigs::default(),
+            outfasta: "".to_owned(),
+            outdot: "".to_owned(),
+            outgfa: "".to_owned(),
+            outgfav2: "".to_owned(),
+        }
+    }
+
+    /// Preprocess read files
+    pub fn preprocess(&mut self, file1: web_sys::File, file2: web_sys::File) {
+        post_state("preprocess:starting");
+
         let mut wf1 = WebSysFile::new(file1);
         let mut wf2 = WebSysFile::new(file2);
 
         // Read input
         let quality = QualOpts {
-            min_count,
-            min_qual,
+            min_count: self.min_count,
+            min_qual: self.min_qual,
         };
 
-        // logw("Checking requested threads and creating pool if needed", Some("info"));
-        // rayon::ThreadPoolBuilder::new()
-        //     .num_threads(8)
-        //     .build_global()
-        //     .unwrap();
         logw("Beginning processing", Some("info"));
 
         let preprocessed_data: HashMap<
@@ -512,13 +549,13 @@ impl AssemblyHelper {
         let mut thedict256 = None;
         let mut thedict512 = None;
 
-        if k.is_multiple_of(2) {
+        if self.k.is_multiple_of(2) {
             panic!("Support for even k-mer lengths not implemented");
-        } else if k < 3 {
+        } else if self.k < 3 {
             panic!("kmer length too small (min. 3)");
-        } else if k <= 32 {
+        } else if self.k <= 32 {
             logw(
-                format!("k={}: using 64-bit representation", k).as_str(),
+                format!("k={}: using 64-bit representation", self.k).as_str(),
                 Some("info"),
             );
 
@@ -529,13 +566,19 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<u64>(
-                &mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit,
+                &mut wf1,
+                &mut wf2,
+                self.k,
+                &quality,
+                self.chunk_size,
+                self.do_bloom,
+                self.do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
-        } else if k <= 64 {
+        } else if self.k <= 64 {
             logw(
-                format!("k={}: using 128-bit representation", k).as_str(),
+                format!("k={}: using 128-bit representation", self.k).as_str(),
                 Some("info"),
             );
 
@@ -546,13 +589,19 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<u128>(
-                &mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit,
+                &mut wf1,
+                &mut wf2,
+                self.k,
+                &quality,
+                self.chunk_size,
+                self.do_bloom,
+                self.do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
-        } else if k <= 128 {
+        } else if self.k <= 128 {
             logw(
-                format!("k={}: using 256-bit representation", k).as_str(),
+                format!("k={}: using 256-bit representation", self.k).as_str(),
                 Some("info"),
             );
 
@@ -563,13 +612,19 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<U256>(
-                &mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit,
+                &mut wf1,
+                &mut wf2,
+                self.k,
+                &quality,
+                self.chunk_size,
+                self.do_bloom,
+                self.do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
-        } else if k <= 256 {
+        } else if self.k <= 256 {
             logw(
-                format!("k={}: using 512-bit representation", k).as_str(),
+                format!("k={}: using 512-bit representation", self.k).as_str(),
                 Some("info"),
             );
 
@@ -580,7 +635,13 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<U512>(
-                &mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit,
+                &mut wf1,
+                &mut wf2,
+                self.k,
+                &quality,
+                self.chunk_size,
+                self.do_bloom,
+                self.do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
@@ -588,36 +649,30 @@ impl AssemblyHelper {
             panic!("kmer length larger than 256 currently not supported.");
         }
 
-        // logw("Sparrowhawk done!", Some("info"));
+        post_state("preprocess:saving");
 
-        Self {
-            k,
-            preprocessed_data,
-            maxmindict,
-            seqdict64: thedict64,
-            seqdict128: thedict128,
-            seqdict256: thedict256,
-            seqdict512: thedict512,
-            histovec: histovalues,
-            used_min_count,
-            contigs: Contigs::default(),
-            outfasta: "".to_owned(),
-            outdot: "".to_owned(),
-            outgfa: "".to_owned(),
-            outgfav2: "".to_owned(),
-        }
+        self.preprocessed_data = Some(preprocessed_data);
+        self.maxmindict = Some(maxmindict);
+        self.seqdict64 = thedict64;
+        self.seqdict128 = thedict128;
+        self.seqdict256 = thedict256;
+        self.seqdict512 = thedict512;
+        self.histovec = Some(histovalues);
+        self.used_min_count = used_min_count;
+
+        post_state("preprocess:done");
     }
 
     /// Assemble method of the wasm version
-    pub fn assemble(&mut self, no_bubble_collapse: bool, no_dead_end_removal: bool) {
+    pub fn assemble(&mut self) {
         logw("Starting assembly...", Some("info"));
         let (mut outcontigs, outdot, outgfa, outgfav2) =
             graph_works::BasicAsm::assemble_wasm::<PtGraph>(
                 self.k,
-                &mut self.preprocessed_data,
-                &mut self.maxmindict,
-                !no_bubble_collapse,
-                !no_dead_end_removal,
+                self.preprocessed_data.as_mut().unwrap(),
+                self.maxmindict.as_mut().unwrap(),
+                !self.no_bubble_collapse,
+                !self.no_dead_end_removal,
                 false,
             );
 
@@ -686,13 +741,21 @@ impl AssemblyHelper {
         let mut results = json::JsonValue::new_array();
 
         logw(
-            format!("{} {}", self.preprocessed_data.len(), self.histovec.len()).as_str(),
+            format!(
+                "{} {}",
+                self.preprocessed_data.as_ref().unwrap().len(),
+                self.histovec.as_ref().unwrap().len()
+            )
+            .as_str(),
             Some("info"),
         );
 
-        results["nkmers"] = json::JsonValue::Number(self.preprocessed_data.len().into());
+        results["nkmers"] =
+            json::JsonValue::Number(self.preprocessed_data.as_ref().unwrap().len().into());
         results["histo"] = json::JsonValue::Array(
             self.histovec
+                .as_ref()
+                .unwrap()
                 .iter()
                 .map(|x| json::JsonValue::Number((*x).into()))
                 .collect(),
