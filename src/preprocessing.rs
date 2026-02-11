@@ -366,7 +366,7 @@ where
 
     // todo: use the same counter and is_multiple_of
     let mut i_record = 0;
-    let mut count = 0;
+    let mut count: usize = 0;
     post_state("preprocess:chunked:loop:start");
 
     while let Some(record) = reader.next() {
