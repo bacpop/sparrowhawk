@@ -617,7 +617,7 @@ where
 
     let mut histovec: Vec<u32> = vec![0; MAXSIZEHISTO];
 
-    let mut kmer_filter = KmerFilter::new(if (do_fit) {2} else {qual.min_count});
+    let mut kmer_filter = KmerFilter::new(if do_fit {3} else {qual.min_count});
     kmer_filter.init();
 
     logw("Entering while loop for the first file...", Some("info"));
