@@ -523,7 +523,7 @@ impl AssemblyHelper {
 
     /// Preprocess read files
     pub fn preprocess(&mut self, file1: web_sys::File, file2: web_sys::File) {
-        post_state("preprocess:starting");
+        post_state("preprocess:start");
 
         let mut wf1 = WebSysFile::new(file1);
         let mut wf2 = WebSysFile::new(file2);
@@ -660,7 +660,7 @@ impl AssemblyHelper {
         self.histovec = Some(histovalues);
         self.used_min_count = used_min_count;
 
-        post_state("preprocess:done");
+        post_state("preprocess:end");
     }
 
     /// Assemble method of the wasm version
@@ -720,6 +720,7 @@ impl AssemblyHelper {
         self.outdot = outdot;
         self.outgfa = outgfa;
         self.outgfav2 = outgfav2;
+        post_state("assembly:end");
     }
 
     /// Getter to obtain the results as JSON of the assembly
