@@ -339,7 +339,7 @@ where
     }
 
     logw("Finished getting kmers from the second file", Some("info"));
-    post_state("preprocess:bloom:loop:end");
+    post_state("preprocess:bulk:loop:end");
 
     (outdict, minmaxdict)
 }
@@ -380,6 +380,7 @@ where
 
     logw("Entering while loop...", Some("info"));
 
+    // todo: use the same counter and is_multiple_of
     let mut i_record = 0;
     let mut count = 0;
     post_state("preprocess:chunked:loop:start");
@@ -409,6 +410,7 @@ where
         }
 
         i_record += 1;
+        count += 1;
         if i_record >= csize {
             // Processssssss! And reset.
             if !outvec.is_empty() {
@@ -422,8 +424,7 @@ where
 
             // Reset
             outvec.clear();
-            count += i_record;
-            post_state(&format!("preprocess:bulk:loop:{:?}", count));
+            post_state(&format!("preprocess:chunked:loop:{:?}", count));
             i_record = 0;
         }
     }
@@ -432,7 +433,7 @@ where
         Some("info"),
     );
 
-    post_state(&format!("preprocess:bulk:loop:{:?}:50", count));
+    post_state(&format!("preprocess:chunked:loop:{:?}:50", count));
     let percentageblock = (count as f64 / 10_f64) as usize;
 
     let mut reader = open_fastq(file2);
@@ -484,7 +485,7 @@ where
         // This might be done slightly more efficiently??
         if count.is_multiple_of(percentageblock) {
             post_state(&format!(
-                "preprocess:bulk:loop:{:?}:{:?}",
+                "preprocess:chunked:loop:{:?}:{:?}",
                 count,
                 count / percentageblock * 5
             ));
