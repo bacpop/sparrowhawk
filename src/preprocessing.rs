@@ -312,6 +312,7 @@ where
                 minmaxdict.entry(hnc).or_insert(hc);
             }
         }
+        count += 1;
         // This might be done slightly more efficiently??
         if count.is_multiple_of(percentageblock) {
             post_state(&format!(
