@@ -615,10 +615,9 @@ where
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
     let mut themap = HashMap::with_hasher(BuildHasherDefault::default());
 
-    let mut reader = open_fastq(file1);
     let mut histovec: Vec<u32> = vec![0; MAXSIZEHISTO];
 
-    let mut kmer_filter = KmerFilter::new(qual.min_count);
+    let mut kmer_filter = KmerFilter::new(if (do_fit) {2} else {qual.min_count});
     kmer_filter.init();
 
     logw("Entering while loop for the first file...", Some("info"));
@@ -626,6 +625,7 @@ where
 
     let mut count: usize = 0;
 
+    let mut reader = open_fastq(file1);
     while let Some(record) = reader.next() {
         let seqrec = record.expect("Invalid FASTQ record");
         let rl = seqrec.seq().len();
@@ -699,7 +699,7 @@ where
             post_state(&format!(
                 "preprocess:bloom:loop:{:?}:{:?}",
                 count,
-                count / percentageblock
+                count / percentageblock * 5
             ));
         }
     }
@@ -732,15 +732,14 @@ where
         let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
         if let Ok(theres) = result {
             minc = theres as u16;
+            if minc == 0 {
+                panic!("Fitted min_count value is zero or negative!");
+            } else if minc <= 10 {
+                logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
+                minc = 3;
+            }
         } else {
             logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 3;
-        }
-
-        if minc == 0 {
-            panic!("Fitted min_count value is zero or negative!");
-        } else if minc <= 10 {
-            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
             minc = 3;
         }
 
@@ -772,6 +771,7 @@ where
         });
     } else {
         post_state("preprocess:bloom:filtering");
+        // I think this part can be improved: now that the min_count error has been corrected, some conditionals could be removed here?
         countmap.retain(|h, tup| {
             if tup.0 >= minc {
                 themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
