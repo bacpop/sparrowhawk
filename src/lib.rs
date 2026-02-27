@@ -43,6 +43,10 @@ pub mod bloom_filter;
 /// Fits the k-mer spectrum to automatically get a min_count (taken from ska.rust!)
 pub mod spectrum_fitter;
 
+/// GPU-accelerated radix sort + count + filter for bulk kmer preprocessing
+#[cfg(not(feature = "wasm"))]
+pub mod gpu_filter;
+
 use crate::graphs::pt_graph::EdgeType;
 use nohash_hasher::NoHashHasher;
 
@@ -165,7 +169,7 @@ pub fn set_up_logging(level: log::LevelFilter, outfile: PathBuf) {
 
 #[doc(hidden)]
 #[cfg(not(feature = "wasm"))]
-pub fn main() {
+pub async fn main() {
     let args = cli_args();
 
     // log::info!("Starting program!");
@@ -189,6 +193,7 @@ pub fn main() {
             no_graphs,
             no_bubble_collapse,
             no_dead_end_removal,
+            gpu,
             // no_conflictive_links_removal,
         } => {
             let mut outputlogfile: PathBuf = output_dir.into();
@@ -279,7 +284,8 @@ pub fn main() {
                         *chunk_size,
                         *do_bloom,
                         *auto_min_count,
-                    );
+                        *gpu,
+                    ).await;
                 drop(theseq);
                 let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(
                     *k,
@@ -308,7 +314,8 @@ pub fn main() {
                         *chunk_size,
                         *do_bloom,
                         *auto_min_count,
-                    );
+                        *gpu,
+                    ).await;
                 drop(theseq);
 
                 let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(
@@ -339,7 +346,8 @@ pub fn main() {
                         *chunk_size,
                         *do_bloom,
                         *auto_min_count,
-                    );
+                        *gpu,
+                    ).await;
                 drop(theseq);
 
                 let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(
@@ -370,7 +378,8 @@ pub fn main() {
                         *chunk_size,
                         *do_bloom,
                         *auto_min_count,
-                    );
+                        *gpu,
+                    ).await;
                 drop(theseq);
 
                 let mut contigs = graph_works::BasicAsm::assemble::<PtGraph>(

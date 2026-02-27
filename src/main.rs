@@ -1,3 +1,4 @@
-fn main() {
-    sparrowhawk::main();
+#[tokio::main]
+async fn main() {
+    sparrowhawk::main().await;
 }

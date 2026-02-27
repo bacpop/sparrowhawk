@@ -45,6 +45,8 @@ use wasm_bindgen_file_reader::WebSysFile;
 // For the fitting, we'll use actually MAXSIZEHISTO - 1
 const MAXSIZEHISTO: usize = 500;
 
+#[cfg(not(feature = "wasm"))]
+use crate::gpu_filter;
 // =====================================================================================================
 
 // NOTE: these two functions were implemented to save the whole sequence in memory for GPGPU processing.
@@ -116,6 +118,68 @@ fn bulk_preprocessing_standalone<IntT>(
     files: &[String],
     k: usize,
     qual: &QualOpts,
+    buckets: &mut [Vec<(u64, u64, u8)>; crate::gpu_filter::BUCKET_COUNT],
+) -> (
+    Vec<u64>,
+    HashMap<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>,
+    HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
+)
+where
+    IntT: for<'a> UInt<'a>,
+{
+    let mut outdict = HashMap::with_hasher(BuildHasherDefault::default());
+    let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
+
+    let theseq: Vec<u64> = Vec::new();
+
+    for file in files {
+        log::info!("Getting kmers from file {file}. Creating reader...");
+        let mut reader =
+            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
+
+        log::info!("Parsing...");
+
+        while let Some(record) = reader.next() {
+            let seqrec = record.expect("Invalid FASTQ record");
+
+            let rl = seqrec.num_bases();
+            let kmer_opt = Kmer::<IntT>::new(
+                seqrec.seq(),
+                rl,
+                seqrec.qual(),
+                k,
+                qual.min_qual,
+                true,
+            );
+            if let Some(mut kmer_it) = kmer_opt {
+                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+                let bucket = ((hc >> 58) & 63) as usize;
+                buckets[bucket].push((hc, hnc, b));
+                outdict.entry(hc).or_insert(km);
+                minmaxdict.entry(hnc).or_insert(hc);
+                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                    let (hc, hnc, b, km) = tmptuple;
+                    let bucket = ((hc >> 58) & 63) as usize;
+                    buckets[bucket].push((hc, hnc, b));
+                    outdict.entry(hc).or_insert(km);
+                    minmaxdict.entry(hnc).or_insert(hc);
+                }
+            }
+        }
+        log::info!("Finished getting kmers from file {file}.");
+    }
+
+    log::info!("Finished getting kmers from {} file(s)", files.len());
+
+    (theseq, outdict, minmaxdict)
+}
+
+/// CPU bulk extraction: pushes all kmer occurrences into a flat `outvec` for CPU sort+count.
+#[cfg(not(feature = "wasm"))]
+fn bulk_preprocessing_standalone_cpu<IntT>(
+    files: &[String],
+    k: usize,
+    qual: &QualOpts,
     outvec: &mut Vec<(u64, u64, u8)>,
 ) -> (
     Vec<u64>,
@@ -128,18 +192,7 @@ where
     let mut outdict = HashMap::with_hasher(BuildHasherDefault::default());
     let mut minmaxdict = HashMap::with_hasher(BuildHasherDefault::default());
 
-    // let mut itrecord : u32 = 0;                                 // We're using it to add the previous indexes!
-    // let mut theseq   : Vec<u64> = Vec::new();
     let theseq: Vec<u64> = Vec::new();
-
-    // Memory usage optimisations
-    // let cseq = theseq.capacity();
-    // let lseq = theseq.len();
-    // if cseq < 2 * lseq {
-    //     theseq.reserve_exact(2 * lseq);
-    // } else {
-    //     theseq.shrink_to(2 * lseq);
-    // }
 
     for file in files {
         log::info!("Getting kmers from file {file}. Creating reader...");
@@ -148,11 +201,8 @@ where
 
         log::info!("Parsing...");
 
-        //     let maxkmers = 200;
-        //     let mut numkmers = 0;
         while let Some(record) = reader.next() {
             let seqrec = record.expect("Invalid FASTQ record");
-            // put_these_nts_into_an_efficient_vector(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
 
             let rl = seqrec.num_bases();
             let kmer_opt = Kmer::<IntT>::new(
@@ -162,58 +212,24 @@ where
                 k,
                 qual.min_qual,
                 true,
-                // &itrecord,
             );
             if let Some(mut kmer_it) = kmer_opt {
-                //             numkmers += 1;
                 let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
                 outvec.push((hc, hnc, b));
                 outdict.entry(hc).or_insert(km);
-                // let testkm = outdict.entry(hc).or_insert(km);
-                // if *testkm != km {
-                //     log::debug!("\n\t- COLLISIONS 1 !!! Hash: {:?}", hc);
-                //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                //     ncols += 1;
-                // }
-                // } else {
-                //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
-                // }
                 minmaxdict.entry(hnc).or_insert(hc);
                 while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
                     let (hc, hnc, b, km) = tmptuple;
                     outvec.push((hc, hnc, b));
                     outdict.entry(hc).or_insert(km);
-                    // let testkm = outdict.entry(hc).or_insert(km);
-                    // if *testkm != km {
-                    //     log::debug!("\n\t- COLLISIONS 2 !!! Hash: {:?}", hc);
-                    //     log::debug!("{:#0258b}\n{:#0258b}", *testkm, km);
-                    // }
-                    // } else {
-                    //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
-                    // }
                     minmaxdict.entry(hnc).or_insert(hc);
-
-                    //                 numkmers += 1;
-                    //                 if numkmers >= maxkmers {break};
                 }
             }
-            //         if numkmers >= maxkmers {itrecord += rl as u32;break};
-            // itrecord += rl as u32;
         }
         log::info!("Finished getting kmers from file {file}.");
-        //     numkmers = 0;
     }
 
-    //     if (itrecord % 32) != 0 {
-    //         let mut tmpu64 = theseq.pop().unwrap();
-    //         tmpu64 <<= 2 * (32 - itrecord % 32);
-    // //         log::debug!("{:#066b}", tmpu64);
-    //         theseq.push(tmpu64);
-    //     }
-
     log::info!("Finished getting kmers from {} file(s)", files.len());
-    // log::debug!("Length of seq. vec.: {}, total length of both files: {}", theseq.len(), itrecord);
-    // log::debug!("k | Number of collisions =+=+ {} {}", k, ncols);
 
     (theseq, outdict, minmaxdict)
 }
@@ -1800,7 +1816,7 @@ where
 
 /// Read fastq files, get the reads, get the k-mers, count them, filter them by count, and get some way of recovering the sequence later.
 #[cfg(not(feature = "wasm"))]
-pub fn preprocessing_standalone<IntT>(
+pub async fn preprocessing_standalone<IntT>(
     input_files: &[InputFastx],
     k: usize,
     qual: &QualOpts,
@@ -1809,6 +1825,7 @@ pub fn preprocessing_standalone<IntT>(
     csize: usize,
     do_bloom: bool,
     do_fit: bool,
+    use_gpu: bool,
 ) -> (
     HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
     Vec<u64>,
@@ -1836,57 +1853,100 @@ where
             bloom_filter_preprocessing_standalone::<IntT>(&all_files, k, qual, do_fit, out_path);
         (themap, Vec::new(), thedict, maxmindict)
     } else if csize == 0 {
-        // First, we want to fill our mega-vector with all k-mers from both paired-end reads
         log::info!("Processing in bulk");
 
-        let mut tmpvec: Vec<(u64, u64, u8)> = Vec::new();
-        let (theseq, thedict, maxmindict) =
-            bulk_preprocessing_standalone::<IntT>(&all_files, k, qual, &mut tmpvec);
+        let themap;
+        let theseq;
+        let thedict;
+        let maxmindict;
 
-        //exit(0);
-        timevec.push(Instant::now());
-        log::info!(
-            "k-mers extracted in {} s",
-            timevec
-                .last()
-                .unwrap()
-                .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
-                .as_secs()
-        );
+        if use_gpu {
+            // Fill partitioned buckets (top 6 bits of canonical hash → 64 buckets)
+            log::info!("Using GPU radix sort + count + filter");
+            let mut buckets: [Vec<(u64, u64, u8)>; crate::gpu_filter::BUCKET_COUNT] =
+                std::array::from_fn(|_| Vec::new());
+            let (tseq, tdict, mmdict) =
+                bulk_preprocessing_standalone::<IntT>(&all_files, k, qual, &mut buckets);
+            theseq = tseq;
+            thedict = tdict;
+            maxmindict = mmdict;
 
-        // Then, we want to sort it according to the hash
-        log::debug!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
-        log::info!("Sorting vector");
-        tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            timevec.push(Instant::now());
+            log::info!(
+                "k-mers extracted in {} s",
+                timevec
+                    .last()
+                    .unwrap()
+                    .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
+                    .as_secs()
+            );
 
-        timevec.push(Instant::now());
-        log::info!(
-            "k-mers sorted in {} s",
-            timevec
-                .last()
-                .unwrap()
-                .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
-                .as_secs()
-        );
+            themap = gpu_filter::gpu_sort_count_filter(
+                &buckets, qual.min_count, do_fit, out_path,
+            ).await;
+            drop(buckets);
 
-        // Then, do a counting of everything and save the results in a dictionary and return it
-        log::info!("Counting and filtering k-mers");
-        let themap = if !do_fit {
-            get_map_with_counts(&tmpvec, qual.min_count, out_path)
+            timevec.push(Instant::now());
+            log::info!(
+                "GPU sort+count+filter done in {} s",
+                timevec
+                    .last()
+                    .unwrap()
+                    .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
+                    .as_secs()
+            );
         } else {
-            get_map_with_counts_and_fit(&mut tmpvec, out_path)
-        };
-        drop(tmpvec);
+            // CPU path: flat vec → par_sort → count+filter
+            log::info!("Using CPU sort + count + filter");
+            let mut tmpvec: Vec<(u64, u64, u8)> = Vec::new();
+            let (tseq, tdict, mmdict) =
+                bulk_preprocessing_standalone_cpu::<IntT>(&all_files, k, qual, &mut tmpvec);
+            theseq = tseq;
+            thedict = tdict;
+            maxmindict = mmdict;
 
-        timevec.push(Instant::now());
-        log::info!(
-            "k-mers counted and filtered in {} s",
-            timevec
-                .last()
-                .unwrap()
-                .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
-                .as_secs()
-        );
+            timevec.push(Instant::now());
+            log::info!(
+                "k-mers extracted in {} s",
+                timevec
+                    .last()
+                    .unwrap()
+                    .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
+                    .as_secs()
+            );
+
+            log::debug!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
+            log::info!("Sorting vector");
+            tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+            timevec.push(Instant::now());
+            log::info!(
+                "k-mers sorted in {} s",
+                timevec
+                    .last()
+                    .unwrap()
+                    .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
+                    .as_secs()
+            );
+
+            log::info!("Counting and filtering k-mers");
+            themap = if !do_fit {
+                get_map_with_counts(&tmpvec, qual.min_count, out_path)
+            } else {
+                get_map_with_counts_and_fit(&mut tmpvec, out_path)
+            };
+            drop(tmpvec);
+
+            timevec.push(Instant::now());
+            log::info!(
+                "k-mers counted and filtered in {} s",
+                timevec
+                    .last()
+                    .unwrap()
+                    .duration_since(*timevec.get(timevec.len().wrapping_sub(2)).unwrap())
+                    .as_secs()
+            );
+        }
 
         (themap, theseq, thedict, maxmindict)
     } else {
@@ -1989,3 +2049,4 @@ where
         (themap, Some(thedict), maxmindict, histovec, used_min_count)
     }
 }
+

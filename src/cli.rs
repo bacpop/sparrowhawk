@@ -168,6 +168,10 @@ pub enum Commands {
         /// Do not remove dead endsin the graph
         #[arg(long, default_value_t = false)]
         no_dead_end_removal: bool,
+
+        /// Use GPU-accelerated radix sort + count + filter for bulk preprocessing (requires chunk-size 0 and no --do-bloom)
+        #[arg(long, default_value_t = false)]
+        gpu: bool,
     },
 }
 
