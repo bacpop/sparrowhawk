@@ -1,7 +1,7 @@
 [submodule "rust/sparrowhawk"]
 	path = rust/sparrowhawk
 	url  = https://github.com/bacpop/sparrowhawk.git
-    branch = master
+    branch = testswgpu_graphcrate
     
 [submodule "rust/ska.rust"]
 	path = rust/ska.rust

@@ -107,7 +107,7 @@
           </div>
 
           <div class="flex flex-row items-center w-full gap-2">
-            <input id="do_bloom" type="checkbox" v-model="do_bloom" :disabled="isProcessingAny"/>
+            <input id="do_bloom" type="checkbox" v-model="do_bloom" :disabled="use_gpu || isProcessingAny"/>
             <Tooltip>
               <TooltipTrigger as-child>
                 <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
@@ -151,7 +151,43 @@
             </label>
           </div>
 
-          <div :class="do_bloom ? 'opacity-50' : ''">
+          <div class="flex flex-row items-center w-full gap-2">
+            <input id="use_gpu" type="checkbox" v-model="use_gpu" :disabled="isProcessingAny"/>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="max-w-xs">Use GPU (WebGPU) for kmer sort and count. Requires a WebGPU-capable browser and GPU.</p>
+              </TooltipContent>
+            </Tooltip>
+            <label for="use_gpu">
+              GPU acceleration
+            </label>
+          </div>
+
+          <div :class="!use_gpu ? 'opacity-50' : ''">
+            <label class="text-sm">GPU adapter</label>
+            <select class="w-full border border-gray-300 rounded-md text-sm p-2 mt-1"
+                    v-model="gpu_power_pref"
+                    :disabled="!use_gpu || isProcessingAny">
+              <option v-if="available_adapters.length === 0 && !use_gpu" :value="0" disabled>
+                Enable GPU to detect adapters
+              </option>
+              <option v-if="available_adapters.length === 0 && use_gpu && !gpu_query_done" :value="0" disabled>
+                Detecting adapters…
+              </option>
+              <option v-if="available_adapters.length === 0 && use_gpu && gpu_query_done" :value="0" disabled>
+                No WebGPU adapter found — check browser support
+              </option>
+              <option v-for="adapter in available_adapters" :key="adapter.index"
+                      :value="adapter.index">
+                {{ adapter.name }}
+              </option>
+            </select>
+          </div>
+
+          <div :class="do_bloom || use_gpu ? 'opacity-50' : ''">
             <label for="csize" class="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger as-child>
@@ -167,7 +203,7 @@
                    type="number"
                    class="w-full border border-gray-300 rounded-md text-sm p-2 active:outline-none focus:outline-none"
                    v-model.number.trim="csize"
-                   :disabled="do_bloom || isProcessingAny">
+                   :disabled="do_bloom || use_gpu || isProcessingAny">
           </div>
 
           <Button @click="doPreProcess()" v-if="readsProcessed" class="max-w-fit mt-2"
@@ -266,7 +302,7 @@
 
 
 <script lang="ts">
-import {defineComponent, ref, Ref} from "vue";
+import {defineComponent, ref, Ref, watch} from "vue";
 import {useDropzone} from "vue3-dropzone";
 import {useActions, useState} from "vuex-composition-helpers";
 import {useStore} from "vuex";
@@ -315,15 +351,40 @@ export default defineComponent({
     const no_bubble: Ref<boolean> = ref(false);
     const no_deadend: Ref<boolean> = ref(false);
     const uploadedFiles: Ref<File[]> = ref([]);
+    const use_gpu: Ref<boolean> = ref(false);
+    const gpu_power_pref: Ref<number> = ref(0);
+    const available_adapters: Ref<{index: number, name: string}[]> = ref([]);
+    const gpu_query_done: Ref<boolean> = ref(false);
+    const saved_csize: Ref<number> = ref(150000);
 
     const {
       processReads,
       doTheAssembly,
       resetAllResults,
-      removeErrors
-    } = useActions(["processReads", "doTheAssembly", "resetAllResults", "removeErrors"]);
+      removeErrors,
+      listGpuAdapters,
+    } = useActions(["processReads", "doTheAssembly", "resetAllResults", "removeErrors", "listGpuAdapters"]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const {allResults} = useState(["allResults"]) as any;
+
+    watch(use_gpu, async (val) => {
+      if (val) {
+        // Lock GPU-required settings
+        saved_csize.value = csize.value;
+        csize.value = 0;
+        do_bloom.value = false;
+        // Query adapters
+        gpu_query_done.value = false;
+        await listGpuAdapters();
+        available_adapters.value = store.state.gpuAdapters;
+        gpu_query_done.value = true;
+      } else {
+        // Restore chunk size; leave bloom as-is (user can re-enable)
+        csize.value = saved_csize.value;
+        gpu_query_done.value = false;
+        available_adapters.value = [];
+      }
+    });
 
     function onDropReads(acceptFiles: File[]): void {
       uploadedFiles.value = acceptFiles;
@@ -340,7 +401,9 @@ export default defineComponent({
         do_bloom: do_bloom.value,
         do_fit: do_fit.value,
         no_bubble_collapse: no_bubble.value,
-        no_dead_end_removal: no_deadend.value
+        no_dead_end_removal: no_deadend.value,
+        use_gpu: use_gpu.value,
+        gpu_power_pref: gpu_power_pref.value,
       });
     }
 
@@ -378,6 +441,10 @@ export default defineComponent({
       no_bubble,
       no_deadend,
       assemblying,
+      use_gpu,
+      gpu_power_pref,
+      available_adapters,
+      gpu_query_done,
       resetAll,
       doPreProcess,
       doAss,

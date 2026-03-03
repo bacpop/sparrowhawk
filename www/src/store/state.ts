@@ -14,4 +14,5 @@ export interface RootState {
     allResults_orphos: AllResultsOrphos,
     allResults_deacon: AllResultsDeacon,
     processingState: ProcessingState,
+    gpuAdapters: { index: number; name: string }[],
 }

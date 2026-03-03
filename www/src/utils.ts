@@ -71,6 +71,8 @@ export const emptyState = (): RootState => ({
         isFilteringDeacon: false,
         isFilteringDeaconFiles: new Set<string>(),
     },
+
+    gpuAdapters: [],
 });
 
 export const findReadPair = (fileName: string, files: Array<File>): {

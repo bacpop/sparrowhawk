@@ -14,7 +14,9 @@ export default {
         do_bloom: boolean,
         do_fit: boolean,
         no_bubble_collapse: boolean,
-        no_dead_end_removal: boolean
+        no_dead_end_removal: boolean,
+        use_gpu: boolean,
+        gpu_power_pref: number,
     }) {
         const {commit, state} = context;
         console.log("Going to upload reads and assemble with k = " + payload.k + " min_count = " + payload.min_count + " min_qual = " + payload.min_qual + " csize = " + payload.csize + " do_bloom = " + payload.do_bloom)
@@ -50,7 +52,9 @@ export default {
                     do_bloom: payload.do_bloom,
                     do_fit: payload.do_fit,
                     no_bubble_collapse: payload.no_bubble_collapse,
-                    no_dead_end_removal: payload.no_dead_end_removal
+                    no_dead_end_removal: payload.no_dead_end_removal,
+                    use_gpu: payload.use_gpu,
+                    gpu_power_pref: payload.gpu_power_pref,
                 });
 
                 state.workerState.worker.onmessage = (messageData) => {
@@ -493,5 +497,23 @@ export default {
 
     async resetAllResults_deacon(context: ActionContext<RootState, RootState>) {
         context.commit("resetAllResults_deacon");
+    },
+
+    async listGpuAdapters(context: ActionContext<RootState, RootState>) {
+        const { commit, state } = context;
+        if (!state.workerState.worker) return;
+        return new Promise<void>((resolve) => {
+            const saved = state.workerState.worker!.onmessage;
+            state.workerState.worker!.onmessage = (msg) => {
+                if (msg.data instanceof Object && 'adaptersResult' in msg.data) {
+                    commit('setGpuAdapters', msg.data.adaptersResult);
+                    state.workerState.worker!.onmessage = saved;
+                    resolve();
+                } else if (saved) {
+                    (saved as EventListener)(msg as unknown as Event);
+                }
+            };
+            state.workerState.worker!.postMessage({ listAdapters: true });
+        });
     },
 };
