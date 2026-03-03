@@ -1610,7 +1610,7 @@ where
                 // Processssssss! And reset.
                 if !outvec.is_empty() {
                     log::debug!("Processing chunk. Sorting k-mers...");
-                    outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                    outvec.par_sort_unstable_by(|a, b| a.0.cmp(&b.0));
                     log::debug!("k-mers sorted. Counting k-mers...");
                     // Then, do a counting of everything and save the results in a dictionary and return it
 
@@ -1914,7 +1914,7 @@ where
 
             log::debug!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
             log::info!("Sorting vector");
-            tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            tmpvec.par_sort_unstable_by(|a, b| a.0.cmp(&b.0));
 
             timevec.push(Instant::now());
             log::info!(
