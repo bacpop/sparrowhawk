@@ -49,6 +49,139 @@ const MAXSIZEHISTO: usize = 500;
 
 #[cfg(not(feature = "wasm"))]
 use crate::gpu_filter;
+
+#[inline]
+fn add_to_histogram(histovec: &mut [u32], count: u16) {
+    let idx = if (count as usize) >= MAXSIZEHISTO {
+        MAXSIZEHISTO - 1
+    } else {
+        count as usize - 1
+    };
+    histovec[idx] = histovec[idx].saturating_add(1);
+}
+
+fn apply_spectrum_fit(histovec: &[u32]) -> u16 {
+    let mut fit = SpectrumFitter::new();
+    match fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec()) {
+        Ok(minc) => {
+            let minc = minc as u16;
+            if minc == 0 {
+                panic!("Fitted min_count is zero or negative!");
+            } else if minc <= 10 {
+                logw(
+                    "Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.",
+                    Some("warn"),
+                );
+                3
+            } else {
+                minc
+            }
+        }
+        Err(_) => {
+            logw(
+                "Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.",
+                Some("warn"),
+            );
+            3
+        }
+    }
+}
+
+fn build_histogram_from_countmap(
+    countmap: &HashMap<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>>,
+    histovec: &mut [u32],
+) {
+    for (_, tup) in countmap.iter() {
+        add_to_histogram(histovec, tup.0);
+    }
+}
+
+fn drain_countmap_into_themap<IntT>(
+    countmap: &mut HashMap<u64, (u16, u64, u8), BuildHasherDefault<NoHashHasher<u64>>>,
+    themap: &mut HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
+    outdict: &mut HashMap<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>,
+    minmaxdict: &mut HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>,
+    minc: u16,
+    mut histovec_opt: Option<&mut [u32]>,
+) where
+    IntT: for<'a> UInt<'a>,
+{
+    countmap.retain(|h, tup| {
+        if tup.0 >= minc {
+            themap.entry(*h).or_insert_with(|| {
+                RefCell::new(HashInfoSimple {
+                    hnc: tup.1,
+                    b: tup.2,
+                    pre: Vec::new(),
+                    post: Vec::new(),
+                    counts: tup.0,
+                })
+            });
+        } else {
+            outdict.remove(h);
+            minmaxdict.remove(&tup.1);
+        }
+        if let Some(ref mut hv) = histovec_opt {
+            add_to_histogram(hv, tup.0);
+        }
+        false
+    });
+}
+
+#[cfg(not(feature = "wasm"))]
+fn extract_kmers_from_files<F>(files: &[String], mut on_record: F)
+where
+    F: FnMut(std::borrow::Cow<'_, [u8]>, usize, Option<&[u8]>),
+{
+    for file in files {
+        log::info!("Getting kmers from file {file}. Creating reader...");
+        let mut reader =
+            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
+        log::info!("Parsing...");
+        while let Some(record) = reader.next() {
+            let seqrec = record.expect("Invalid FASTQ record");
+            on_record(seqrec.seq(), seqrec.num_bases(), seqrec.qual());
+        }
+        log::info!("Finished getting kmers from file {file}.");
+    }
+    log::info!("Finished getting kmers from {} file(s)", files.len());
+}
+
+#[cfg(not(feature = "wasm"))]
+fn plot_kmer_histogram(histovec: &[u32], out_path: &std::path::Path) {
+    let backend = BitMapBackend::new(out_path, (1280, 960));
+    let root = backend.into_drawing_area();
+    let _ = root.fill(&WHITE);
+    let mut chart = ChartBuilder::on(&root)
+        .x_label_area_size(35)
+        .y_label_area_size(40)
+        .margin(5)
+        .caption("k-mer spectrum", ("ibm-plex-sans", 30.0))
+        .build_cartesian_2d(
+            (0u32..(MAXSIZEHISTO as u32)).into_segmented(),
+            0u32..200000u32,
+        )
+        .unwrap();
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .bold_line_style(WHITE.mix(0.3))
+        .y_desc("Counts")
+        .x_desc("k-mer frequency")
+        .axis_desc_style(("ibm-plex-sans", 15))
+        .draw()
+        .unwrap();
+    chart
+        .draw_series(
+            Histogram::vertical(&chart)
+                .style(RED.filled())
+                .data(histovec.iter().enumerate().map(|(i, x)| (i as u32, *x))),
+        )
+        .unwrap();
+    root.present()
+        .expect("Unable to write result to file. Does the output folder exist?");
+}
+
 // =====================================================================================================
 
 // NOTE: these two functions were implemented to save the whole sequence in memory for GPGPU processing.
@@ -134,44 +267,22 @@ where
 
     let theseq: Vec<u64> = Vec::new();
 
-    for file in files {
-        log::info!("Getting kmers from file {file}. Creating reader...");
-        let mut reader =
-            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
-
-        log::info!("Parsing...");
-
-        while let Some(record) = reader.next() {
-            let seqrec = record.expect("Invalid FASTQ record");
-
-            let rl = seqrec.num_bases();
-            let kmer_opt = Kmer::<IntT>::new(
-                seqrec.seq(),
-                rl,
-                seqrec.qual(),
-                k,
-                qual.min_qual,
-                true,
-            );
-            if let Some(mut kmer_it) = kmer_opt {
-                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+    extract_kmers_from_files(files, |seq, num_bases, qual_bytes| {
+        let kmer_opt = Kmer::<IntT>::new(seq, num_bases, qual_bytes, k, qual.min_qual, true);
+        if let Some(mut kmer_it) = kmer_opt {
+            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+            let bucket = ((hc >> 58) & 63) as usize;
+            buckets[bucket].push((hc, hnc, b));
+            outdict.entry(hc).or_insert(km);
+            minmaxdict.entry(hnc).or_insert(hc);
+            while let Some((hc, hnc, b, km)) = kmer_it.get_next_kmer_and_give_us_things() {
                 let bucket = ((hc >> 58) & 63) as usize;
                 buckets[bucket].push((hc, hnc, b));
                 outdict.entry(hc).or_insert(km);
                 minmaxdict.entry(hnc).or_insert(hc);
-                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                    let (hc, hnc, b, km) = tmptuple;
-                    let bucket = ((hc >> 58) & 63) as usize;
-                    buckets[bucket].push((hc, hnc, b));
-                    outdict.entry(hc).or_insert(km);
-                    minmaxdict.entry(hnc).or_insert(hc);
-                }
             }
         }
-        log::info!("Finished getting kmers from file {file}.");
-    }
-
-    log::info!("Finished getting kmers from {} file(s)", files.len());
+    });
 
     (theseq, outdict, minmaxdict)
 }
@@ -196,42 +307,20 @@ where
 
     let theseq: Vec<u64> = Vec::new();
 
-    for file in files {
-        log::info!("Getting kmers from file {file}. Creating reader...");
-        let mut reader =
-            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
-
-        log::info!("Parsing...");
-
-        while let Some(record) = reader.next() {
-            let seqrec = record.expect("Invalid FASTQ record");
-
-            let rl = seqrec.num_bases();
-            let kmer_opt = Kmer::<IntT>::new(
-                seqrec.seq(),
-                rl,
-                seqrec.qual(),
-                k,
-                qual.min_qual,
-                true,
-            );
-            if let Some(mut kmer_it) = kmer_opt {
-                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+    extract_kmers_from_files(files, |seq, num_bases, qual_bytes| {
+        let kmer_opt = Kmer::<IntT>::new(seq, num_bases, qual_bytes, k, qual.min_qual, true);
+        if let Some(mut kmer_it) = kmer_opt {
+            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+            outvec.push((hc, hnc, b));
+            outdict.entry(hc).or_insert(km);
+            minmaxdict.entry(hnc).or_insert(hc);
+            while let Some((hc, hnc, b, km)) = kmer_it.get_next_kmer_and_give_us_things() {
                 outvec.push((hc, hnc, b));
                 outdict.entry(hc).or_insert(km);
                 minmaxdict.entry(hnc).or_insert(hc);
-                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                    let (hc, hnc, b, km) = tmptuple;
-                    outvec.push((hc, hnc, b));
-                    outdict.entry(hc).or_insert(km);
-                    minmaxdict.entry(hnc).or_insert(hc);
-                }
             }
         }
-        log::info!("Finished getting kmers from file {file}.");
-    }
-
-    log::info!("Finished getting kmers from {} file(s)", files.len());
+    });
 
     (theseq, outdict, minmaxdict)
 }
@@ -416,7 +505,7 @@ where
             // Processssssss! And reset.
             if !outvec.is_empty() {
                 logw("Processing chunk. Sorting k-mers...", Some("debug"));
-                outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                outvec.par_sort_unstable_by(|a, b| a.0.cmp(&b.0));
                 logw("k-mers sorted. Counting k-mers...", Some("debug"));
                 // Then, do a counting of everything and save the results in a dictionary and return it
 
@@ -471,7 +560,7 @@ where
             // Processssssss! And reset.
             if !outvec.is_empty() {
                 logw("Processing chunk. Sorting k-mers...", Some("info"));
-                outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                outvec.par_sort_unstable_by(|a, b| a.0.cmp(&b.0));
                 logw("k-mers sorted. Counting k-mers...", Some("info"));
                 // Then, do a counting of everything and save the results in a dictionary and return it
 
@@ -497,7 +586,7 @@ where
         // Processssssss! And reset.
         if !outvec.is_empty() {
             logw("Processing last chunk. Sorting k-mers...", Some("info"));
-            outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            outvec.par_sort_unstable_by(|a, b| a.0.cmp(&b.0));
             logw("k-mers sorted. Counting k-mers...", Some("info"));
             // Then, do a counting of everything and save the results in a dictionary and return it
 
@@ -519,82 +608,22 @@ where
     // case no autofitting is requested. In any case, it could be improved in the future.
     if do_fit {
         post_state("preprocess:chunked:fitting");
-        for (_, tup) in countmap.iter() {
-            if tup.0 as usize > MAXSIZEHISTO {
-                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-            } else {
-                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
-            }
-        }
+        build_histogram_from_countmap(&countmap, &mut histovec);
 
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
         logw("Counting finished. Starting fit...", Some("info"));
-        let mut fit = SpectrumFitter::new();
-        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
-        if let Ok(theres) = result {
-            minc = theres as u16;
-            if minc == 0 {
-                panic!("Fitted min_count value is zero or negative!");
-            } else if minc <= 10 {
-                logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-                minc = 3;
-            }
-        } else {
-            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 3;
-        }
-
+        minc = apply_spectrum_fit(&histovec);
         logw(
-            format!(
-                "Fit done! Fitted min_count value: {}. Starting filtering...",
-                minc
-            )
-            .as_str(),
+            format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(),
             Some("info"),
         );
 
         post_state("preprocess:chunked:filtering");
-        countmap.retain(|h, tup| {
-            if tup.0 >= minc {
-                themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
-                    hnc: tup.1,
-                    b: tup.2,
-                    pre: Vec::new(),
-                    post: Vec::new(),
-                    counts: tup.0,
-                }));
-            } else {
-                outdict.remove(h);
-                minmaxdict.remove(&tup.1);
-            }
-
-            false
-        });
+        drain_countmap_into_themap(&mut countmap, &mut themap, &mut outdict, &mut minmaxdict, minc, None);
     } else {
         post_state("preprocess:chunked:filtering");
-        countmap.retain(|h, tup| {
-            if tup.0 >= minc {
-                themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
-                    hnc: tup.1,
-                    b: tup.2,
-                    pre: Vec::new(),
-                    post: Vec::new(),
-                    counts: tup.0,
-                }));
-            } else {
-                outdict.remove(h);
-                minmaxdict.remove(&tup.1);
-            }
-
-            if tup.0 as usize > MAXSIZEHISTO {
-                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-            } else {
-                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
-            }
-
-            false
-        });
+        drain_countmap_into_themap(&mut countmap, &mut themap, &mut outdict, &mut minmaxdict, minc, Some(&mut histovec));
     }
 
     outdict.shrink_to_fit();
@@ -723,7 +752,7 @@ where
     logw("Second part of filtering...", Some("info"));
 
     // // Now, get themap, histovec, and filter outdict and minmaxdict
-    let countmap = kmer_filter.get_counts_map();
+    let mut countmap = kmer_filter.get_counts_map();
     countmap.shrink_to_fit();
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
@@ -731,82 +760,23 @@ where
     let mut minc = qual.min_count;
     if do_fit {
         post_state("preprocess:bloom:fitting");
-        for (_, tup) in countmap.iter() {
-            if tup.0 as usize > MAXSIZEHISTO {
-                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-            } else {
-                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
-            }
-        }
+        build_histogram_from_countmap(&countmap, &mut histovec);
 
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
         logw("Counting finished. Starting fit...", Some("info"));
-        let mut fit = SpectrumFitter::new();
-        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
-        if let Ok(theres) = result {
-            minc = theres as u16;
-            if minc == 0 {
-                panic!("Fitted min_count value is zero or negative!");
-            } else if minc <= 10 {
-                logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-                minc = 3;
-            }
-        } else {
-            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 3;
-        }
-
+        minc = apply_spectrum_fit(&histovec);
         logw(
-            format!(
-                "Fit done! Fitted min_count value: {}. Starting filtering...",
-                minc
-            )
-            .as_str(),
+            format!("Fit done! Fitted min_count value: {}. Starting filtering...", minc).as_str(),
             Some("info"),
         );
 
         post_state("preprocess:bloom:filtering");
-        countmap.retain(|h, tup| {
-            if tup.0 >= minc {
-                themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
-                    hnc: tup.1,
-                    b: tup.2,
-                    pre: Vec::new(),
-                    post: Vec::new(),
-                    counts: tup.0,
-                }));
-            } else {
-                outdict.remove(h);
-                minmaxdict.remove(&tup.1);
-            }
-
-            false
-        });
+        drain_countmap_into_themap(&mut countmap, &mut themap, &mut outdict, &mut minmaxdict, minc, None);
     } else {
         post_state("preprocess:bloom:filtering");
         // I think this part can be improved: now that the min_count error has been corrected, some conditionals could be removed here?
-        countmap.retain(|h, tup| {
-            if tup.0 >= minc {
-                themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
-                    hnc: tup.1,
-                    b: tup.2,
-                    pre: Vec::new(),
-                    post: Vec::new(),
-                    counts: tup.0,
-                }));
-            } else {
-                outdict.remove(h);
-                minmaxdict.remove(&tup.1);
-            }
-
-            if tup.0 as usize > MAXSIZEHISTO {
-                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-            } else {
-                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
-            }
-            false
-        });
+        drain_countmap_into_themap(&mut countmap, &mut themap, &mut outdict, &mut minmaxdict, minc, Some(&mut histovec));
     }
 
     outdict.shrink_to_fit();
@@ -842,197 +812,52 @@ where
     kmer_filter.init();
 
     // NOTE, potential TODO? : This could be slightly improved by filling outdict and minmaxdict only once, though it'd require saving also km, but it could be better
-    for file in files {
-        log::info!("Getting kmers from file {file}. Initialising reader...");
-
-        let mut reader =
-            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
-
-        logw("Parsing...", Some("info"));
-
-        while let Some(record) = reader.next() {
-            let seqrec = record.expect("Invalid FASTQ record");
-            let rl = seqrec.seq().len();
-            let kmer_opt =
-                Kmer::<IntT>::new(seqrec.seq(), rl, seqrec.qual(), k, qual.min_qual, true);
-            if let Some(mut kmer_it) = kmer_opt {
-                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer(); // TODO: potential really small improvement, get only hash for the bloom filter, then get the rest.
+    extract_kmers_from_files(files, |seq, num_bases, qual_bytes| {
+        let kmer_opt = Kmer::<IntT>::new(seq, num_bases, qual_bytes, k, qual.min_qual, true);
+        if let Some(mut kmer_it) = kmer_opt {
+            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer(); // TODO: potential really small improvement, get only hash for the bloom filter, then get the rest.
+            if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
+                outdict.entry(hc).or_insert(km);
+                minmaxdict.entry(hnc).or_insert(hc);
+            }
+            while let Some((hc, hnc, b, km)) = kmer_it.get_next_kmer_and_give_us_things() {
                 if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
                     outdict.entry(hc).or_insert(km);
                     minmaxdict.entry(hnc).or_insert(hc);
                 }
-                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                    let (hc, hnc, b, km) = tmptuple;
-                    if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
-                        outdict.entry(hc).or_insert(km);
-                        minmaxdict.entry(hnc).or_insert(hc);
-                    }
-                }
             }
         }
-
-        logw(
-            format!("Finished getting kmers from file {file}.").as_str(),
-            Some("info"),
-        );
-    }
-    log::info!("Finished getting kmers from {} file(s)", files.len());
+    });
     log::info!("Finishing filtering...");
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
-    let countmap = kmer_filter.get_counts_map();
+    let mut countmap = kmer_filter.get_counts_map();
     countmap.shrink_to_fit();
-    let mut minc;
+    let minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
     if do_fit {
-        for (_, tup) in countmap.iter() {
-            if tup.0 as usize > MAXSIZEHISTO {
-                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-            } else {
-                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
-            }
-        }
+        build_histogram_from_countmap(&countmap, &mut histovec);
 
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
         log::info!("Starting fit...");
-        let mut fit = SpectrumFitter::new();
+        minc = apply_spectrum_fit(&histovec);
+        log::info!("Fit done! Minimum count value to be used: {}. Filtering k-mers...", minc);
 
-        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
-        if let Ok(theres) = result {
-            minc = theres as u16;
-        } else {
-            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 3;
-        }
-
-        if minc == 0 {
-            panic!("Fitted min_count value is zero or negative!");
-        } else if minc <= 10 {
-            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 3;
-        }
-
-        log::info!(
-            "Fit done! Minimum count value to be used: {}. Filtering k-mers...",
-            minc
-        );
-
-        countmap.retain(|h, tup| {
-            if tup.0 >= minc {
-                themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
-                    hnc: tup.1,
-                    b: tup.2,
-                    pre: Vec::new(),
-                    post: Vec::new(),
-                    counts: tup.0,
-                }));
-            } else {
-                outdict.remove(h);
-                minmaxdict.remove(&tup.1);
-            }
-
-            false
-        });
+        drain_countmap_into_themap(&mut countmap, &mut themap, &mut outdict, &mut minmaxdict, minc, None);
     } else {
         log::info!("Filtering k-mers...");
         minc = qual.min_count;
-
-        countmap.retain(|h, tup| {
-            if tup.0 >= minc {
-                themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
-                    hnc: tup.1,
-                    b: tup.2,
-                    pre: Vec::new(),
-                    post: Vec::new(),
-                    counts: tup.0,
-                }));
-            } else {
-                outdict.remove(h);
-                minmaxdict.remove(&tup.1);
-            }
-
-            if tup.0 as usize > MAXSIZEHISTO {
-                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-            } else {
-                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
-            }
-            false
-        });
+        drain_countmap_into_themap(&mut countmap, &mut themap, &mut outdict, &mut minmaxdict, minc, Some(&mut histovec));
     }
 
     outdict.shrink_to_fit();
     minmaxdict.shrink_to_fit();
 
-    if out_path.is_some() {
-        // Plotting!
-        let backend = BitMapBackend::new(out_path.as_ref().unwrap().as_path(), (1280, 960));
-
-        let root = backend.into_drawing_area();
-
-        let _ = root.fill(&WHITE);
-
-        let mut chart = ChartBuilder::on(&root)
-            .x_label_area_size(35)
-            .y_label_area_size(40)
-            .margin(5)
-            // .caption("k-mer spectrum", ("sans-serif", 30.0))
-            .caption("k-mer spectrum", ("ibm-plex-sans", 30.0))
-            .build_cartesian_2d(
-                (0u32..(MAXSIZEHISTO as u32)).into_segmented(),
-                0u32..200000u32,
-            )
-            .unwrap();
-
-        chart
-            .configure_mesh()
-            .disable_x_mesh()
-            .bold_line_style(WHITE.mix(0.3))
-            .y_desc("Counts")
-            .x_desc("k-mer frequency")
-            // .axis_desc_style(("sans-serif", 15))
-            .axis_desc_style(("ibm-plex-sans", 15))
-            .draw()
-            .unwrap();
-
-        chart
-            .draw_series(
-                Histogram::vertical(&chart)
-                    .style(RED.filled())
-                    .data(histovec.iter().enumerate().map(|(i, x)| (i as u32, *x))),
-            )
-            .unwrap();
-
-        // TODO: I have spent too much time trying to draw a vertical line or a rectangle to show in the
-        //       histogram the fitted limit. Not more at least until I decide to lose more of my life.
-        // https://stackoverflow.com/questions/78776201/how-to-dynamically-use-plotter-segmentvalue
-
-        // backend.draw_rect(
-        //     (0i32, 200000i32),
-        //     (fitted_min_count as i32, 0i32),
-        //     &BLACK,
-        //     true,
-        // ).unwrap();
-
-        // let testnum = fitted_min_count as i32;
-        // let rectangle = Rectangle::new(
-        //     [(0, 200000), (5, 0)],
-        //     BLUE.mix(0.5).filled(),
-        // );
-        //
-        // chart.draw_series(std::iter::once(rectangle.into_dyn())).unwrap();
-
-        // chart.plotting_area().draw(&rectangle).unwrap();
-
-        // chart.draw_series(LineSeries::new(
-        //     [(0i32, 0i32), (fitted_min_count as i32, 200000i32)].iter(),
-        //     &BLUE,
-        // )).unwrap();
-
-        root.present()
-            .expect("Unable to write result to file. Does the output folder exist?");
+    if let Some(p) = out_path {
+        plot_kmer_histogram(&histovec, p.as_path());
     }
 
     (outdict, minmaxdict, themap)
@@ -1287,73 +1112,8 @@ fn get_map_with_counts_and_fit(
     outdict.retain(|_, rc| rc.borrow().counts >= fitted_min_count);
     outdict.shrink_to_fit();
 
-    if out_path.is_some() {
-        // Plotting!
-        let backend = BitMapBackend::new(out_path.as_ref().unwrap().as_path(), (1280, 960));
-
-        let root = backend.into_drawing_area();
-
-        let _ = root.fill(&WHITE);
-
-        let mut chart = ChartBuilder::on(&root)
-            .x_label_area_size(35)
-            .y_label_area_size(40)
-            .margin(5)
-            // .caption("k-mer spectrum", ("sans-serif", 30.0))
-            .caption("k-mer spectrum", ("ibm-plex-sans", 30.0))
-            .build_cartesian_2d(
-                (0u32..(MAXSIZEHISTO as u32)).into_segmented(),
-                0u32..200000u32,
-            )
-            .unwrap();
-
-        chart
-            .configure_mesh()
-            .disable_x_mesh()
-            .bold_line_style(WHITE.mix(0.3))
-            .y_desc("Counts")
-            .x_desc("k-mer frequency")
-            // .axis_desc_style(("sans-serif", 15))
-            .axis_desc_style(("ibm-plex-sans", 15))
-            .draw()
-            .unwrap();
-
-        chart
-            .draw_series(
-                Histogram::vertical(&chart)
-                    .style(RED.filled())
-                    .data(plotvec.iter().enumerate().map(|(i, x)| (i as u32, *x))),
-            )
-            .unwrap();
-
-        // TODO: I have spent too much time trying to draw a vertical line or a rectangle to show in the
-        //       histogram the fitted limit. Not more at least until I decide to lose more of my life.
-        // https://stackoverflow.com/questions/78776201/how-to-dynamically-use-plotter-segmentvalue
-
-        // backend.draw_rect(
-        //     (0i32, 200000i32),
-        //     (fitted_min_count as i32, 0i32),
-        //     &BLACK,
-        //     true,
-        // ).unwrap();
-
-        // let testnum = fitted_min_count as i32;
-        // let rectangle = Rectangle::new(
-        //     [(0, 200000), (5, 0)],
-        //     BLUE.mix(0.5).filled(),
-        // );
-        //
-        // chart.draw_series(std::iter::once(rectangle.into_dyn())).unwrap();
-
-        // chart.plotting_area().draw(&rectangle).unwrap();
-
-        // chart.draw_series(LineSeries::new(
-        //     [(0i32, 0i32), (fitted_min_count as i32, 200000i32)].iter(),
-        //     &BLUE,
-        // )).unwrap();
-
-        root.present()
-            .expect("Unable to write result to file. Does the output folder exist?");
+    if let Some(p) = out_path {
+        plot_kmer_histogram(&plotvec, p.as_path());
     }
 
     // log::debug!("Good kmers {}", tmpcounter);
@@ -1577,59 +1337,38 @@ where
     let mut i_record = 0;
     // let mut ncols : usize = 0;
 
-    for file in files {
-        log::info!("Getting kmers from file {file}. Creating reader...");
-        let mut reader =
-            parse_fastx_file(file).unwrap_or_else(|_| panic!("Invalid path/file: {file}"));
-
-        log::info!("Entering while loop...");
-        while let Some(record) = reader.next() {
-            let seqrec = record.expect("Invalid FASTQ record");
-            let rl = seqrec.seq().len();
-            let kmer_opt =
-                Kmer::<IntT>::new(seqrec.seq(), rl, seqrec.qual(), k, qual.min_qual, true);
-            if let Some(mut kmer_it) = kmer_opt {
-                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+    extract_kmers_from_files(files, |seq, num_bases, qual_bytes| {
+        let kmer_opt = Kmer::<IntT>::new(seq, num_bases, qual_bytes, k, qual.min_qual, true);
+        if let Some(mut kmer_it) = kmer_opt {
+            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
+            outvec.push((hc, hnc, b));
+            outdict.entry(hc).or_insert(km);
+            minmaxdict.entry(hnc).or_insert(hc);
+            while let Some((hc, hnc, b, km)) = kmer_it.get_next_kmer_and_give_us_things() {
                 outvec.push((hc, hnc, b));
                 outdict.entry(hc).or_insert(km);
-                // let testkm = outdict.entry(hc).or_insert(km);
-                // if *testkm != km {
-                //     ncols += 1;
-                // }
                 minmaxdict.entry(hnc).or_insert(hc);
-                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                    let (hc, hnc, b, km) = tmptuple;
-                    outvec.push((hc, hnc, b));
-                    outdict.entry(hc).or_insert(km);
-                    minmaxdict.entry(hnc).or_insert(hc);
-                }
-            }
-
-            i_record += 1;
-            if i_record >= csize {
-                // Processssssss! And reset.
-                if !outvec.is_empty() {
-                    log::debug!("Processing chunk. Sorting k-mers...");
-                    outvec.par_sort_unstable_by(|a, b| a.0.cmp(&b.0));
-                    log::debug!("k-mers sorted. Counting k-mers...");
-                    // Then, do a counting of everything and save the results in a dictionary and return it
-
-                    update_countmap(outvec, &mut countmap);
-                }
-
-                // Reset
-                outvec.clear();
-                i_record = 0;
             }
         }
-        log::info!("Finished getting kmers from file {file}.");
-    }
+
+        i_record += 1;
+        if i_record >= csize {
+            if !outvec.is_empty() {
+                log::debug!("Processing chunk. Sorting k-mers...");
+                outvec.par_sort_unstable_by(|a, b| a.0.cmp(&b.0));
+                log::debug!("k-mers sorted. Counting k-mers...");
+                update_countmap(outvec, &mut countmap);
+            }
+            outvec.clear();
+            i_record = 0;
+        }
+    });
 
     if i_record > 0 {
         // Processssssss! And reset.
         if !outvec.is_empty() {
             log::info!("Processing last chunk. Sorting k-mers...");
-            outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            outvec.par_sort_unstable_by(|a, b| a.0.cmp(&b.0));
             log::info!("k-mers sorted. Counting k-mers...");
             // Then, do a counting of everything and save the results in a dictionary and return it
 
@@ -1647,18 +1386,12 @@ where
 
     // Now, get themap, histovec, and filter outdict and minmaxdict
     countmap.shrink_to_fit();
-    let mut minc;
+    let minc;
 
     // This can be optimised. also better written: I had to repeat the code for the retains, to try to improve slightly the running time in
     // case no autofitting is requested. In any case, it could be improved in the future.
     if do_fit {
-        for (_, tup) in countmap.iter() {
-            if tup.0 as usize > MAXSIZEHISTO {
-                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-            } else {
-                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
-            }
-        }
+        build_histogram_from_countmap(&countmap, &mut histovec);
 
         // // TEST
         // for i in 0..histovec.len() {
@@ -1669,142 +1402,21 @@ where
         // Remove the last bin, as it might affect the fit, but we want it in the vector to plot it in case the coverage is really
         // large (and so that we can detect it).
         log::info!("Counting finished. Starting fit...");
-        let mut fit = SpectrumFitter::new();
-        // let minc = fit.fit_histogram(histovec.clone()[..(MAXSIZEHISTO - 1)].to_vec()).expect("Fit to the k-mer spectrum failed!") as u16;
+        minc = apply_spectrum_fit(&histovec);
+        log::info!("Fit done! Fitted min_count value: {}. Starting filtering...", minc);
 
-        let result = fit.fit_histogram(histovec[..(MAXSIZEHISTO - 1)].to_vec());
-        if let Ok(theres) = result {
-            minc = theres as u16;
-        } else {
-            logw("Fit has not converged. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 3;
-        }
-
-        if minc == 0 {
-            panic!("Fitted min_count value is zero or negative!");
-        } else if minc <= 10 {
-            logw("Fit has converged to a value smaller than 10. A value of 3 will be used as minimum, as usually this happens when the remaining k-mers go to low values, where the fit might give bad results. You should check whether this value is appropiated or not by looking at the k-mer spectrum histogram.", Some("warn"));
-            minc = 3;
-        }
-
-        log::info!(
-            "Fit done! Fitted min_count value: {}. Starting filtering...",
-            minc
-        );
-
-        countmap.retain(|h, tup| {
-            if tup.0 >= minc {
-                themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
-                    hnc: tup.1,
-                    b: tup.2,
-                    pre: Vec::new(),
-                    post: Vec::new(),
-                    counts: tup.0,
-                }));
-            } else {
-                outdict.remove(h);
-                minmaxdict.remove(&tup.1);
-            }
-
-            false
-        });
+        drain_countmap_into_themap(&mut countmap, &mut themap, &mut outdict, &mut minmaxdict, minc, None);
     } else {
         minc = qual.min_count;
-
-        countmap.retain(|h, tup| {
-            if tup.0 >= minc {
-                themap.entry(*h).or_insert(RefCell::new(HashInfoSimple {
-                    hnc: tup.1,
-                    b: tup.2,
-                    pre: Vec::new(),
-                    post: Vec::new(),
-                    counts: tup.0,
-                }));
-            } else {
-                outdict.remove(h);
-                minmaxdict.remove(&tup.1);
-            }
-
-            if tup.0 as usize > MAXSIZEHISTO {
-                histovec[MAXSIZEHISTO - 1] = histovec[MAXSIZEHISTO - 1].saturating_add(1);
-            } else {
-                histovec[tup.0 as usize - 1] = histovec[tup.0 as usize - 1].saturating_add(1);
-            }
-            false
-        });
+        drain_countmap_into_themap(&mut countmap, &mut themap, &mut outdict, &mut minmaxdict, minc, Some(&mut histovec));
     }
 
     drop(countmap);
     outdict.shrink_to_fit();
     minmaxdict.shrink_to_fit();
 
-    if out_path.is_some() {
-        // Plotting!
-        let backend = BitMapBackend::new(out_path.as_ref().unwrap().as_path(), (1280, 960));
-
-        let root = backend.into_drawing_area();
-
-        let _ = root.fill(&WHITE);
-
-        let mut chart = ChartBuilder::on(&root)
-            .x_label_area_size(35)
-            .y_label_area_size(40)
-            .margin(5)
-            // .caption("k-mer spectrum", ("sans-serif", 30.0))
-            .caption("k-mer spectrum", ("ibm-plex-sans", 30.0))
-            .build_cartesian_2d(
-                (0u32..(MAXSIZEHISTO as u32)).into_segmented(),
-                0u32..200000u32,
-            )
-            .unwrap();
-
-        chart
-            .configure_mesh()
-            .disable_x_mesh()
-            .bold_line_style(WHITE.mix(0.3))
-            .y_desc("Counts")
-            .x_desc("k-mer frequency")
-            // .axis_desc_style(("sans-serif", 15))
-            .axis_desc_style(("ibm-plex-sans", 15))
-            .draw()
-            .unwrap();
-
-        chart
-            .draw_series(
-                Histogram::vertical(&chart)
-                    .style(RED.filled())
-                    .data(histovec.iter().enumerate().map(|(i, x)| (i as u32, *x))),
-            )
-            .unwrap();
-
-        // TODO: I have spent too much time trying to draw a vertical line or a rectangle to show in the
-        //       histogram the fitted limit. Not more at least until I decide to lose more of my life.
-        // https://stackoverflow.com/questions/78776201/how-to-dynamically-use-plotter-segmentvalue
-
-        // backend.draw_rect(
-        //     (0i32, 200000i32),
-        //     (fitted_min_count as i32, 0i32),
-        //     &BLACK,
-        //     true,
-        // ).unwrap();
-
-        // let testnum = fitted_min_count as i32;
-        // let rectangle = Rectangle::new(
-        //     [(0, 200000), (5, 0)],
-        //     BLUE.mix(0.5).filled(),
-        // );
-        //
-        // chart.draw_series(std::iter::once(rectangle.into_dyn())).unwrap();
-
-        // chart.plotting_area().draw(&rectangle).unwrap();
-
-        // chart.draw_series(LineSeries::new(
-        //     [(0i32, 0i32), (fitted_min_count as i32, 200000i32)].iter(),
-        //     &BLUE,
-        // )).unwrap();
-
-        root.present()
-            .expect("Unable to write result to file. Does the output folder exist?");
+    if let Some(p) = out_path {
+        plot_kmer_histogram(&histovec, p.as_path());
     }
 
     (outdict, minmaxdict, themap)
@@ -2071,7 +1683,7 @@ where
         // log::debug!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());
         logw("Sorting vector", Some("info"));
         post_state("preprocess:bulk:sorting");
-        tmpvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        tmpvec.par_sort_unstable_by(|a, b| a.0.cmp(&b.0));
 
         logw("k-mers sorted.", Some("info"));
 

@@ -195,9 +195,8 @@ pub async fn main() {
             gpu,
             // no_conflictive_links_removal,
         } => {
-            let mut outputlogfile: PathBuf = output_dir.into();
-            outputlogfile.set_file_name(output_prefix.to_string() + "_log");
-            outputlogfile.set_extension("txt");
+            let outputlogfile: PathBuf =
+                PathBuf::from(output_dir).join(format!("{output_prefix}_log.txt"));
             if args.verbose {
                 // set_up_logging(log::LevelFilter::Trace, outputlogfile);
                 set_up_logging(log::LevelFilter::Info, outputlogfile);
@@ -244,27 +243,21 @@ pub async fn main() {
             if *no_histo {
                 out_path_histo = None;
             } else {
-                out_path_histo = Some(output_dir.into());
-                out_path_histo
-                    .as_mut()
-                    .unwrap()
-                    .set_file_name(output_prefix.to_owned() + "_kmerspectrum");
-                out_path_histo.as_mut().unwrap().set_extension("png");
+                out_path_histo = Some(
+                    PathBuf::from(output_dir).join(format!("{output_prefix}_kmerspectrum.png"))
+                );
             }
             let mut out_path_graph: Option<PathBuf>;
             if *no_graphs {
                 out_path_graph = None;
             } else {
-                out_path_graph = Some(output_dir.into());
-                out_path_graph
-                    .as_mut()
-                    .unwrap()
-                    .set_file_name(output_prefix.to_owned() + "_graph");
+                out_path_graph = Some(
+                    PathBuf::from(output_dir).join(format!("{output_prefix}_graph"))
+                );
             }
 
-            let mut output: PathBuf = output_dir.into();
-            output.set_file_name(output_prefix.to_string() + "_contigs");
-            output.set_extension("fasta");
+            let output: PathBuf =
+                PathBuf::from(output_dir).join(format!("{output_prefix}_contigs.fasta"));
 
             if *k % 2 == 0 {
                 panic!("Support for even k-mer lengths not implemented");
