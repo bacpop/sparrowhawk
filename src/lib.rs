@@ -44,7 +44,6 @@ pub mod bloom_filter;
 pub mod spectrum_fitter;
 
 /// GPU-accelerated radix sort + count + filter for bulk kmer preprocessing
-#[cfg(not(feature = "wasm"))]
 pub mod gpu_filter;
 
 use crate::graphs::pt_graph::EdgeType;
@@ -464,6 +463,8 @@ pub struct AssemblyHelper {
     do_fit: bool,
     no_bubble_collapse: bool,
     no_dead_end_removal: bool,
+    use_gpu: bool,
+    gpu_power_pref: u32,
     preprocessed_data:
         Option<HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>>,
     maxmindict: Option<HashMap<u64, u64, BuildHasherDefault<NoHashHasher<u64>>>>,
@@ -494,6 +495,8 @@ impl AssemblyHelper {
         do_fit: bool,
         no_bubble_collapse: bool,
         no_dead_end_removal: bool,
+        use_gpu: bool,
+        gpu_power_pref: u32,
     ) -> Self {
         if cfg!(debug_assertions) {
             init_panic_hook();
@@ -514,6 +517,8 @@ impl AssemblyHelper {
             do_fit,
             no_bubble_collapse,
             no_dead_end_removal,
+            use_gpu,
+            gpu_power_pref,
             preprocessed_data: None,
             maxmindict: None,
             seqdict64: None,
@@ -531,7 +536,7 @@ impl AssemblyHelper {
     }
 
     /// Preprocess read files
-    pub fn preprocess(&mut self, file1: web_sys::File, file2: web_sys::File) {
+    pub async fn preprocess(&mut self, file1: web_sys::File, file2: web_sys::File) {
         post_state("preprocess:start");
 
         let mut wf1 = WebSysFile::new(file1);
@@ -582,7 +587,9 @@ impl AssemblyHelper {
                 self.chunk_size,
                 self.do_bloom,
                 self.do_fit,
-            );
+                self.use_gpu,
+                self.gpu_power_pref,
+            ).await;
 
             logw("Preprocessing done!", Some("info"));
         } else if self.k <= 64 {
@@ -605,7 +612,9 @@ impl AssemblyHelper {
                 self.chunk_size,
                 self.do_bloom,
                 self.do_fit,
-            );
+                self.use_gpu,
+                self.gpu_power_pref,
+            ).await;
 
             logw("Preprocessing done!", Some("info"));
         } else if self.k <= 128 {
@@ -628,7 +637,9 @@ impl AssemblyHelper {
                 self.chunk_size,
                 self.do_bloom,
                 self.do_fit,
-            );
+                self.use_gpu,
+                self.gpu_power_pref,
+            ).await;
 
             logw("Preprocessing done!", Some("info"));
         } else if self.k <= 256 {
@@ -651,7 +662,9 @@ impl AssemblyHelper {
                 self.chunk_size,
                 self.do_bloom,
                 self.do_fit,
-            );
+                self.use_gpu,
+                self.gpu_power_pref,
+            ).await;
 
             logw("Preprocessing done!", Some("info"));
         } else {
@@ -776,4 +789,17 @@ impl AssemblyHelper {
 
         results.dump()
     }
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen]
+/// Lists available GPU adapters for the UI dropdown. Returns a JSON string array of {index, name} objects.
+pub async fn list_gpu_adapters() -> JsValue {
+    let adapters = gpu_filter::enumerate_gpu_adapters().await;
+    let json_str = adapters
+        .iter()
+        .map(|(i, n)| format!("{{\"index\":{},\"name\":\"{}\"}}", i, n))
+        .collect::<Vec<_>>()
+        .join(",");
+    JsValue::from_str(&format!("[{}]", json_str))
 }

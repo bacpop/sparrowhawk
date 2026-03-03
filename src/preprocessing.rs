@@ -1879,6 +1879,7 @@ where
 
             themap = gpu_filter::gpu_sort_count_filter(
                 &buckets, qual.min_count, do_fit, out_path,
+                wgpu::PowerPreference::HighPerformance,
             ).await;
             drop(buckets);
 
@@ -1975,7 +1976,7 @@ where
 
 #[cfg(feature = "wasm")]
 /// Main preprocessing function for wasm
-pub fn preprocessing_wasm<IntT>(
+pub async fn preprocessing_wasm<IntT>(
     file1: &mut WebSysFile,
     file2: &mut WebSysFile,
     k: usize,
@@ -1983,6 +1984,8 @@ pub fn preprocessing_wasm<IntT>(
     csize: usize,
     do_bloom: bool,
     do_fit: bool,
+    use_gpu: bool,
+    gpu_power_pref: u32,
 ) -> (
     HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>>,
     Option<HashMap<u64, IntT, BuildHasherDefault<NoHashHasher<u64>>>>,
@@ -2013,6 +2016,56 @@ where
             get_kmers_from_both_files_wasm::<IntT>(file1, file2, k, qual, &mut tmpvec);
 
         logw("k-mers extracted", Some("info"));
+
+        if use_gpu {
+            // Partition flat tmpvec into 64 buckets by top-6 bits of canonical hash
+            let mut buckets: [Vec<(u64, u64, u8)>; crate::gpu_filter::BUCKET_COUNT] =
+                std::array::from_fn(|_| Vec::new());
+            for &(hc, hnc, b) in &tmpvec {
+                buckets[((hc >> 58) & 63) as usize].push((hc, hnc, b));
+            }
+            drop(tmpvec);
+
+            let pref = match gpu_power_pref {
+                1 => wgpu::PowerPreference::HighPerformance,
+                2 => wgpu::PowerPreference::LowPower,
+                _ => wgpu::PowerPreference::None,   // includes idx=0 (default/None)
+            };
+
+            let mut no_path: Option<std::path::PathBuf> = None;
+            let mut themap = crate::gpu_filter::gpu_sort_count_filter(
+                &buckets, qual.min_count, do_fit, &mut no_path, pref,
+            ).await;
+
+            // Build histovec and optionally re-fit min_count from the GPU-filtered output
+            let (histovec, used_min_count) = if do_fit {
+                let mut hv: Vec<u32> = vec![0u32; MAXSIZEHISTO];
+                for e in themap.values() {
+                    let c = e.borrow().counts as usize;
+                    if c < MAXSIZEHISTO {
+                        hv[c] = hv[c].saturating_add(1);
+                    } else {
+                        hv[MAXSIZEHISTO - 1] = hv[MAXSIZEHISTO - 1].saturating_add(1);
+                    }
+                }
+                let mut fit = SpectrumFitter::new();
+                let result = fit.fit_histogram(hv[..(MAXSIZEHISTO - 1)].to_vec());
+                let minc = match result {
+                    Ok(theres) => {
+                        let v = theres as u16;
+                        if v == 0 || v <= 10 { 3u16 } else { v }
+                    }
+                    Err(_) => 3u16,
+                };
+                themap.retain(|_, rc| rc.borrow().counts >= minc);
+                themap.shrink_to_fit();
+                (hv, minc)
+            } else {
+                (Vec::new(), qual.min_count)
+            };
+
+            return (themap, Some(thedict), maxmindict, histovec, used_min_count);
+        }
 
         // Then, we want to sort it according to the hash
         // log::debug!("Number of kmers BEFORE cleaning: {:?}", tmpvec.len());

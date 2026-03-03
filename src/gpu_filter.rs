@@ -402,7 +402,7 @@ fn gpu_radix_sort(
 }
 
 /// Run GPU count+filter pipeline. Returns output buffer and output count.
-fn gpu_count_filter(
+async fn gpu_count_filter(
     device:    &wgpu::Device,
     queue:     &wgpu::Queue,
     pipes:     &GpuPipelines,
@@ -568,10 +568,11 @@ fn gpu_count_filter(
     // Poll + map
     let output_count = {
         let slice = readback_buf.slice(..);
-        let (tx, rx) = std::sync::mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |r| { tx.send(r).unwrap(); });
+        let (tx, rx) = futures_channel::oneshot::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| { let _ = tx.send(r); });
+        #[cfg(not(target_arch = "wasm32"))]
         let _ = device.poll(wgpu::PollType::wait_indefinitely());
-        rx.recv().unwrap().unwrap();
+        rx.await.unwrap().unwrap();
         let data = slice.get_mapped_range();
         let vals: &[u32] = bytemuck::cast_slice(&data);
         vals[0] + vals[1] // exclusive_prefix[last] + mask[last]
@@ -625,7 +626,7 @@ fn gpu_count_filter(
 }
 
 /// Readback GPU output buffer to CPU Vec<GpuKmerOut>.
-fn readback_output(
+async fn readback_output(
     device: &wgpu::Device,
     queue:  &wgpu::Queue,
     buf:    &wgpu::Buffer,
@@ -644,10 +645,11 @@ fn readback_output(
     queue.submit([enc.finish()]);
 
     let slice = staging.slice(..);
-    let (tx, rx) = std::sync::mpsc::channel();
-    slice.map_async(wgpu::MapMode::Read, move |r| { tx.send(r).unwrap(); });
+    let (tx, rx) = futures_channel::oneshot::channel();
+    slice.map_async(wgpu::MapMode::Read, move |r| { let _ = tx.send(r); });
+    #[cfg(not(target_arch = "wasm32"))]
     let _ = device.poll(wgpu::PollType::wait_indefinitely());
-    rx.recv().unwrap().unwrap();
+    rx.await.unwrap().unwrap();
 
     let data = slice.get_mapped_range();
     let result: Vec<GpuKmerOut> = bytemuck::cast_slice(&data).to_vec();
@@ -657,7 +659,7 @@ fn readback_output(
 }
 
 /// Process one bucket: GPU radix sort → count+filter → readback.
-pub fn process_bucket(
+pub async fn process_bucket(
     device:    &wgpu::Device,
     queue:     &wgpu::Queue,
     pipes:     &GpuPipelines,
@@ -675,10 +677,10 @@ pub fn process_bucket(
     // Count + filter
     let (out_buf, out_count) = gpu_count_filter(
         device, queue, pipes, &sorted_buf, n, min_count as u32,
-    );
+    ).await;
 
     // Readback
-    readback_output(device, queue, &out_buf, out_count)
+    readback_output(device, queue, &out_buf, out_count).await
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -689,19 +691,22 @@ pub fn process_bucket(
 ///
 /// Returns `themap` accumulating all kmers with count ≥ min_count.
 pub async fn gpu_sort_count_filter(
-    buckets:   &[Vec<(u64, u64, u8)>; BUCKET_COUNT],
-    min_count: u16,
-    _do_fit:   bool,
-    _out_path: &mut Option<PathBuf>,
+    buckets:    &[Vec<(u64, u64, u8)>; BUCKET_COUNT],
+    min_count:  u16,
+    _do_fit:    bool,
+    _out_path:  &mut Option<PathBuf>,
+    power_pref: wgpu::PowerPreference,
 ) -> HashMap<u64, RefCell<HashInfoSimple>, BuildHasherDefault<NoHashHasher<u64>>> {
     // Init GPU
-    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::all(),
-        ..Default::default()
-    });
+    #[cfg(target_arch = "wasm32")]
+    let backends = wgpu::Backends::BROWSER_WEBGPU;
+    #[cfg(not(target_arch = "wasm32"))]
+    let backends = wgpu::Backends::all();
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends, ..Default::default() });
+
     let adapter = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
+            power_preference: power_pref,
             ..Default::default()
         })
         .await
@@ -715,7 +720,7 @@ pub async fn gpu_sort_count_filter(
         .await
         .expect("Failed to get GPU device");
 
-    log::info!("GPU: {}", adapter.get_info().name);
+    crate::logw(&format!("GPU: {}", adapter.get_info().name), Some("info"));
 
     // Compile pipelines once
     let pipes = compile_pipelines(&device);
@@ -725,9 +730,9 @@ pub async fn gpu_sort_count_filter(
 
     for (bucket_idx, bucket) in buckets.iter().enumerate() {
         if bucket.is_empty() { continue; }
-        log::info!("GPU processing bucket {}/{} ({} entries)", bucket_idx + 1, BUCKET_COUNT, bucket.len());
+        crate::logw(&format!("GPU processing bucket {}/{} ({} entries)", bucket_idx + 1, BUCKET_COUNT, bucket.len()), Some("info"));
 
-        let results = process_bucket(&device, &queue, &pipes, bucket, min_count);
+        let results = process_bucket(&device, &queue, &pipes, bucket, min_count).await;
 
         for r in results {
             let hc  = (r.canon_lo as u64) | ((r.canon_hi as u64) << 32);
@@ -746,4 +751,32 @@ pub async fn gpu_sort_count_filter(
     }
 
     themap
+}
+
+/// Returns [(preference_index, adapter_name), …] for the UI dropdown.
+/// Index 0 = None (browser decides), Index 1 = HighPerformance, Index 2 = LowPower.
+pub async fn enumerate_gpu_adapters() -> Vec<(u32, String)> {
+    #[cfg(target_arch = "wasm32")]
+    let backends = wgpu::Backends::BROWSER_WEBGPU;
+    #[cfg(not(target_arch = "wasm32"))]
+    let backends = wgpu::Backends::all();
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor { backends, ..Default::default() });
+
+    let mut result = Vec::new();
+    let mut seen   = std::collections::HashSet::new();
+    for (idx, pref) in [
+        (0u32, wgpu::PowerPreference::None),            // always works if WebGPU available
+        (1u32, wgpu::PowerPreference::HighPerformance), // discrete GPU hint
+        (2u32, wgpu::PowerPreference::LowPower),        // integrated GPU hint
+    ] {
+        if let Ok(adapter) = instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: pref, ..Default::default()
+        }).await {
+            let name = adapter.get_info().name;
+            if seen.insert(name.clone()) {
+                result.push((idx, name));
+            }
+        }
+    }
+    result
 }
