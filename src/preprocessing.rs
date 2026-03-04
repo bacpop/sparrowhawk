@@ -336,15 +336,14 @@ where
             }
             //         if numkmers >= maxkmers {itrecord += rl as u32;break};
             // itrecord += rl as u32;
-        }
-        count += 1;
-        // This might be done slightly more efficiently??
-        if count.is_multiple_of(percentageblock) {
-            post_state(&format!(
-                "preprocess:bulk:loop:{:?}:{:?}",
-                count,
-                count / percentageblock * 5
-            ));
+            count += 1;
+            if percentageblock > 0 && count.is_multiple_of(percentageblock) {
+                post_state(&format!(
+                    "preprocess:bulk:loop:{:?}:{:?}",
+                    count,
+                    count / percentageblock * 5
+                ));
+            }
         }
     }
 
@@ -492,15 +491,14 @@ where
                 outvec.clear();
                 i_record = 0;
             }
-        }
-
-        // This might be done slightly more efficiently??
-        if count.is_multiple_of(percentageblock) {
-            post_state(&format!(
-                "preprocess:chunked:loop:{:?}:{:?}",
-                count,
-                count / percentageblock * 5
-            ));
+            // This might be done slightly more efficiently??
+            if percentageblock > 0 && count.is_multiple_of(percentageblock) {
+                post_state(&format!(
+                    "preprocess:chunked:loop:{:?}:{:?}",
+                    count,
+                    count / percentageblock * 5
+                ));
+            }
         }
     }
 
@@ -718,16 +716,14 @@ where
                     }
                 }
             }
-        }
-        count += 1;
-
-        // This might be done slightly more efficiently??
-        if count.is_multiple_of(percentageblock) {
-            post_state(&format!(
-                "preprocess:bloom:loop:{:?}:{:?}",
-                count,
-                count / percentageblock * 5
-            ));
+            count += 1;
+            if percentageblock > 0 && count.is_multiple_of(percentageblock) {
+                post_state(&format!(
+                    "preprocess:bloom:loop:{:?}:{:?}",
+                    count,
+                    count / percentageblock * 5
+                ));
+            }
         }
     }
 
