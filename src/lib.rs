@@ -454,7 +454,7 @@ impl AssemblyHelper {
     /// Constructor/initialiser of the wasm assembler. It also performs the preprocessing.
     pub fn new(
         file1: web_sys::File,
-        file2: web_sys::File,
+        file2: Option<web_sys::File>,
         k: usize,
         verbose: bool,
         min_count: u16,
@@ -470,7 +470,7 @@ impl AssemblyHelper {
         // TODO: improve verbose with the creation of a logging class and object that carries the verbose level and affects the logw functions, or something similar.
 
         let mut wf1 = WebSysFile::new(file1);
-        let mut wf2 = WebSysFile::new(file2);
+        let mut wf2 = file2.map(|f| WebSysFile::new(f));
 
         // Read input
         let quality = QualOpts {
@@ -515,7 +515,7 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<u64>(
-                &mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit,
+                &mut wf1, wf2.as_mut(), k, &quality, chunk_size, do_bloom, do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
@@ -532,7 +532,7 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<u128>(
-                &mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit,
+                &mut wf1, wf2.as_mut(), k, &quality, chunk_size, do_bloom, do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
@@ -549,7 +549,7 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<U256>(
-                &mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit,
+                &mut wf1, wf2.as_mut(), k, &quality, chunk_size, do_bloom, do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
@@ -566,7 +566,7 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<U512>(
-                &mut wf1, &mut wf2, k, &quality, chunk_size, do_bloom, do_fit,
+                &mut wf1, wf2.as_mut(), k, &quality, chunk_size, do_bloom, do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));

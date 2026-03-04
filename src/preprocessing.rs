@@ -221,7 +221,7 @@ where
 #[cfg(feature = "wasm")]
 fn get_kmers_from_both_files_wasm<IntT>(
     file1: &mut WebSysFile,
-    file2: &mut WebSysFile,
+    file2: Option<&mut WebSysFile>,
     k: usize,
     qual: &QualOpts,
     outvec: &mut Vec<(u64, u64, u8)>,
@@ -295,56 +295,58 @@ where
     );
     //     numkmers = 0;
 
-    let mut reader = open_fastq(file2);
+    if let Some(f2) = file2 {
+        let mut reader = open_fastq(f2);
 
-    //     log::debug!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
-    // Memory usage optimisations
-    // Filling the seq of the second file!
-    while let Some(record) = reader.next() {
-        let seqrec = record.expect("Invalid FASTQ record");
-        let rl = seqrec.seq().len();
-        let kmer_opt = Kmer::<IntT>::new(
-            std::borrow::Cow::Borrowed(seqrec.seq()),
-            rl,
-            Some(seqrec.qual()),
-            k,
-            qual.min_qual,
-            true,
-        );
-        if let Some(mut kmer_it) = kmer_opt {
-            //             numkmers += 1;
-            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
-            outvec.push((hc, hnc, b));
-            outdict.entry(hc).or_insert(km);
-            // let testkm = outdict.entry(hc).or_insert(km);
-            // if *testkm != km {
-            //     logw(format!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc).as_str(), Some("warn"));
-            //     logw(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
-            // }
-            // } else {
-            //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
-            // }
-            minmaxdict.entry(hnc).or_insert(hc);
-            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                let (hc, hnc, b, km) = tmptuple;
+        //     log::debug!("MITAD Length of seq. vec.: {}, total length of first files: {}, THING {}, number of recs: {}", theseq.len(), itrecord, (itrecord % 32) as u8, realit);
+        // Memory usage optimisations
+        // Filling the seq of the second file!
+        while let Some(record) = reader.next() {
+            let seqrec = record.expect("Invalid FASTQ record");
+            let rl = seqrec.seq().len();
+            let kmer_opt = Kmer::<IntT>::new(
+                std::borrow::Cow::Borrowed(seqrec.seq()),
+                rl,
+                Some(seqrec.qual()),
+                k,
+                qual.min_qual,
+                true,
+            );
+            if let Some(mut kmer_it) = kmer_opt {
+                //             numkmers += 1;
+                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
                 outvec.push((hc, hnc, b));
                 outdict.entry(hc).or_insert(km);
                 // let testkm = outdict.entry(hc).or_insert(km);
                 // if *testkm != km {
-                //     logw(format!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+                //     logw(format!("\n\t- COLLISIONS 3 !!! Hash: {:?}", hc).as_str(), Some("warn"));
                 //     logw(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
                 // }
                 // } else {
                 //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
                 // }
                 minmaxdict.entry(hnc).or_insert(hc);
+                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                    let (hc, hnc, b, km) = tmptuple;
+                    outvec.push((hc, hnc, b));
+                    outdict.entry(hc).or_insert(km);
+                    // let testkm = outdict.entry(hc).or_insert(km);
+                    // if *testkm != km {
+                    //     logw(format!("\n\t- COLLISIONS 4 !!! Hash: {:?}", hc).as_str(), Some("warn"));
+                    //     logw(format!("{:#0258b}\n{:#0258b}", *testkm, km).as_str(), Some("warn"));
+                    // }
+                    // } else {
+                    //     log::debug!("\n\t\t- NOT COLLISIONS!!!");
+                    // }
+                    minmaxdict.entry(hnc).or_insert(hc);
 
-                //                 numkmers += 1;
-                //                 if numkmers >= maxkmers {break};
+                    //                 numkmers += 1;
+                    //                 if numkmers >= maxkmers {break};
+                }
             }
+            //         if numkmers >= maxkmers {itrecord += rl as u32;break};
+            // itrecord += rl as u32;
         }
-        //         if numkmers >= maxkmers {itrecord += rl as u32;break};
-        // itrecord += rl as u32;
     }
 
     logw("Finished getting kmers from the second file", Some("info"));
@@ -355,7 +357,7 @@ where
 #[cfg(feature = "wasm")]
 fn chunked_processing_wasm<IntT>(
     file1: &mut WebSysFile,
-    file2: &mut WebSysFile,
+    file2: Option<&mut WebSysFile>,
     k: usize,
     qual: &QualOpts,
     outvec: &mut Vec<(u64, u64, u8)>,
@@ -435,49 +437,51 @@ where
         Some("info"),
     );
 
-    let mut reader = open_fastq(file2);
+    if let Some(f2) = file2 {
+        let mut reader = open_fastq(f2);
 
-    // Filling the seq of the second file!
-    while let Some(record) = reader.next() {
-        let seqrec = record.expect("Invalid FASTQ record");
-        // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
-        let rl = seqrec.seq().len();
-        let kmer_opt = Kmer::<IntT>::new(
-            std::borrow::Cow::Borrowed(seqrec.seq()),
-            rl,
-            Some(seqrec.qual()),
-            k,
-            qual.min_qual,
-            true,
-        );
-        if let Some(mut kmer_it) = kmer_opt {
-            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
-            outvec.push((hc, hnc, b));
-            outdict.entry(hc).or_insert(km);
-            minmaxdict.entry(hnc).or_insert(hc);
-            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                let (hc, hnc, b, km) = tmptuple;
+        // Filling the seq of the second file!
+        while let Some(record) = reader.next() {
+            let seqrec = record.expect("Invalid FASTQ record");
+            // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
+            let rl = seqrec.seq().len();
+            let kmer_opt = Kmer::<IntT>::new(
+                std::borrow::Cow::Borrowed(seqrec.seq()),
+                rl,
+                Some(seqrec.qual()),
+                k,
+                qual.min_qual,
+                true,
+            );
+            if let Some(mut kmer_it) = kmer_opt {
+                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
                 outvec.push((hc, hnc, b));
                 outdict.entry(hc).or_insert(km);
                 minmaxdict.entry(hnc).or_insert(hc);
-            }
-        }
-
-        i_record += 1;
-        if i_record >= csize {
-            // Processssssss! And reset.
-            if !outvec.is_empty() {
-                logw("Processing chunk. Sorting k-mers...", Some("info"));
-                outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-                logw("k-mers sorted. Counting k-mers...", Some("info"));
-                // Then, do a counting of everything and save the results in a dictionary and return it
-
-                update_countmap(outvec, &mut countmap);
+                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                    let (hc, hnc, b, km) = tmptuple;
+                    outvec.push((hc, hnc, b));
+                    outdict.entry(hc).or_insert(km);
+                    minmaxdict.entry(hnc).or_insert(hc);
+                }
             }
 
-            // Reset
-            outvec.clear();
-            i_record = 0;
+            i_record += 1;
+            if i_record >= csize {
+                // Processssssss! And reset.
+                if !outvec.is_empty() {
+                    logw("Processing chunk. Sorting k-mers...", Some("info"));
+                    outvec.par_sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                    logw("k-mers sorted. Counting k-mers...", Some("info"));
+                    // Then, do a counting of everything and save the results in a dictionary and return it
+
+                    update_countmap(outvec, &mut countmap);
+                }
+
+                // Reset
+                outvec.clear();
+                i_record = 0;
+            }
         }
     }
 
@@ -592,7 +596,7 @@ where
 #[cfg(feature = "wasm")]
 fn bloom_filter_preprocessing_wasm<IntT>(
     file1: &mut WebSysFile,
-    file2: &mut WebSysFile,
+    file2: Option<&mut WebSysFile>,
     k: usize,
     qual: &QualOpts,
     do_fit: bool,
@@ -651,32 +655,34 @@ where
         Some("info"),
     );
 
-    let mut reader = open_fastq(file2);
+    if let Some(f2) = file2 {
+        let mut reader = open_fastq(f2);
 
-    // Filling the seq of the second file!
-    while let Some(record) = reader.next() {
-        let seqrec = record.expect("Invalid FASTQ record");
-        // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
-        let rl = seqrec.seq().len();
-        let kmer_opt = Kmer::<IntT>::new(
-            std::borrow::Cow::Borrowed(seqrec.seq()),
-            rl,
-            Some(seqrec.qual()),
-            k,
-            qual.min_qual,
-            true,
-        );
-        if let Some(mut kmer_it) = kmer_opt {
-            let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
-            if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
-                outdict.entry(hc).or_insert(km);
-                minmaxdict.entry(hnc).or_insert(hc);
-            }
-            while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
-                let (hc, hnc, b, km) = tmptuple;
+        // Filling the seq of the second file!
+        while let Some(record) = reader.next() {
+            let seqrec = record.expect("Invalid FASTQ record");
+            // put_these_nts_into_an_efficient_vector_rc(&seqrec.seq(), &mut theseq, (itrecord % 32) as u8);
+            let rl = seqrec.seq().len();
+            let kmer_opt = Kmer::<IntT>::new(
+                std::borrow::Cow::Borrowed(seqrec.seq()),
+                rl,
+                Some(seqrec.qual()),
+                k,
+                qual.min_qual,
+                true,
+            );
+            if let Some(mut kmer_it) = kmer_opt {
+                let (hc, hnc, b, km) = kmer_it.get_curr_kmerhash_and_bases_and_kmer();
                 if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
                     outdict.entry(hc).or_insert(km);
                     minmaxdict.entry(hnc).or_insert(hc);
+                }
+                while let Some(tmptuple) = kmer_it.get_next_kmer_and_give_us_things() {
+                    let (hc, hnc, b, km) = tmptuple;
+                    if Ordering::is_eq(kmer_filter.filter(hc, hnc, b)) {
+                        outdict.entry(hc).or_insert(km);
+                        minmaxdict.entry(hnc).or_insert(hc);
+                    }
                 }
             }
         }
@@ -1921,7 +1927,7 @@ where
 /// Main preprocessing function for wasm
 pub fn preprocessing_wasm<IntT>(
     file1: &mut WebSysFile,
-    file2: &mut WebSysFile,
+    file2: Option<&mut WebSysFile>,
     k: usize,
     qual: &QualOpts,
     csize: usize,
