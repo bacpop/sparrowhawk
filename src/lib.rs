@@ -522,11 +522,11 @@ impl AssemblyHelper {
     }
 
     /// Preprocess read files
-    pub fn preprocess(&mut self, file1: web_sys::File, file2: web_sys::File) {
+    pub fn preprocess(&mut self, file1: web_sys::File, file2: Option<web_sys::File>) {
         post_state("preprocess:start");
 
         let mut wf1 = WebSysFile::new(file1);
-        let mut wf2 = WebSysFile::new(file2);
+        let mut wf2 = file2.map(|f| WebSysFile::new(f));
 
         // Read input
         let quality = QualOpts {
@@ -566,13 +566,7 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<u64>(
-                &mut wf1,
-                &mut wf2,
-                self.k,
-                &quality,
-                self.chunk_size,
-                self.do_bloom,
-                self.do_fit,
+                &mut wf1, wf2.as_mut(), self.k, &quality, self.chunk_size, self.do_bloom, self.do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
@@ -589,13 +583,7 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<u128>(
-                &mut wf1,
-                &mut wf2,
-                self.k,
-                &quality,
-                self.chunk_size,
-                self.do_bloom,
-                self.do_fit,
+                &mut wf1, wf2.as_mut(), self.k, &quality, self.chunk_size, self.do_bloom, self.do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
@@ -612,13 +600,7 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<U256>(
-                &mut wf1,
-                &mut wf2,
-                self.k,
-                &quality,
-                self.chunk_size,
-                self.do_bloom,
-                self.do_fit,
+                &mut wf1, wf2.as_mut(), self.k, &quality, self.chunk_size, self.do_bloom, self.do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
@@ -635,13 +617,7 @@ impl AssemblyHelper {
                 histovalues,
                 used_min_count,
             ) = preprocessing::preprocessing_wasm::<U512>(
-                &mut wf1,
-                &mut wf2,
-                self.k,
-                &quality,
-                self.chunk_size,
-                self.do_bloom,
-                self.do_fit,
+                &mut wf1, wf2.as_mut(), self.k, &quality, self.chunk_size, self.do_bloom, self.do_fit,
             );
 
             logw("Preprocessing done!", Some("info"));
