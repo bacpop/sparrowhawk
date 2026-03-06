@@ -47,6 +47,8 @@ export default {
             assemblyState: '',
             isCallingGenes: false,
             isCallingGenesFiles: new Set<string>(),
+            geneCallingStep: '',
+            geneCallingProgressTotal: 0,
             isFilteringDeacon: false,
             isFilteringDeaconFiles: new Set<string>(),
         };
@@ -251,10 +253,19 @@ export default {
     },
     setOrphosError(state: RootState, msg: string) { state.allResults_orphos.error = msg; },
 
+    setGeneCallingStep(state: RootState, step: string) {
+        state.processingState.geneCallingStep = step;
+    },
+    addGeneCallingProgressTotal(state: RootState, count: number) {
+        state.processingState.geneCallingProgressTotal += count;
+    },
+
     resetAllResults_orphos(state: RootState) {
         state.allResults_orphos = { results: {}, error: null };
         state.processingState.isCallingGenes = false;
         state.processingState.isCallingGenesFiles = new Set();
+        state.processingState.geneCallingStep = '';
+        state.processingState.geneCallingProgressTotal = 0;
         for (const worker of state.workerState.workers_orphos) {
             worker.postMessage({ reset: true });
         }

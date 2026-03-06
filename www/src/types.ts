@@ -53,6 +53,11 @@ export interface GeneCallResult {
     outputFile: string;
     geneCount: number;
     sequenceCount: number;
+    fastaBgz: Uint8Array<ArrayBuffer>;
+    fastaFai: Uint8Array<ArrayBuffer>;
+    fastaGzi: Uint8Array<ArrayBuffer>;
+    gffBgz: Uint8Array<ArrayBuffer>;
+    gffCsi: Uint8Array<ArrayBuffer>;
 }
 
 export interface AllResultsOrphos {
@@ -96,6 +101,8 @@ export interface ProcessingState {
     assemblyState: string;  // Current state from Sparrowhawk assembly
     isCallingGenes: boolean;
     isCallingGenesFiles: Set<string>;
+    geneCallingStep: string;
+    geneCallingProgressTotal: number;
     isFilteringDeacon: boolean;
     isFilteringDeaconFiles: Set<string>;
 }

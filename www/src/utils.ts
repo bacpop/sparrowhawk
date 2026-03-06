@@ -66,6 +66,8 @@ export const emptyState = (): RootState => ({
         assemblyState: '',
         isCallingGenes: false,
         isCallingGenesFiles: new Set<string>(),
+        geneCallingStep: '',
+        geneCallingProgressTotal: 0,
         isFilteringDeacon: false,
         isFilteringDeaconFiles: new Set<string>(),
     },

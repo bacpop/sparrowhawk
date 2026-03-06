@@ -98,6 +98,12 @@ export const getters: GetterTree<RootState, RootState> = {
     callingGenesFiles(state: RootState): Set<string> {
         return state.processingState.isCallingGenesFiles;
     },
+    geneCallingStep(state: RootState): string {
+        return state.processingState.geneCallingStep;
+    },
+    geneCallingProgressTotal(state: RootState): number {
+        return state.processingState.geneCallingProgressTotal;
+    },
 
     // SKA errors
     skaError(state: RootState)       { return state.allResults_ska.error; },

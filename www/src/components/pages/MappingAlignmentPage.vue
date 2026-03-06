@@ -264,7 +264,8 @@
 
         <!-- Reset button -->
         <Button v-if="uploadedFiles.length > 0" @click="resetAll" class="mx-6 mr-0 mt-4" variant="outline" size="sm">
-          Reset and start over
+          <Trash2 class="mr-1 h-3 w-3" />
+          Clear results
         </Button>
 
         <div v-if="hasMappingResults" class="mx-6 mt-6">
@@ -324,7 +325,8 @@
 
         <!-- Reset button -->
         <Button v-if="uploadedAlignmentFiles.length > 0 && !isProcessingAny" @click="resetAll" class="mx-6 mt-4" variant="outline" size="sm">
-          Reset and start over
+          <Trash2 class="mr-1 h-3 w-3" />
+          Clear results
         </Button>
 
         <slot name="alignment"/>
@@ -341,7 +343,7 @@ import { useStore } from "vuex";
 import VueSlider from 'vue-3-slider-component';
 import VueSelect from "vue3-select-component";
 import "vue3-select-component/styles";
-import { Check, FileUp, Loader2, Info, TextAlignCenter, TreePine } from "lucide-vue-next";
+import { Check, FileUp, Loader2, Info, TextAlignCenter, TreePine, Trash2 } from "lucide-vue-next";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import MappingHelpCollapsible from "@/components/help/MappingHelpCollapsible.vue";
@@ -373,6 +375,7 @@ export default defineComponent({
     Info,
     TextAlignCenter,
     TreePine,
+    Trash2,
     Tooltip,
     TooltipContent,
     TooltipProvider,

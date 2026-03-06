@@ -6,3 +6,4 @@ declare module '*.vue' {
 }
 
 declare module 'taxonium-component';
+declare module 'mgnify-jbrowse';

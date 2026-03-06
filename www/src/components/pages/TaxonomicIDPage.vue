@@ -175,6 +175,14 @@
           </div>
         </div>
 
+        <!-- Clear button -->
+        <div v-if="uploadedFileNames.length > 0" class="mx-6 mr-0 mt-4">
+          <Button variant="outline" size="sm" @click="resetAll">
+            <Trash2 class="mr-1 h-3 w-3" />
+            Clear results
+          </Button>
+        </div>
+
         <!-- Show results as a single table with expandable rows per sample -->
         <div v-if="sampleIdentified" class="px-6 mt-4">
           <div class="flex justify-start mb-2">
@@ -198,7 +206,7 @@ import { useStore } from "vuex";
 import { useDropzone } from "vue3-dropzone";
 import { useActions, useState } from "vuex-composition-helpers";
 import VueSlider from 'vue-3-slider-component';
-import { Check, FileUp, Loader2, Info, ScanFace, Download } from "lucide-vue-next";
+import { Check, FileUp, Loader2, Info, ScanFace, Download, Trash2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import TaxonomicIDHelpCollapsible from "@/components/help/TaxonomicIDHelpCollapsible.vue";
@@ -223,6 +231,7 @@ export default defineComponent({
     Info,
     ScanFace,
     Download,
+    Trash2,
     Button,
     Tooltip,
     TooltipContent,

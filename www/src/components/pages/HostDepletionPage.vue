@@ -198,7 +198,10 @@
 
         <!-- Reset button -->
         <div v-if="deaconIndexLoaded" class="mx-6 mt-6">
-          <Button variant="outline" size="sm" @click="resetAll">Reset</Button>
+          <Button variant="outline" size="sm" @click="resetAll">
+            <Trash2 class="mr-1 h-3 w-3" />
+            Clear results
+          </Button>
         </div>
 
       </div>
@@ -211,7 +214,7 @@ import { defineComponent, ref, Ref, computed } from "vue";
 import { useStore } from "vuex";
 import { useDropzone } from "vue3-dropzone";
 import { useActions, useState } from "vuex-composition-helpers";
-import { Check, FileUp, Loader2, Funnel, Info, Download } from "lucide-vue-next";
+import { Check, FileUp, Loader2, Funnel, Info, Download, Trash2 } from "lucide-vue-next";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import VueSlider from 'vue-3-slider-component';
 import HostDepletionHelpCollapsible from "@/components/help/HostDepletionHelpCollapsible.vue";
@@ -235,6 +238,7 @@ export default defineComponent({
     Funnel,
     Info,
     Download,
+    Trash2,
     VueSlider,
     Tooltip,
     TooltipContent,

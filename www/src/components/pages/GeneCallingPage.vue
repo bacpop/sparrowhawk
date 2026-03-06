@@ -186,16 +186,36 @@
           </div>
         </div>
 
-        <!-- Bulk download bar (shown when 2+ results) -->
-        <div v-if="resultCount >= 2" class="mx-6 mt-4 flex gap-2">
-          <Button variant="outline" size="sm" @click="downloadZip">
-            <Download class="mr-2 h-4 w-4" />
-            Download all (.zip)
+        <!-- Progress block -->
+        <div v-if="callingGenes" class="mx-6 mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div class="flex items-center gap-2 text-sm">
+            <Loader2 class="w-4 h-4 text-blue-500 animate-spin" />
+            <span v-if="geneCallingProgressTotal <= 1" class="font-semibold text-gray-800">
+              {{ geneCallingStepLabel }}
+            </span>
+            <span v-else class="text-gray-800">
+              Processed files: {{ resultCount }}/{{ geneCallingProgressTotal }}
+              — {{ Math.round(resultCount / geneCallingProgressTotal * 100) }}%
+            </span>
+          </div>
+        </div>
+
+        <!-- Action bar -->
+        <div v-if="genesCalled || callingGenes" class="mx-6 mt-4 flex gap-2">
+          <Button variant="outline" size="sm" @click="resetAll">
+            <Trash2 class="mr-1 h-3 w-3" />
+            Clear results
           </Button>
-          <Button variant="outline" size="sm" @click="downloadTarGz">
-            <Download class="mr-2 h-4 w-4" />
-            Download all (.tar.gz)
-          </Button>
+          <template v-if="resultCount >= 2">
+            <Button variant="outline" size="sm" @click="downloadZip">
+              <Download class="mr-2 h-4 w-4" />
+              Download all (.zip)
+            </Button>
+            <Button variant="outline" size="sm" @click="downloadTarGz">
+              <Download class="mr-2 h-4 w-4" />
+              Download all (.tar.gz)
+            </Button>
+          </template>
         </div>
 
         <!-- Results table -->
@@ -206,6 +226,7 @@
                 <th class="px-3 py-2 font-medium text-gray-700">File name</th>
                 <th class="px-3 py-2 font-medium text-gray-700">Genes called</th>
                 <th class="px-3 py-2 font-medium text-gray-700">Download</th>
+                <th class="px-3 py-2 font-medium text-gray-700">View</th>
               </tr>
             </thead>
             <tbody>
@@ -219,16 +240,22 @@
                     .gff
                   </Button>
                 </td>
+                <td class="px-3 py-2">
+                  <Button variant="outline" size="sm"
+                          :class="selectedGenome === result.fileName ? 'bg-blue-50' : ''"
+                          @click="selectGenome(result.fileName)">
+                    <Eye class="mr-1 h-3 w-3" />
+                    View
+                  </Button>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- Clear button -->
-        <div v-if="genesCalled || callingGenes" class="mx-6 mt-4">
-          <Button variant="outline" size="sm" @click="resetAll">
-            Clear results
-          </Button>
+        <!-- Genome viewer -->
+        <div v-if="selectedGenome" class="mx-6 mt-4 overflow-hidden" style="height: 600px;">
+          <div ref="genomeViewerContainer" style="height: 600px;"></div>
         </div>
 
       </div>
@@ -237,20 +264,34 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, Ref, computed } from "vue";
+import { defineComponent, ref, Ref, computed, watch, nextTick, onBeforeUnmount } from "vue";
 import { useStore } from "vuex";
 import VueSelect from "vue3-select-component";
 import "vue3-select-component/styles";
 import VueSlider from 'vue-3-slider-component';
 import { useDropzone } from "vue3-dropzone";
 import { useActions } from "vuex-composition-helpers";
-import { Check, FileUp, Loader2, Info, Dna, Download } from "lucide-vue-next";
+import { Check, FileUp, Loader2, Info, Dna, Download, Eye, Trash2 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GeneCallingHelpCollapsible from "@/components/help/GeneCallingHelpCollapsible.vue";
 import { fastaExtensionsWithDotAndCompressList } from "@/utils";
 import { GeneCallResult } from "@/types";
 import { buildZip, buildTarGz } from "@/archiveUtils";
+import * as ReactDOM from 'react-dom/client';
+import * as React from 'react';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import { GeneViewer } from 'mgnify-jbrowse';
+
+const STEP_LABELS: Record<string, string> = {
+    creating_interface:   'Creating interface',
+    reading_fasta:        'Reading FASTA file',
+    compressing_indexing: 'Compressing and indexing',
+    calling_genes:        'Calling genes',
+    genes_called:         'Genes called',
+    writing_gff:          'Writing and indexing GFF file',
+    done:                 'Done',
+};
 
 export default defineComponent({
   name: "GeneCallingPage",
@@ -267,6 +308,8 @@ export default defineComponent({
     Info,
     Dna,
     Download,
+    Eye,
+    Trash2,
     VueSelect,
     VueSlider,
     Button,
@@ -286,6 +329,55 @@ export default defineComponent({
     const numWorkers: Ref<number> = ref(4);
     const uploadedFileNames: Ref<string[]> = ref([]);
 
+    const selectedGenome = ref<string | null>(null);
+    const genomeViewerContainer = ref<HTMLDivElement | null>(null);
+    let reactRoot: ReturnType<typeof ReactDOM.createRoot> | null = null;
+    let activeBlobUrls: string[] = [];
+
+    function revokeBlobUrls() {
+        activeBlobUrls.forEach(u => URL.revokeObjectURL(u));
+        activeBlobUrls = [];
+    }
+
+    function mountGenomeViewer() {
+        if (!genomeViewerContainer.value || !selectedGenome.value) return;
+        const result = orphosResults.value[selectedGenome.value];
+        if (!result) return;
+
+        revokeBlobUrls();
+
+        const fastaUrl = URL.createObjectURL(new Blob([result.fastaBgz]));
+        const faiUrl   = URL.createObjectURL(new Blob([result.fastaFai]));
+        const gziUrl   = URL.createObjectURL(new Blob([result.fastaGzi]));
+        const gffUrl   = URL.createObjectURL(new Blob([result.gffBgz]));
+        const csiUrl   = URL.createObjectURL(new Blob([result.gffCsi]));
+        activeBlobUrls = [fastaUrl, faiUrl, gziUrl, gffUrl, csiUrl];
+
+        const el = React.createElement(GeneViewer as React.ElementType, {
+            assembly: { name: result.fileName, fasta: { fastaUrl, faiUrl, gziUrl } },
+            annotation: { name: 'Genes', gff: { gffUrl, csiUrl } },
+            ui: { showLegends: false, showFeaturePanel: false },
+            heightPx: 600,
+        });
+        if (!reactRoot) {
+            reactRoot = ReactDOM.createRoot(genomeViewerContainer.value);
+        }
+        reactRoot.render(el);
+    }
+
+    function selectGenome(fileName: string) {
+        selectedGenome.value = fileName;
+    }
+
+    onBeforeUnmount(() => {
+        if (reactRoot) { reactRoot.unmount(); reactRoot = null; }
+        revokeBlobUrls();
+    });
+
+    watch(selectedGenome, () => {
+        nextTick(() => mountGenomeViewer());
+    });
+
     const { callGenes, resetAllResults_orphos, initCallerWorkers } = useActions(["callGenes", "resetAllResults_orphos", "initCallerWorkers"]);
 
     function onNumWorkersChange(value: number): void {
@@ -294,11 +386,11 @@ export default defineComponent({
 
     function resetAll(): void {
       uploadedFileNames.value = [];
+      selectedGenome.value = null;
       resetAllResults_orphos();
     }
 
     function onDropGenome(acceptFiles: File[]): void {
-      // Accumulate file names (don't reset existing results on each drop)
       const newNames = acceptFiles.map(f => f.name);
       for (const name of newNames) {
         if (!uploadedFileNames.value.includes(name)) {
@@ -317,6 +409,10 @@ export default defineComponent({
 
     const orphosResults = computed<Record<string, GeneCallResult>>(() => store.getters.orphosResults);
     const resultCount = computed<number>(() => Object.keys(orphosResults.value).length);
+
+    const geneCallingProgressTotal = computed<number>(() => store.getters.geneCallingProgressTotal);
+    const geneCallingStep = computed<string>(() => store.getters.geneCallingStep);
+    const geneCallingStepLabel = computed<string>(() => STEP_LABELS[geneCallingStep.value] ?? geneCallingStep.value);
 
     function downloadGff(result: GeneCallResult): void {
       const blob = new Blob([result.outputFile], { type: 'text/plain' });
@@ -388,6 +484,11 @@ export default defineComponent({
       downloadGff,
       downloadZip,
       downloadTarGz,
+      selectedGenome,
+      genomeViewerContainer,
+      selectGenome,
+      geneCallingProgressTotal,
+      geneCallingStepLabel,
       store,
       ...restGenome,
     };

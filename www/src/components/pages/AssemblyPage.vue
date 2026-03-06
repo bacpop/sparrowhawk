@@ -251,11 +251,12 @@
         </div>
 
         <!-- Reset button when processing is done or in progress -->
-        <!--        <button @click="resetAll"-->
-        <!--                v-if="uploadedFiles.length > 0"-->
-        <!--                class="mx-6 mt-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">-->
-        <!--          Reset-->
-        <!--        </button>-->
+        <div v-if="uploadedFiles.length > 0" class="mx-6 mt-4">
+          <Button variant="outline" size="sm" @click="resetAll">
+            <Trash2 class="mr-1 h-3 w-3" />
+            Clear results
+          </Button>
+        </div>
 
         <slot/>
       </div>
@@ -271,7 +272,7 @@ import {useActions, useState} from "vuex-composition-helpers";
 import {useStore} from "vuex";
 import VueSlider from 'vue-3-slider-component';
 import "@fontsource/ibm-plex-mono";
-import {Check, FileUp, Loader2, Info, Codesandbox} from "lucide-vue-next";
+import {Check, FileUp, Loader2, Info, Codesandbox, Trash2} from "lucide-vue-next";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
 import DownloadButton from "@/components/DownloadButton.vue";
 import AssemblyHelpCollapsible from "@/components/help/AssemblyHelpCollapsible.vue";
@@ -296,6 +297,7 @@ export default defineComponent({
     Check,
     Info,
     Codesandbox,
+    Trash2,
     Tooltip,
     TooltipContent,
     TooltipProvider,

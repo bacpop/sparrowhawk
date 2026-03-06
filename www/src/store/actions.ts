@@ -376,13 +376,20 @@ export default {
                 if (msg.data?.error) {
                     commit("setOrphosError", msg.data.message ?? "generic");
                     if (msg.data.fileName) commit("removeCallingGenesFile", msg.data.fileName);
+                } else if (msg.data?.geneCallingStep !== undefined) {
+                    commit("setGeneCallingStep", msg.data.geneCallingStep);
                 } else if (msg.data?.output_file !== undefined) {
                     commit("removeCallingGenesFile", msg.data.fileName);
                     commit("saveGeneCallingResult", {
-                        fileName: msg.data.fileName,
-                        outputFile: msg.data.output_file,
-                        geneCount: msg.data.gene_count,
+                        fileName:      msg.data.fileName,
+                        outputFile:    msg.data.output_file,
+                        geneCount:     msg.data.gene_count,
                         sequenceCount: msg.data.sequence_count,
+                        fastaBgz:      msg.data.fasta_bgz,
+                        fastaFai:      msg.data.fasta_fai,
+                        fastaGzi:      msg.data.fasta_gzi,
+                        gffBgz:        msg.data.gff_bgz,
+                        gffCsi:        msg.data.gff_csi,
                     });
                 }
             };
@@ -407,6 +414,7 @@ export default {
             return;
         }
         const indxlist = getFilesToProcess(payload.acceptFiles);
+        commit("addGeneCallingProgressTotal", indxlist.length);
         indxlist.forEach((sublist: number[], index: number) => {
             const file = payload.acceptFiles[sublist[0]];
             const fileName = file.name;
