@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-row">
-    <div class="w-1/3">
+    <div class="w-[350px] shrink-0">
       <h1 class="text-2xl font-medium mb-4 flex items-center gap-2">
         <Dna class="w-6 h-6" />
         Gene calling
@@ -146,7 +146,7 @@
       </TooltipProvider>
     </div>
 
-    <div class="w-2/3 pt-12">
+    <div class="min-w-0 flex-1 overflow-hidden pt-12">
 
       <div v-if="orphosError"
            class="mx-6 mb-4 p-3 bg-red-50 border border-red-300 rounded-md text-sm text-red-800">

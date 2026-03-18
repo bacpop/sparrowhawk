@@ -1,0 +1,42 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [deacon_integration]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "rust -> target"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: true
+          cache: npm
+          cache-dependency-path: www/package-lock.json
+
+      - name: Install and build
+        working-directory: www
+        run: |
+          npm ci
+          npm run build
+          find dist/ -name '*.map' -delete  # Remove source maps, which are very large
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy www/dist --project-name=sparrowhawk-web
