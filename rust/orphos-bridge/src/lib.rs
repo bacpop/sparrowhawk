@@ -1,5 +1,7 @@
 use orphos_core::config::{OrphosConfig, OutputFormat};
-use orphos_core::engine::OrphosAnalyzer;
+use orphos_core::engine::{OrphosAnalyzer, UntrainedOrphos};
+use orphos_core::sequence::encoded::EncodedSequence;
+use orphos_core::types::Training;
 use orphos_core::output::write_results;
 use orphos_core::results::OrphosResults;
 use wasm_bindgen::prelude::*;
@@ -125,33 +127,83 @@ impl OrphosData {
     pub fn call_genes(&mut self) {
         log::info!("Analysing FASTA file. Getting config struct.");
         let orphosconfig = self.orphos_config();
-
-        log::info!("Creating reader and Orphos analyser...");
-        let mut cursor = Cursor::new(&self.raw_fasta_bytes);
-        let mut reader = open_fasta(&mut cursor);
         let mut analyser = OrphosAnalyzer::new(orphosconfig);
         let mut all_results = Vec::new();
 
-        log::info!("Entering while loop (analysing)...");
-        while let Some(record) = reader.next() {
-            let seqrec = record.expect("Invalid FASTA record");
-            let (id, desc) = seqrec.id_desc().unwrap();
-            let tmpdesc = desc.map(|s| s.to_string());
-            let tmpid = id.to_owned();
-            let tmpvec = seqrec.full_seq().to_vec();
-
-            if tmpvec.len() < MIN_NT_CONTIG {
-                log::warn!(
-                    "Contig found with less than {} nucleotides. Ignoring...",
-                    MIN_NT_CONTIG
-                );
-                continue;
+        if !self.metag {
+            // ── Single mode: train on whole genome, then analyze per-contig ──
+            log::info!("Single mode: training pass...");
+            let mut training_seq: Vec<u8> = Vec::new();
+            let mut cursor = Cursor::new(&self.raw_fasta_bytes);
+            let mut reader = open_fasta(&mut cursor);
+            while let Some(record) = reader.next() {
+                let seqrec = record.expect("Invalid FASTA record");
+                let tmpvec = seqrec.full_seq().to_vec();
+                if tmpvec.len() >= MIN_NT_CONTIG {
+                    if !training_seq.is_empty() {
+                        training_seq.extend_from_slice(b"TTAATTAATTAA");
+                    }
+                    training_seq.extend_from_slice(&tmpvec);
+                }
             }
+            let encoded_training = if self.mask_n_runs {
+                EncodedSequence::with_masking(&training_seq)
+            } else {
+                EncodedSequence::without_masking(&training_seq)
+            };
+            let mut untrained = UntrainedOrphos::with_config(analyser.config.clone())
+                .expect("Failed to configure orphos for training");
+            let training = untrained
+                .train_single_genome(&encoded_training)
+                .expect("Training failed")
+                .into_training();
 
-            let tmpres = analyser
-                .analyze_sequence_bytes(&tmpvec, tmpid, tmpdesc)
-                .expect("Error analysing FASTA record.");
-            all_results.push(tmpres);
+            log::info!("Single mode: analysis pass...");
+            let mut cursor2 = Cursor::new(&self.raw_fasta_bytes);
+            let mut reader2 = open_fasta(&mut cursor2);
+            while let Some(record) = reader2.next() {
+                let seqrec = record.expect("Invalid FASTA record");
+                let (id, desc) = seqrec.id_desc().unwrap();
+                let tmpdesc = desc.map(|s| s.to_string());
+                let tmpid = id.to_owned();
+                let tmpvec = seqrec.full_seq().to_vec();
+                if tmpvec.len() < MIN_NT_CONTIG {
+                    log::warn!(
+                        "Contig found with less than {} nucleotides. Ignoring...",
+                        MIN_NT_CONTIG
+                    );
+                    continue;
+                }
+                let tmpres = analyser
+                    .analyze_sequence_bytes_with_training(&tmpvec, tmpid, tmpdesc, training.clone())
+                    .expect("Error analysing FASTA record.");
+                all_results.push(tmpres);
+            }
+        } else {
+            // ── Metagenomic/anonymous mode ──
+            log::info!("Creating reader and Orphos analyser...");
+            let mut cursor = Cursor::new(&self.raw_fasta_bytes);
+            let mut reader = open_fasta(&mut cursor);
+
+            log::info!("Entering while loop (analysing)...");
+            while let Some(record) = reader.next() {
+                let seqrec = record.expect("Invalid FASTA record");
+                let (id, desc) = seqrec.id_desc().unwrap();
+                let tmpdesc = desc.map(|s| s.to_string());
+                let tmpid = id.to_owned();
+                let tmpvec = seqrec.full_seq().to_vec();
+                if tmpvec.len() < MIN_NT_CONTIG {
+                    log::warn!(
+                        "Contig found with less than {} nucleotides. Ignoring...",
+                        MIN_NT_CONTIG
+                    );
+                    continue;
+                }
+                let tmpres = analyser
+                    .analyze_sequence_bytes(&tmpvec, tmpid, tmpdesc)
+                    .expect("Error analysing FASTA record.");
+                all_results.push(tmpres);
+            }
         }
 
         log::info!("Analysis done. Saving results as attribute...");

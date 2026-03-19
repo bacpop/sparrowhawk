@@ -9,7 +9,8 @@ license = "GPL-3.0-or-later"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-orphos-core = "0.1.0"
+#orphos-core = "0.1.0"
+orphos-core = {git = "https://github.com/vrbouza/orphos.git", branch = "victordev"}
 wasm-bindgen = "0.2"
 wasm-bindgen-file-reader = {version = "1"}
 web-sys = {version = "0.3.77", features = ["Blob", "Document", "Element", "HtmlCanvasElement", "HtmlImageElement", "Response", "Window"]}

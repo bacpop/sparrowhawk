@@ -333,10 +333,49 @@ export default defineComponent({
     const genomeViewerContainer = ref<HTMLDivElement | null>(null);
     let reactRoot: ReturnType<typeof ReactDOM.createRoot> | null = null;
     let activeBlobUrls: string[] = [];
+    let blobRangeCache = new Map<string, ArrayBuffer>();
+    let fetchPatched = false;
 
     function revokeBlobUrls() {
-        activeBlobUrls.forEach(u => URL.revokeObjectURL(u));
+        activeBlobUrls.forEach(u => {
+            URL.revokeObjectURL(u);
+            blobRangeCache.delete(u);
+        });
         activeBlobUrls = [];
+    }
+
+    function ensureFetchPatchedForBlobRange() {
+        if (fetchPatched) return;
+        fetchPatched = true;
+        const orig = globalThis.fetch.bind(globalThis);
+        globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = typeof input === 'string' ? input
+                : input instanceof URL ? input.href
+                : (input as Request).url;
+            if (url.startsWith('blob:')) {
+                const hdrs = (init?.headers ?? {}) as Record<string, string>;
+                const rangeHdr = hdrs['range'] || hdrs['Range'];
+                if (rangeHdr) {
+                    const buf = blobRangeCache.get(url);
+                    if (buf) {
+                        const m = /^bytes=(\d+)-(\d+)?$/.exec(rangeHdr);
+                        if (m) {
+                            const lo = parseInt(m[1], 10);
+                            const hi = m[2] !== undefined ? parseInt(m[2], 10) + 1 : buf.byteLength;
+                            const slice = buf.slice(lo, Math.min(hi, buf.byteLength));
+                            return new Response(slice, {
+                                status: 206,
+                                headers: {
+                                    'Content-Range': `bytes ${lo}-${Math.min(hi, buf.byteLength) - 1}/${buf.byteLength}`,
+                                    'Content-Length': String(slice.byteLength),
+                                },
+                            });
+                        }
+                    }
+                }
+            }
+            return orig(input, init);
+        };
     }
 
     function mountGenomeViewer() {
@@ -353,9 +392,17 @@ export default defineComponent({
         const csiUrl   = URL.createObjectURL(new Blob([result.gffCsi]));
         activeBlobUrls = [fastaUrl, faiUrl, gziUrl, gffUrl, csiUrl];
 
+        // Pre-populate range-request cache so BgzipFastaAdapter range reads work on blob URLs
+        blobRangeCache.set(fastaUrl, result.fastaBgz.buffer as ArrayBuffer);
+        blobRangeCache.set(faiUrl,   result.fastaFai.buffer as ArrayBuffer);
+        blobRangeCache.set(gziUrl,   result.fastaGzi.buffer as ArrayBuffer);
+        blobRangeCache.set(gffUrl,   result.gffBgz.buffer as ArrayBuffer);
+        blobRangeCache.set(csiUrl,   result.gffCsi.buffer as ArrayBuffer);
+        ensureFetchPatchedForBlobRange();
+
         const el = React.createElement(GeneViewer as React.ElementType, {
             assembly: { name: result.fileName, fasta: { fastaUrl, faiUrl, gziUrl } },
-            annotation: { name: 'Genes', gff: { gffUrl, csiUrl } },
+            annotation: { name: 'Genes', gff: { gffUrl, csiUrl, gffAdapterMode: 'plain' } },
             ui: { showLegends: false, showFeaturePanel: false },
             heightPx: 600,
         });
