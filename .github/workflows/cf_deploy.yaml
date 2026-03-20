@@ -29,6 +29,8 @@ jobs:
 
       - name: Install and build
         working-directory: www
+        env:
+          NODE_OPTIONS: "--max_old_space_size=8192"
         run: |
           npm ci
           npm run build
