@@ -53,7 +53,7 @@ module.exports = defineConfig({
                         // args: '-t wasm64-unknown-unknown',
                         // extraArgs: "--features wasm --release",
                         // extraArgs: "--features wasm",
-                        extraArgs: "--no-default-features -F wasm --target wasm32-unknown-unknown",
+//                        extraArgs: "--no-default-features -F wasm --target wasm32-unknown-unknown",
 //                        extraArgs: "--features wasm --target wasm64-unknown-unknown",
                         outDir: path.resolve(__dirname, "./src/pkg"),
                         // forceMode: "development",
