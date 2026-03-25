@@ -1,0 +1,466 @@
+# Guide to compile methods or tools to WebAssembly
+
+This guide is aimed at bioinformaticians who are comfortable writing Rust and want to bring their tools to the web via WebAssembly (wasm). It covers the essential concepts, toolchain, workflow, and known limitations, using the same approach as this repository: Rust compiled with `wasm-pack`, and a plain-JavaScript front end that calls into the resulting module.
+
+---
+
+## Table of Contents
+
+1. [What is WebAssembly?](#what-is-webassembly)
+2. [Available targets](#available-targets)
+3. [Toolchain](#toolchain)
+4. [Workflow](#workflow)
+5. [Designing the Rust interface](#designing-the-rust-interface)
+6. [Building and bundling](#building-and-bundling)
+7. [Calling from JavaScript](#calling-from-javascript)
+8. [Limitations](#limitations)
+9. [A note on WebGPU](#a-note-on-webgpu)
+10. [Minimum working example (MWE)](#minimum-working-example)
+
+---
+
+## What is WebAssembly?
+
+WebAssembly (wasm) is a binary instruction format designed as a portable compilation target for high-level languages, though can be loosenly defined as **a somewhat-universal compilation target**. It can run inside the browser (and increasingly outside of it, via runtimes such as wasmtime or WASI), with near-native performance. This in particular allows to run the same code (or close to it) as one would run locally in the terminal for doing bioinformatics analyses, in a website under whichever platform. This also allows to use languages such as Rust to bear the burden of the most computing-demanding part of the algorithms, instead of using JavaScript, that might be slower for those.
+
+Another main feature from wasm is that allows for running methods fully locally. With this compilation target, as the exact same code could be potentially run with it, no upload of input data (e.g. a genome) to some remote server is needed, as many other websites offer, the same goes for downloading the results. This makes it ideally for resource-constrained environments (in particular, bad Internet connection), as well as for working with sensitive data, as it does not need to leave your computer.
+
+From the browser's perspective, a wasm module is essentially a well-defined binary blob that exports functions and, optionally, memory. JavaScript loads the module, instantiates it, and calls its exports as ordinary function calls. There is no subprocess, no file system access by default, and no shared state beyond what the module explicitly exposes.
+
+---
+
+## Available Targets
+
+Rust expresses compilation targets using the standard `<arch>-<vendor>-<os>` triple. The most relevant wasm targets for us are:
+
+| Target                       | Status in Rust | Notes                                                                                              |
+| ---------------------------- | -------------- | -------------------------------------------------------------------------------------------------- |
+| `wasm32-unknown-unknown`     | Tier 2         | No OS abstraction; the standard target for browser-facing wasm. Used by this project.             |
+| `wasm64-unknown-unknown`     | Tier 3         | 64-bit address space (Memory64 proposal); support in `wasm-bindgen` and `wasm-pack` is in active development but not yet released (see below). |
+<!-- | `wasm32-wasip1`              | Tier 2         | Targets the WASI (WebAssembly System Interface) preview 1; adds a POSIX-like layer.               | -->
+<!-- | `wasm32-wasip2`              | Tier 2         | Targets WASI preview 2, based on the Component Model.                                              | -->
+
+For browser-facing Rust code combined with `wasm-bindgen` and `wasm-pack`, **`wasm32-unknown-unknown` is the only practical choice**. It provides no operating system layer whatsoever — no file I/O, no threading primitives, no environment variables — which is both its strength (minimal, portable binary) and a source of constraints discussed in the [Limitations](#limitations) section.
+
+### A note on wasm64
+
+The `wasm64-unknown-unknown` target, corresponding to the WebAssembly Memory64 proposal, would allow modules to address more than 4 GiB of linear memory. This is potentially very relevant for bioinformatics tools operating on large reference genomes or graphs. However, as of the time of writing, toolchain support is still in progress and has not yet landed in a stable release:
+
+- `wasm-bindgen`: PR [#5004](https://github.com/wasm-bindgen/wasm-bindgen/pull/5004) — "Add wasm64/memory64 support for `wasm64-unknown-unknown` target" — is open and pending review. It was filed in February 2026 and closes the two underlying tracking issues ([#4436](https://github.com/wasm-bindgen/wasm-bindgen/issues/4436) and [#4499](https://github.com/wasm-bindgen/wasm-bindgen/issues/4499)).
+- `wasm-pack`: open issue [#1464](https://github.com/drager/wasm-pack/issues/1464), with a companion PR [#1553](https://github.com/drager/wasm-pack/pull/1553) linked from the `wasm-bindgen` PR above.
+
+Until both PRs are merged and released, `wasm32-unknown-unknown` remains the only usable target for browser-facing Rust with `wasm-pack`. Memory-intensive computations must be structured to fit within the 4 GiB linear memory limit, and the interface between Rust and JavaScript should be designed accordingly.
+
+---
+
+## Toolchain
+
+Install the following tools before starting:
+
+```bash
+# Install the wasm target for the Rust standard library
+rustup target add wasm32-unknown-unknown
+
+# Install wasm-pack — handles compilation, wasm-bindgen, and JS/TS glue generation
+cargo install wasm-pack
+```
+
+The central tool is [`wasm-pack`](https://rustwasm.github.io/wasm-pack/). It orchestrates, so that you don't need to take care of this:
+
+1. Calling `cargo build --target wasm32-unknown-unknown`.
+2. Running `wasm-bindgen` to generate the JavaScript/TypeScript glue layer.
+3. Optionally running `wasm-opt` for further binary optimisation.
+4. Producing a `pkg/` directory containing the `.wasm` file, the generated JS module, and a TypeScript declaration file.
+
+[`wasm-bindgen`](https://github.com/wasm-bindgen/wasm-bindgen) is the lower-level library that makes it possible to annotate Rust types and functions so that they can be called from JavaScript with idiomatic types (strings, typed arrays, JS objects) rather than raw integer pointers.
+
+
+
+---
+
+## Workflow
+
+The overall final way of running Rust code with WebAssembly in your website will look like this:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Rust library crate (crate-type = ["cdylib"])                   │
+│                                                                 │
+│  1. Annotate public API with #[wasm_bindgen]                    │
+│  2. Ensure that it compiles for your wasm target                │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Web front end (JavaScript / TypeScript / Vue / …)              │
+│                                                                 │
+│  3. Use wasm-pack to automatically compile, bind (wasm-bindgen),│
+│     optimise (wasm-opt), and put the binaries in a folder in    │
+│     your web repository                                         │
+│  4. Initialise the wasm module (async, one-time)                │
+│  5. Call exported Rust functions or construct exported structs  │
+│  6. Receive results as JS-native types                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Designing the Rust interface
+### `Cargo.toml` setup
+
+The crate must be declared as a `cdylib` (C-compatible dynamic library), which is the form wasm modules take:
+
+```toml
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+### Whatever version you want/need, here 0.2 is an example
+wasm-bindgen = "0.2"
+
+# For returning errors to JS:
+# wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+```
+
+If you want, you can also declare it as `rlib` in the same crate-type variable in the toml file.
+
+
+### Annotating with `#[wasm_bindgen]`
+
+The `#[wasm_bindgen]` attribute is the bridge between Rust and JavaScript. It can annotate free functions or `impl` blocks on structs.
+
+**Option A — Free functions** (simplest, good for stateless operations):
+
+```rust
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub fn gc_content(sequence: &str) -> f64 {
+    let len = sequence.len() as f64;
+    if len == 0.0 {
+        return 0.0;
+    }
+    let gc = sequence
+        .bytes()
+        .filter(|&b| matches!(b, b'G' | b'C' | b'g' | b'c'))
+        .count() as f64;
+    gc / len
+}
+```
+
+**Option B — Exported struct with methods** (better for stateful objects, e.g., a k-mer index or an assembler graph that must persist across multiple JS calls):
+
+```rust
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub struct KmerCounter {
+    counts: std::collections::HashMap<String, usize>,
+    k: usize,
+}
+
+// In this example, all these methods will become accessible to JavaScript code
+#[wasm_bindgen]
+impl KmerCounter {
+    // Here we re-declare this particular method with #[wasm_bindgen(constructor)],
+    // as this will allow us to later, in JavaScript, just create an instance of this
+    // object, exactly as if it was a normal instance in JavaScript.
+    #[wasm_bindgen(constructor)]
+    pub fn new(k: usize) -> Self {
+        Self {
+            counts: std::collections::HashMap::new(),
+            k,
+        }
+    }
+
+    pub fn add_sequence(&mut self, sequence: &str) {
+        for i in 0..sequence.len().saturating_sub(self.k - 1) {
+            let kmer = &sequence[i..i + self.k];
+            *self.counts.entry(kmer.to_string()).or_insert(0) += 1;
+        }
+    }
+
+    pub fn count(&self, kmer: &str) -> usize {
+        *self.counts.get(kmer).unwrap_or(&0)
+    }
+
+    pub fn total_kmers(&self) -> usize {
+        self.counts.values().sum()
+    }
+}
+```
+
+
+### Passing data across the boundary
+
+The types that `wasm-bindgen` handles transparently include: `bool`, `i32`/`u32`/`i64`/`u64`/`f32`/`f64`, `String`/`&str`, `Vec<u8>`/`&[u8]` (as `Uint8Array` in JS), and `JsValue`. For returning richer structured data (e.g., multiple fields), consider:
+
+- Returning a `JsValue` built with `serde_wasm_bindgen` (requires the `serde` feature).
+- Using multiple getter methods on an exported struct.
+- Encoding the result as JSON and returning it as a `String`.
+
+Avoid passing very large strings or byte slices across the boundary on every call; instead, pass them once to a stateful object and keep results on the Rust side until they are needed.
+
+### Conditional compilation
+
+It is good practice to gate `wasm-bindgen` imports behind a `cfg` attribute so that the crate still compiles and can be tested natively:
+
+```rust
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+```
+
+This is also a way to have, in the same crate/repository, code that compiles to `x86_64`, and also to WebAssembly, as you can essentially create alternative "versions" of those methods, functions, or crates that need to be updated.
+
+---
+
+<!--## Building and bundling
+
+```bash
+# Development build (larger binary, includes debug symbols)
+wasm-pack build --target web
+
+# Release build (optimised; wasm-opt runs automatically if installed)
+wasm-pack build --target web --release
+```
+
+The `--target web` flag tells `wasm-pack` to produce an ES module that can be imported directly in a browser without a bundler. Alternatives include `--target bundler` (for webpack/rollup/vite) and `--target nodejs`.
+
+The output in `pkg/` will contain, among other files:
+
+- `<crate_name>_bg.wasm` — the compiled wasm binary.
+- `<crate_name>.js` — the JS glue module, including the `init()` function.
+- `<crate_name>.d.ts` — TypeScript declarations.
+
+----->
+
+## Calling from JavaScript
+
+This particular code might differ, depending on your exact
+
+```html
+<script type="module">
+  // Import the generated init function and any exported symbols
+  import init, { gc_content, KmerCounter } from "./pkg/<crate_name>.js";
+
+  async function run() {
+    // wasm must be initialised before any exported function is called
+    await init();
+
+    // Call a free function
+    const gc = gc_content("ATGCGCATGC");
+    console.log(`GC content: ${(gc * 100).toFixed(1)}%`);
+
+    // Use an exported struct
+    const counter = new KmerCounter(3);
+    counter.add_sequence("ATGCGCATGC");
+    console.log(`ATG count: ${counter.count("ATG")}`);
+
+    // Always free wasm-allocated structs when done to avoid memory leaks
+    counter.free();
+  }
+
+  run();
+</script>
+```
+
+> **Memory management**: exported structs are heap-allocated on the wasm side. JavaScript's garbage collector is unaware of this memory. You must call `.free()` on exported struct instances when they are no longer needed, or accept that the memory will accumulate until the page is refreshed.
+
+---
+
+## Limitations
+
+WebAssembly in the browser is a capable environment, but it imposes real constraints that are particularly relevant for bioinformatics tools.
+
+### Memory cap
+
+`wasm32` modules have a maximum linear memory of **4 GiB**. This is a hard constraint for tools that load large reference genomes or full-resolution pangenome graphs into memory. Strategies include streaming and chunked processing, or restricting input sizes in the web interface. The forthcoming `wasm64` target would lift this restriction, and toolchain support is actively being developed (see [Available Targets](#available-targets)), but it has not yet landed in a stable release of the Rust/Web interfacing libraries we are considering in this guide.
+
+### Call stack depth
+
+The wasm call stack is much shallower than a typical native stack. Deeply recursive algorithms may overflow the stack at runtime. Rewrite critical paths iteratively or increase the stack size at link time (with a `.cargo/config.toml` entry such as `[target.wasm32-unknown-unknown] rustflags = ["-C", "link-args=-z stack-size=<bytes>"]`), accepting the trade-off of increased module size.
+
+### Incompatible crates
+
+Not every Rust crate compiles to `wasm32-unknown-unknown`. Crates that depend on OS-level facilities — file I/O, threads, system clocks, native dynamic linking, or C libraries via `cc`/`cmake` — will fail to compile. A notable example in bioinformatics is [`needletail`](https://crates.io/crates/needletail), which cannot currently be compiled to this target. When porting an existing tool, audit your dependency tree with:
+
+```bash
+cargo tree --target wasm32-unknown-unknown 2>&1 | grep -E "error|could not"
+```
+
+Common workarounds: replace the offending crate with a pure-Rust alternative; re-implement only the required subset; or gate the incompatible dependency behind `#[cfg(not(target_arch = "wasm32"))]` and providing a stub for the wasm build.
+
+### SIMD and advanced CPU instructions
+
+The WebAssembly SIMD proposal (`wasm32` SIMD128) is now widely supported in major browsers, but it is **not the same instruction set as x86 SSE/AVX or ARM NEON**. Code that relies on platform-specific SIMD intrinsics (e.g., via the `packed_simd` or `std::arch` crates targeting x86) will not compile. You can, however, use portable SIMD via the `std::simd` API (nightly) or crates such as `wide`, which will lower to SIMD128 when targeting wasm. Performance from SIMD128 is typically lower than from AVX2/AVX-512 on a desktop CPU.
+
+### No multithreading (by default)
+
+True threading in wasm requires `SharedArrayBuffer`, which is behind cross-origin isolation headers and not universally straightforward to configure. The `rayon` crate does not work out of the box in `wasm32-unknown-unknown`. For parallel workloads, consider Web Workers at the JavaScript level, passing disjoint chunks of data to separate wasm instances. Sharing data at this level is possible with shared memory objects, although it will apply the overall limit of 4MB.
+
+### Performance expectations
+
+WebAssembly can achieve 60–90 % of native performance for well-optimised, compute-bound code. However, memory-intensive code (with many small allocations or frequent cache misses) and code with a high wasm/JS boundary-crossing frequency can perform significantly worse. Profile the bottlenecks before assuming a native algorithm translates directly.
+
+### No filesystem
+
+`wasm32-unknown-unknown` has no access to the host filesystem. Input data must be passed from JavaScript as byte slices or strings (e.g., from a `<input type="file">` element read by the browser's `FileReader`/`File` API). This is a deliberate design constraint of the target, not a bug.
+
+---
+
+## A note on WebGPU
+
+For computations that would benefit from GPU parallelism, [WebGPU](https://www.w3.org/TR/webgpu/) is the browser's emerging standard for general-purpose GPU computation (GPGPU). It is accessible from JavaScript and can be combined with a wasm module: the wasm code handles data preparation and result parsing, while dispatch and shader execution are managed through the WebGPU JavaScript API.
+
+From Rust, the [`wgpu`](https://crates.io/crates/wgpu) crate provides a cross-platform WebGPU abstraction that compiles to `wasm32-unknown-unknown` (targeting the browser's WebGPU backend). This requires writing WGSL shaders and managing GPU buffer lifetimes, but it opens the door to genuinely GPU-accelerated methods in the browser. WebGPU is currently supported in Chrome and (behind a flag) in Firefox; Safari support is partial. Browser compatibility should be verified before committing to a GPU-dependent architecture.
+
+---
+
+## Minimum working example (MWE)
+
+The following self-contained example computes the **GC content** of a DNA sequence entered by the user. It mirrors the structure used in this repository: a small Rust library compiled with `wasm-pack`, called from a single HTML file with plain JavaScript.
+
+### Project layout
+
+```
+gc-wasm/
+├── Cargo.toml
+├── src/
+│   └── lib.rs
+└── www/
+    └── index.html      ← after building, open this in a browser
+```
+
+### `Cargo.toml`
+
+```toml
+[package]
+name = "gc-wasm"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+```
+
+### `src/lib.rs`
+
+```rust
+use wasm_bindgen::prelude::*;
+
+/// Computes the GC content of a DNA sequence as a value in [0, 1].
+/// Non-ACGT characters are counted in the denominator but not the numerator,
+/// so ambiguous bases dilute the GC fraction rather than being ignored.
+#[wasm_bindgen]
+pub fn gc_content(sequence: &str) -> f64 {
+    let total = sequence.len();
+    if total == 0 {
+        return 0.0;
+    }
+    let gc = sequence
+        .bytes()
+        .filter(|&b| matches!(b, b'G' | b'C' | b'g' | b'c'))
+        .count();
+    gc as f64 / total as f64
+}
+
+/// Returns the length of the sequence after stripping whitespace and
+/// newlines — useful when the user pastes a FASTA body.
+#[wasm_bindgen]
+pub fn clean_length(sequence: &str) -> usize {
+    sequence
+        .bytes()
+        .filter(|b| !b.is_ascii_whitespace())
+        .count()
+}
+```
+
+<!--### Build
+
+```bash
+cd gc-wasm
+wasm-pack build --target web --release
+# Output appears in gc-wasm/pkg/
+```-->
+
+### `www/index.html`
+
+Place this file inside the `www/` directory, and serve both `www/` and `pkg/` from the same origin (e.g., with `python3 -m http.server` from the `gc-wasm/` directory, adjusting the import path accordingly, or by copying `pkg/` into `www/pkg/`).
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GC Content Calculator</title>
+  <style>
+    body      { font-family: monospace; max-width: 640px; margin: 2rem auto; }
+    textarea  { width: 100%; height: 8rem; font-family: monospace; }
+    output    { display: block; margin-top: 1rem; font-size: 1.2rem; }
+    .error    { color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>GC Content Calculator</h1>
+  <p>Paste a DNA sequence (FASTA body or raw bases):</p>
+  <textarea id="seq" placeholder="ATGCGCATGCTTAAGC..."></textarea>
+  <button id="calc">Calculate</button>
+  <output id="result"></output>
+
+  <script type="module">
+    // Adjust the path if pkg/ lives elsewhere relative to this file.
+    import init, { gc_content, clean_length } from "../pkg/gc_wasm.js";
+
+    // Initialise the wasm module once, before any calls.
+    await init();
+
+    document.getElementById("calc").addEventListener("click", () => {
+      const raw   = document.getElementById("seq").value;
+      const out   = document.getElementById("result");
+
+      if (!raw.trim()) {
+        out.textContent = "";
+        return;
+      }
+
+      // Strip FASTA header lines if present.
+      const body = raw
+        .split("\n")
+        .filter(line => !line.startsWith(">"))
+        .join("");
+
+      const len = clean_length(body);
+      const gc  = gc_content(body);
+
+      out.textContent =
+        `Length : ${len} bp\n` +
+        `GC     : ${(gc * 100).toFixed(2)} %`;
+    });
+  </script>
+</body>
+</html>
+```
+
+### Serving locally
+
+```bash
+# From gc-wasm/ — serves everything at http://localhost:8000
+python3 -m http.server 8000
+# Then open http://localhost:8000/www/index.html
+```
+
+> **Note**: browsers block wasm module loading from `file://` URLs. You must use a local HTTP server, even during development.
+
+---
+
+## Further Reading
+
+- [The `wasm-bindgen` Guide](https://rustwasm.github.io/docs/wasm-bindgen/)
+- [Rust and WebAssembly Book](https://rustwasm.github.io/docs/book/)
+- [`wasm-pack` documentation](https://rustwasm.github.io/wasm-pack/book/)
+- [WebAssembly specification](https://webassembly.github.io/spec/)
+- [WebGPU specification](https://www.w3.org/TR/webgpu/)
+- [`wgpu` crate](https://crates.io/crates/wgpu)

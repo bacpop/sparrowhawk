@@ -20,4 +20,12 @@ The values in brackets are the default ones:
 - **Do not collapse bubbles** \[false\]: this removes the simple bubble removal step in the error correction algorithm of the assembler.
 
 
+## Example
+
+The following data can be used to try out the assembler:
+
+- Species: *Mycobacterium tuberculosis*
+- Reads (ENA accession ERR8158023): [forward](https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR815/003/ERR8158023/ERR8158023_1.fastq.gz) and [reverse](https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR815/003/ERR8158023/ERR8158023_2.fastq.gz)
+
+
 [^notememory64]: The intermediate libraries for compiling Rust code into WebAssembly have not implemented the memory64 proposal, that allows to have 64 bit memory addresses (thus removing the 4GB memory limit). Once this is done, compilation to `wasm64-unknown-unknown` should be easily possible with them and thus we would remove this annoying limitation.

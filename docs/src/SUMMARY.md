@@ -7,3 +7,8 @@
 - [Mapping](./mapping.md)
 - [Alignment](./alignment.md)
 - [Taxonomic identification](./taxonomicid.md)
+- [Gene calling](./genecalling.md)
+- [Host depletion](./hostdepletion.md)
+
+# Developer guide
+- [Compiling Rust tools to WebAssembly](./wasm_guide.md)

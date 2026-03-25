@@ -1,6 +1,6 @@
 # Introduction
 
-**Sparrowhawk** is a web platform for doing basic bioinformatic analyses on bacterial genomes locally. It offers genome assembly, sequence mapping and alignment, and taxonomic identification. 
+**Sparrowhawk** is a web platform for doing basic bioinformatic analyses on bacterial genomes locally. It offers genome assembly, sequence mapping and alignment, taxonomic identification, gene calling, and host depletion.
 
 You can see the different sections of this guide in the left, where each of the tabs/methodologies usage is detailed.
 
@@ -18,4 +18,8 @@ All code used is open source and most of it has been developed inside the [bacte
 - **Assembly**: [github.com/bacpop/sparrowhawk](https://github.com/bacpop/sparrowhawk).
 - **Mapping and alignment**: the software used is ska.rust, whose main repository is [github.com/bacpop/ska.rust](https://github.com/bacpop/ska.rust).
 - **Taxonomic identification**: the software used is sketchlib.rust, whose main repository is [github.com/bacpop/sketchlib.rust](https://github.com/bacpop/sketchlib.rust).
+- **Gene calling**: the software used is Orphos, a Rust port of [Prodigal](https://github.com/hyattpd/Prodigal), whose main repository is [github.com/FullHuman/orphos](https://github.com/FullHuman/orphos).
+- **Host depletion**: the software used is Deacon, whose main repository is [github.com/bede/deacon](https://github.com/bede/deacon) ([preprint](https://doi.org/10.1101/2025.06.09.658732)).
 - **Website**: [github.com/bacpop/sparrowhawk-web](https://github.com/bacpop/sparrowhawk-web).
+
+Developers who want to adapt their own tools to run in the browser should consult the [Developer guide](./wasm_guide.md).
