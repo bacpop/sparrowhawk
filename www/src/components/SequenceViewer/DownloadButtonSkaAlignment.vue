@@ -14,6 +14,13 @@
         .tree
       </Button>
     </div>
+
+    <div class="flex flex-col gap-2">
+      <span>Download distances</span>
+      <Button class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadCSV">
+        .csv
+      </Button>
+    </div>
   </div>
 </template>
 
@@ -58,6 +65,17 @@ export default defineComponent({
       element.style.display = 'none';
       document.body.appendChild(element);
 
+      element.click();
+      document.body.removeChild(element);
+    },
+    downloadCSV(): void {
+      const csv = this.allResults_ska.alignResults[0]?.distances_csv;
+      if (!csv) return;
+      const element = document.createElement('a');
+      element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv));
+      element.setAttribute('download', 'distances.csv');
+      element.style.display = 'none';
+      document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
     }

@@ -272,6 +272,25 @@ export default {
         }
     },
 
+    async processCluster(context: ActionContext<RootState, RootState>, payload: { snp_threshold: number }) {
+        const {commit, state} = context;
+        console.log("Running transmission clustering with SNP threshold: " + payload.snp_threshold);
+
+        commit("setClusteringState", true);
+
+        if (state.workerState.worker_ska) {
+            state.workerState.worker_ska.postMessage({ cluster: true, snp_threshold: payload.snp_threshold });
+            state.workerState.worker_ska.onmessage = (message) => {
+                commit("setClusteringState", false);
+                if (message.data.error) {
+                    commit("setSkaClusterError", message.data.message ?? "generic");
+                    return;
+                }
+                commit("setClusterResults", { clusters: message.data.clusters, graph: message.data.graph });
+            };
+        }
+    },
+
     async resetAllResults_ska(context: ActionContext<RootState, RootState>) {
         const {commit} = context;
         commit("resetAllResults_ska");

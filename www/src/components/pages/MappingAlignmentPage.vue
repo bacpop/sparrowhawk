@@ -198,6 +198,91 @@
             </label>
           </div>
 
+          <!-- Transmission clustering options (Alignment tab only) -->
+          <template v-if="tabName === 'Alignment'">
+            <hr class="border-gray-200" />
+
+            <div class="flex flex-row items-center w-full gap-2">
+              <input id="enable_clustering" type="checkbox" v-model="enableClustering" :disabled="isProcessingAny || isClustering"/>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="max-w-xs">Perform single-linkage transmission clustering on the alignment and display an interactive transmission graph.</p>
+                </TooltipContent>
+              </Tooltip>
+              <label for="enable_clustering">
+                Transmission clustering
+              </label>
+            </div>
+
+            <div v-if="enableClustering">
+              <p class="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p class="max-w-xs">Maximum pairwise SNP distance for two samples to be placed in the same transmission cluster.</p>
+                  </TooltipContent>
+                </Tooltip>
+                SNP threshold
+              </p>
+              <div class="flex flex-row items-center w-full gap-2">
+                <VueSlider class="flex-grow"
+                           v-model="snp_threshold"
+                           :lazy="true"
+                           :min="1"
+                           :max="1000"
+                           :interval="1"
+                           :disabled="isClustering"
+                />
+                <span class="block w-[40px] text-center border border-gray-300 rounded-md text-sm">
+                  {{ snp_threshold }}
+                </span>
+              </div>
+
+              <Button
+                v-if="hasAlignmentResults && !isClustering"
+                @click="runClustering"
+                class="mt-2 w-full"
+                variant="outline"
+                size="sm"
+              >
+                <Network class="mr-1 h-3 w-3" />
+                Run transmission clustering
+              </Button>
+              <div v-else-if="isClustering" class="mt-2 flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 class="w-4 h-4 animate-spin text-amber-500" />
+                Clustering...
+              </div>
+
+              <hr class="border-gray-200 mt-3" />
+
+              <!-- Metadata upload -->
+              <div class="mt-2">
+                <p class="text-sm mb-1">Optional metadata file (CSV)</p>
+                <label class="block cursor-pointer">
+                  <span class="block p-2 border border-gray-200 rounded-md text-sm text-gray-500 hover:border-gray-400 text-center">
+                    {{ metadataFileName || 'Upload metadata CSV' }}
+                  </span>
+                  <input type="file" accept=".csv" class="hidden" @change="onMetadataFileChange" />
+                </label>
+                <div v-if="metadataError"
+                     class="mt-2 p-3 bg-red-50 border border-red-300 rounded-md text-sm text-red-800">
+                  {{ metadataError }}
+                </div>
+              </div>
+
+              <!-- Location matching -->
+              <div v-if="metadataRows.length > 0" class="mt-2 flex items-center gap-2">
+                <input id="enable_location" type="checkbox" v-model="enableLocationMatching" />
+                <label for="enable_location" class="text-sm">Enable location matching</label>
+              </div>
+            </div>
+          </template>
+
         </div>
       </TooltipProvider>
     </div>
@@ -319,7 +404,7 @@
         </div>
 
 
-        <div v-if="hasAlignmentResults" class="w-1/2 flex-grow px-8">
+        <div v-if="hasAlignmentResults" class="px-8">
           <DownloadButtonSkaAlignment />
         </div>
 
@@ -328,6 +413,42 @@
           <Trash2 class="mr-1 h-3 w-3" />
           Clear results
         </Button>
+
+        <!-- Transmission cluster results -->
+        <div v-if="hasClusterResults" class="mx-6 mt-6">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-base font-medium">Transmission Clusters</h2>
+            <Button @click="downloadClustersTSV" variant="outline" size="sm">
+              <FileDown class="mr-1 h-3 w-3" />
+              Download TSV
+            </Button>
+          </div>
+
+          <div class="max-h-48 overflow-y-auto border border-gray-200 rounded-md text-sm">
+            <table class="w-full">
+              <thead class="bg-gray-50 sticky top-0">
+                <tr>
+                  <th class="text-left px-3 py-2 font-medium text-gray-600">Sample</th>
+                  <th class="text-left px-3 py-2 font-medium text-gray-600">Cluster</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in clusterTableRows" :key="row.name"
+                    class="border-t border-gray-100 hover:bg-gray-50">
+                  <td class="px-3 py-2 font-mono truncate max-w-xs">{{ row.name }}</td>
+                  <td class="px-3 py-2">{{ row.cluster }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-4 h-[500px]">
+            <TransmissionGraph
+              :nodes="transmissionGraphNodes"
+              :links="transmissionGraphLinks"
+            />
+          </div>
+        </div>
 
         <slot name="alignment"/>
       </div>
@@ -343,7 +464,7 @@ import { useStore } from "vuex";
 import VueSlider from 'vue-3-slider-component';
 import VueSelect from "vue3-select-component";
 import "vue3-select-component/styles";
-import { Check, FileUp, Loader2, Info, TextAlignCenter, TreePine, Trash2 } from "lucide-vue-next";
+import { Check, FileUp, FileDown, Loader2, Info, Network, TextAlignCenter, TreePine, Trash2 } from "lucide-vue-next";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import MappingHelpCollapsible from "@/components/help/MappingHelpCollapsible.vue";
@@ -351,6 +472,7 @@ import AlignmentHelpCollapsible from "@/components/help/AlignmentHelpCollapsible
 import DownloadButtonSka from "@/components/SequenceViewer/DownloadButtonSka.vue";
 import DownloadButtonSkaAlignment from "@/components/SequenceViewer/DownloadButtonSkaAlignment.vue";
 import { MSAViewer } from "@/components/MSAViewer";
+import TransmissionGraph from "@/components/TransmissionGraph.vue";
 import { fastxExtensionsWithDotAndCompressList } from "@/utils";
 
 interface UploadedFile {
@@ -370,9 +492,11 @@ export default defineComponent({
     VueSlider,
     VueSelect,
     FileUp,
+    FileDown,
     Loader2,
     Check,
     Info,
+    Network,
     TextAlignCenter,
     TreePine,
     Trash2,
@@ -385,7 +509,8 @@ export default defineComponent({
     AlignmentHelpCollapsible,
     DownloadButtonSka,
     DownloadButtonSkaAlignment,
-    MSAViewer
+    MSAViewer,
+    TransmissionGraph,
   },
   setup() {
     const store = useStore();
@@ -397,16 +522,23 @@ export default defineComponent({
     const rc: Ref<boolean> = ref(false);
     const ambig_mask: Ref<boolean> = ref(false);
     const repeat_mask: Ref<boolean> = ref(false);
+    const enableClustering: Ref<boolean> = ref(false);
+    const snp_threshold: Ref<number> = ref(20);
     const uploadedFiles: Ref<UploadedFile[]> = ref([]);
     const uploadedAlignmentFiles: Ref<string[]> = ref([]);
+    const metadataRows: Ref<{ id: string; date: string; location: string }[]> = ref([]);
+    const metadataError: Ref<string | null> = ref(null);
+    const metadataFileName: Ref<string | null> = ref(null);
+    const enableLocationMatching: Ref<boolean> = ref(false);
 
 
     const {
       processRef,
       processQueryMap,
       processQueryAlign,
+      processCluster,
       resetAllResults_ska
-    } = useActions(["processRef", "processQueryMap", "processQueryAlign", "resetAllResults_ska"]);
+    } = useActions(["processRef", "processQueryMap", "processQueryAlign", "processCluster", "resetAllResults_ska"]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { allResults_ska } = useState(["allResults_ska"]) as any;
 
@@ -458,9 +590,61 @@ export default defineComponent({
      });
     }
 
+    function parseMetadataCSV(file: File): void {
+      metadataError.value = null;
+      metadataFileName.value = file.name;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length < 2) { metadataError.value = "Metadata file is empty or has no data rows."; return; }
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const idIdx = headers.indexOf('id');
+        const dateIdx = headers.indexOf('date');
+        const locIdx = headers.indexOf('location');
+        if (idIdx === -1 || dateIdx === -1 || locIdx === -1) {
+          metadataError.value = "Metadata CSV must have columns: ID, date, location.";
+          return;
+        }
+        const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+        const rows: { id: string; date: string; location: string }[] = [];
+        const errors: string[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',');
+          const id = cols[idIdx]?.trim();
+          const date = cols[dateIdx]?.trim() ?? '';
+          const location = cols[locIdx]?.trim() ?? '';
+          if (!id) continue;
+          if (date && !datePattern.test(date)) {
+            errors.push(`Row ${i + 1}: invalid date "${date}" (expected yyyy-mm-dd)`);
+          }
+          rows.push({ id, date, location });
+        }
+        if (errors.length > 0) {
+          metadataError.value = errors.join('; ');
+          return;
+        }
+        metadataRows.value = rows;
+      };
+      reader.readAsText(file);
+    }
+
+    function onMetadataFileChange(event: Event): void {
+      const input = event.target as HTMLInputElement;
+      if (input.files && input.files[0]) {
+        parseMetadataCSV(input.files[0]);
+      }
+    }
+
     function resetAll(): void {
       uploadedFiles.value = [];
       uploadedAlignmentFiles.value = [];
+      enableClustering.value = false;
+      snp_threshold.value = 20;
+      metadataRows.value = [];
+      metadataError.value = null;
+      metadataFileName.value = null;
+      enableLocationMatching.value = false;
       resetAllResults_ska();
     }
 
@@ -494,9 +678,12 @@ export default defineComponent({
       rc,
       ambig_mask,
       repeat_mask,
+      enableClustering,
+      snp_threshold,
       resetAll,
       uploadedFiles,
       uploadedAlignmentFiles,
+      processCluster,
       getRootPropsMapping,
       getInputPropsMapping,
       isDragActiveMapping,
@@ -504,6 +691,11 @@ export default defineComponent({
       getInputPropsQueryAlign,
       isDragActiveQueryAlign,
       allResults_ska,
+      metadataRows,
+      metadataError,
+      metadataFileName,
+      enableLocationMatching,
+      onMetadataFileChange,
       ...restMapping,
       ...restQueryAlign
     };
@@ -529,6 +721,45 @@ export default defineComponent({
     },
     isProcessingAny(): boolean {
       return this.store.getters.isIndexingRef || this.store.getters.isMapping || this.store.getters.isAligning;
+    },
+    isClustering(): boolean {
+      return this.store.getters.isClustering;
+    },
+    hasClusterResults(): boolean {
+      return this.store.getters.hasClusterResults;
+    },
+    adjustedClusterResults(): Record<string, number> | null {
+      const original = this.allResults_ska.clusterResults;
+      if (!original || !this.enableLocationMatching || !this.metadataRows.length) return original;
+      const keyToId = new Map<string, number>();
+      let nextId = 1;
+      const result: Record<string, number> = {};
+      for (const [name, cluster] of Object.entries(original)) {
+        const loc = this.sampleLocation(name) ?? '';
+        const key = `${cluster}:${loc}`;
+        if (!keyToId.has(key)) keyToId.set(key, nextId++);
+        result[name] = keyToId.get(key)!;
+      }
+      return result;
+    },
+    clusterTableRows(): { name: string; cluster: number }[] {
+      const results = this.adjustedClusterResults;
+      if (!results) return [];
+      return Object.entries(results)
+        .map(([name, cluster]) => ({ name, cluster: cluster as number }))
+        .sort((a, b) => a.cluster - b.cluster || a.name.localeCompare(b.name));
+    },
+    transmissionGraphNodes() {
+      const nodes = this.allResults_ska.transmissionGraph?.nodes ?? [];
+      const adjusted = this.adjustedClusterResults;
+      if (!adjusted) return nodes;
+      return nodes.map((n: { id: string; cluster: number }) => ({
+        ...n,
+        cluster: adjusted[n.id] ?? n.cluster,
+      }));
+    },
+    transmissionGraphLinks() {
+      return this.allResults_ska.transmissionGraph?.links ?? [];
     },
     hasAlignmentResults(): boolean {
       return this.allResults_ska.alignResults[0] && this.allResults_ska.alignResults[0].aligned;
@@ -577,6 +808,26 @@ export default defineComponent({
   methods: {
     clear(): void {
       this.resetAll();
+    },
+    sampleLocation(name: string): string | null {
+      const prefix = name.replace(/(?:\.[^.]+)+$/, '');
+      const row = (this.metadataRows as { id: string; date: string; location: string }[])
+        .find(r => r.id === prefix || r.id === name);
+      return row?.location ?? null;
+    },
+    runClustering(): void {
+      this.processCluster({ snp_threshold: this.snp_threshold });
+    },
+    downloadClustersTSV(): void {
+      const rows = this.clusterTableRows;
+      const tsv = "Sample\tCluster\n" + rows.map(r => `${r.name}\t${r.cluster}`).join("\n");
+      const blob = new Blob([tsv], { type: "text/tab-separated-values" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "transmission_clusters.tsv";
+      a.click();
+      URL.revokeObjectURL(url);
     },
     getFileStatus(file: UploadedFile): 'indexing' | 'mapping' | 'done' {
       if (file.type === 'reference') {

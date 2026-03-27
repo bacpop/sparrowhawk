@@ -5,8 +5,8 @@
     
 [submodule "rust/ska.rust"]
 	path = rust/ska.rust
-	url  = https://github.com/vrbouza/ska.rust.git
-    branch = master
+	url  = https://github.com/bacpop/ska.rust.git
+    branch = graph-rust
 
 [submodule "rust/sketchlib.rust"]
 	path = rust/sketchlib.rust

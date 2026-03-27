@@ -1,5 +1,5 @@
 import {RootState} from "@/store/state";
-import {GeneCallResult, DepletionResult} from "@/types";
+import {GeneCallResult, DepletionResult, Dict, TransmissionGraphData} from "@/types";
 
 export default {
     // Processing state mutations
@@ -51,6 +51,7 @@ export default {
             geneCallingProgressTotal: 0,
             isFilteringDeacon: false,
             isFilteringDeaconFiles: new Set<string>(),
+            isClustering: false,
         };
     },
 
@@ -178,17 +179,27 @@ export default {
         state.allResults_ska.mapResults[input.name].mapped_sequences = input.mapped_sequences
     },
 
-    setAligned(state: RootState, input: { aligned: boolean, names: string[], newick: string, alignment: string }) {
+    setAligned(state: RootState, input: { aligned: boolean, names: string[], newick: string, alignment: string, distances_csv?: string }) {
         state.allResults_ska.alignResults[0] = {
             aligned: input.aligned,
             names: input.names,
             newick: input.newick,
-            alignment: input.alignment
+            alignment: input.alignment,
+            distances_csv: input.distances_csv,
         }
     },
 
     setSkaMappingError(state: RootState, msg: string) { state.allResults_ska.error = msg; },
     setSkaAlignError(state: RootState, msg: string)   { state.allResults_ska.error = msg; },
+
+    setClusteringState(state: RootState, isClustering: boolean) {
+        state.processingState.isClustering = isClustering;
+    },
+    setClusterResults(state: RootState, input: { clusters: Dict<number>, graph: TransmissionGraphData }) {
+        state.allResults_ska.clusterResults = input.clusters;
+        state.allResults_ska.transmissionGraph = input.graph;
+    },
+    setSkaClusterError(state: RootState, msg: string) { state.allResults_ska.error = msg; },
 
     resetAllResults_ska(state: RootState) {
         state.refSet = null;
@@ -197,6 +208,8 @@ export default {
             alignResults: {},
             ref: [],
             error: null,
+            clusterResults: null,
+            transmissionGraph: null,
         };
 
         if (state.workerState.worker_ska) {
