@@ -448,6 +448,14 @@
               :links="transmissionGraphLinks"
             />
           </div>
+
+          <div v-if="metadataRows.length > 0" class="mt-6">
+            <h3 class="text-sm font-medium text-gray-600 mb-2">Cluster timeline</h3>
+            <TransmissionClusterTimeline
+              :clusterRows="clusterTableRows"
+              :metadataRows="metadataRows"
+            />
+          </div>
         </div>
 
         <slot name="alignment"/>
@@ -473,6 +481,7 @@ import DownloadButtonSka from "@/components/SequenceViewer/DownloadButtonSka.vue
 import DownloadButtonSkaAlignment from "@/components/SequenceViewer/DownloadButtonSkaAlignment.vue";
 import { MSAViewer } from "@/components/MSAViewer";
 import TransmissionGraph from "@/components/TransmissionGraph.vue";
+import TransmissionClusterTimeline from "@/components/TransmissionClusterTimeline.vue";
 import { fastxExtensionsWithDotAndCompressList } from "@/utils";
 
 interface UploadedFile {
@@ -511,6 +520,7 @@ export default defineComponent({
     DownloadButtonSkaAlignment,
     MSAViewer,
     TransmissionGraph,
+    TransmissionClusterTimeline,
   },
   setup() {
     const store = useStore();
