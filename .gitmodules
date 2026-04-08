@@ -6,7 +6,7 @@
 [submodule "rust/ska.rust"]
 	path = rust/ska.rust
 	url  = https://github.com/bacpop/ska.rust.git
-    branch = graph-rust
+    branch = sparrowhawk-dev
 
 [submodule "rust/sketchlib.rust"]
 	path = rust/sketchlib.rust
