@@ -36,6 +36,7 @@
     "vue-class-component": "^8.0.0-0",
     "vue3-dropzone": "^2.2.1",
     "vue3-popper": "^1.5.0",
+    "lucide-vue-next": "^0.561.0",
     "vue3-select-component": "^0.16.0",
     "vuex": "^4.1.0",
     "vuex-composition-helpers": "^2.0.3"

@@ -7,3 +7,4 @@ declare module '*.vue' {
 
 declare module 'taxonium-component';
 declare module 'mgnify-jbrowse';
+declare module 'lucide-vue-next';
