@@ -28,6 +28,14 @@ export interface Alignment {
     names?: string[]
     newick?: string
     alignment: string
+    distances_csv?: string
+}
+
+export interface TransmissionGraphNode { id: string; cluster: number; }
+export interface TransmissionGraphLink { source: string; target: string; snp_distance: number; }
+export interface TransmissionGraphData {
+    nodes: TransmissionGraphNode[];
+    links: TransmissionGraphLink[];
 }
 
 export interface AllResultsSka {
@@ -35,6 +43,8 @@ export interface AllResultsSka {
     mapResults: Dict<IsolateMapping>
     ref: string[]
     error: string | null
+    clusterResults: Dict<number> | null
+    transmissionGraph: TransmissionGraphData | null
 }
 
 export interface SampleIdentifyResult {
@@ -105,4 +115,5 @@ export interface ProcessingState {
     geneCallingProgressTotal: number;
     isFilteringDeacon: boolean;
     isFilteringDeaconFiles: Set<string>;
+    isClustering: boolean;
 }

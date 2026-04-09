@@ -105,6 +105,10 @@ export const getters: GetterTree<RootState, RootState> = {
         return state.processingState.geneCallingProgressTotal;
     },
 
+    // SKA clustering
+    hasClusterResults(state: RootState): boolean { return state.allResults_ska.clusterResults !== null; },
+    isClustering(state: RootState): boolean      { return state.processingState.isClustering; },
+
     // SKA errors
     skaError(state: RootState)       { return state.allResults_ska.error; },
     // SKETCHLIB errors

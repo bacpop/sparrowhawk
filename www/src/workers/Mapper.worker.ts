@@ -30,11 +30,16 @@ interface AlignMessage {
     qual_filter: number;
 }
 
+interface ClusterMessage {
+    cluster: boolean;
+    snp_threshold: number;
+}
+
 interface ResetMessage {
     reset: boolean;
 }
 
-type WorkerMessage = RefMessage | MapMessage | AlignMessage | ResetMessage;
+type WorkerMessage = RefMessage | MapMessage | AlignMessage | ClusterMessage | ResetMessage;
 
 const ctx: Worker = self as unknown as Worker;
 const mapper = new Mapper(ctx);
@@ -50,6 +55,9 @@ ctx.onmessage = (evt: MessageEvent<WorkerMessage>) => {
         } else if ('align' in evt.data && evt.data.align) {
             const data = evt.data as AlignMessage;
             mapper.align(data.files, data.proportion_reads, data.rc, data.k, data.min_count, data.min_qual, data.qual_filter);
+        } else if ('cluster' in evt.data && evt.data.cluster) {
+            const data = evt.data as ClusterMessage;
+            mapper.cluster(data.snp_threshold);
         } else if ('reset' in evt.data && evt.data.reset) {
             mapper.resetAll();
         } else {

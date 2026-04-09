@@ -3,8 +3,8 @@
   "version": "0.1.1",
   "private": true,
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
+    "serve": "node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js serve",
+    "build": "node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js build",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
@@ -36,6 +36,7 @@
     "vue-class-component": "^8.0.0-0",
     "vue3-dropzone": "^2.2.1",
     "vue3-popper": "^1.5.0",
+    "lucide-vue-next": "^0.561.0",
     "vue3-select-component": "^0.16.0",
     "vuex": "^4.1.0",
     "vuex-composition-helpers": "^2.0.3"

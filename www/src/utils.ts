@@ -25,6 +25,8 @@ export const emptyState = (): RootState => ({
         alignResults: {},
         ref: [],
         error: null,
+        clusterResults: null,
+        transmissionGraph: null,
     },
 
     allResults_sketchlib: {
@@ -70,6 +72,7 @@ export const emptyState = (): RootState => ({
         geneCallingProgressTotal: 0,
         isFilteringDeacon: false,
         isFilteringDeaconFiles: new Set<string>(),
+        isClustering: false,
     },
 });
 

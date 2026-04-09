@@ -10,6 +10,17 @@ interface AlignResult {
     alignment: string;
 }
 
+interface ClusterLabels {
+    [sampleName: string]: number;
+}
+
+interface TransmissionGraphNode { id: string; cluster: number; }
+interface TransmissionGraphLink { source: string; target: string; snp_distance: number; }
+interface TransmissionGraphData {
+    nodes: TransmissionGraphNode[];
+    links: TransmissionGraphLink[];
+}
+
 interface SkaData {
     get_reference(): string;
     map(file: File, revReadFile: File | null, proportion_reads: number, min_count: number, min_qual: number, qual_filter: number): string;
@@ -17,6 +28,8 @@ interface SkaData {
 
 interface AlignData {
     align(files: File[], proportion_reads: number, min_count: number, min_qual: number, qual_filter: number): string;
+    get_graph_json(snp_threshold: number): string;
+    get_distances_csv(): string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,12 +104,29 @@ export class Mapper {
 
             const results: AlignResult = JSON.parse(this.AlignData!.align(files, proportion_reads, min_count, min_qual, qual_filter));
 
+            const distances_csv = this.AlignData!.get_distances_csv();
             this.worker.postMessage({
                 aligned: true,
                 names: results.names,
                 newick: results.newick,
-                alignment: results.alignment
+                alignment: results.alignment,
+                distances_csv,
             });
+        } catch {
+            this.worker.postMessage({ error: true, message: 'memory' });
+        }
+    }
+
+    cluster(snp_threshold: number): void {
+        console.log("Running transmission clustering with SNP threshold: " + snp_threshold);
+        if (this.AlignData === null) {
+            throw new Error("Mapper::cluster - no alignment data available.");
+        }
+
+        try {
+            const clusters: ClusterLabels = JSON.parse(this.wasm.ska_cluster(this.AlignData, snp_threshold));
+            const graph: TransmissionGraphData = JSON.parse(this.AlignData.get_graph_json(snp_threshold));
+            this.worker.postMessage({ clustered: true, clusters, graph });
         } catch {
             this.worker.postMessage({ error: true, message: 'memory' });
         }
