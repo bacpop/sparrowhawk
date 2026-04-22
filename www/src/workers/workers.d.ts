@@ -23,3 +23,8 @@ declare module '@/workers/Depleter.worker' {
     const WorkerFactory: new () => Worker;
     export default WorkerFactory;
 }
+
+declare module '@/workers/AmrDetector.worker' {
+    const WorkerFactory: new () => Worker;
+    export default WorkerFactory;
+}

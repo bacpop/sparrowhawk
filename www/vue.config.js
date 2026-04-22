@@ -123,6 +123,20 @@ module.exports = defineConfig({
             )
             .end()
 
+        config
+            .plugin("wasm-pack_amr")
+            .use(WasmPackPlugin)
+            .init(
+                (Plugin) =>
+                    new Plugin({
+                        crateDirectory: path.resolve(__dirname, "../rust/amr-bridge"),
+                        extraArgs: "--no-default-features",
+                        outDir: path.resolve(__dirname, "./src/pkg_amr"),
+                        forceMode: "production",
+                    })
+            )
+            .end()
+
         config.module
             .rule("js")
             .exclude

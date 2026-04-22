@@ -48,10 +48,20 @@ export const emptyState = (): RootState => ({
         error: null,
     },
 
+    allResults_amr: {
+        indexFileName: null,
+        indexInfo: null,
+        indexLoaded: false,
+        isLoadingIndex: false,
+        results: {},
+        error: null,
+    },
+
     workerState: {
         worker: null,
         worker_ska: null,
         worker_deacon: null,
+        worker_amr: null,
         workers_sketchlib: [],
         workers_orphos: [],
     },
@@ -72,6 +82,8 @@ export const emptyState = (): RootState => ({
         geneCallingProgressTotal: 0,
         isFilteringDeacon: false,
         isFilteringDeaconFiles: new Set<string>(),
+        isDetectingAmr: false,
+        isDetectingAmrFiles: new Set<string>(),
         isClustering: false,
     },
 });

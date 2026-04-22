@@ -1,4 +1,4 @@
-import {AllResults, AllResultsSka, AllResultsSketchlib, AllResultsOrphos, AllResultsDeacon, ProcessingState, ReadsPreprocessing, WorkerState,} from "@/types";
+import {AllResults, AllResultsSka, AllResultsSketchlib, AllResultsOrphos, AllResultsDeacon, AllResultsAmr, ProcessingState, ReadsPreprocessing, WorkerState,} from "@/types";
 
 
 export interface RootState {
@@ -13,5 +13,6 @@ export interface RootState {
     allResults_sketchlib: AllResultsSketchlib,
     allResults_orphos: AllResultsOrphos,
     allResults_deacon: AllResultsDeacon,
+    allResults_amr: AllResultsAmr,
     processingState: ProcessingState,
 }

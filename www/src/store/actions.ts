@@ -513,4 +513,51 @@ export default {
     async resetAllResults_deacon(context: ActionContext<RootState, RootState>) {
         context.commit("resetAllResults_deacon");
     },
+
+    // AMR
+    async loadAmrIndex(context: ActionContext<RootState, RootState>, payload: { file: File }) {
+        const { commit, state } = context;
+        if (!state.workerState.worker_amr) return;
+        commit("setLoadingAmrIndex");
+        state.workerState.worker_amr.postMessage({ loadIndex: true, file: payload.file });
+        state.workerState.worker_amr.onmessage = (msg) => {
+            if (msg.data.error) {
+                state.allResults_amr.isLoadingIndex = false;
+                commit("setAmrError", msg.data.message ?? "index");
+            } else if (msg.data.indexLoaded) {
+                commit("setAmrIndexLoaded", { fileName: msg.data.fileName, info: msg.data.info });
+            }
+        };
+    },
+
+    async detectAmr(context: ActionContext<RootState, RootState>, payload: { files: Array<File>; min_gene_hits: number; min_family_hits: number }) {
+        const { commit, state } = context;
+        if (!state.workerState.worker_amr) return;
+        const workerAmr = state.workerState.worker_amr;
+        workerAmr.onmessage = (msg) => {
+            if (msg.data.error) {
+                commit("setAmrError", msg.data.message ?? "generic");
+                if (msg.data.sampleName) commit("removeDetectingAmrFile", msg.data.sampleName);
+            } else if (msg.data.detected) {
+                commit("removeDetectingAmrFile", msg.data.sampleName);
+                commit("saveAmrResult", msg.data.result);
+            }
+        };
+
+        for (const file of payload.files) {
+            const sampleName = file.name.replace(regExpForAnyFastx, "");
+            commit("addDetectingAmrFile", sampleName);
+            workerAmr.postMessage({
+                detect: true,
+                file,
+                sampleName,
+                min_gene_hits: payload.min_gene_hits,
+                min_family_hits: payload.min_family_hits,
+            });
+        }
+    },
+
+    async resetAllResults_amr(context: ActionContext<RootState, RootState>) {
+        context.commit("resetAllResults_amr");
+    },
 };

@@ -75,6 +75,10 @@
         <HostDepletionPage :tabName="tabName"/>
       </div>
 
+      <div v-else-if="tabName === 'AMRDetection'">
+        <AmrDetectionPage :tabName="tabName"/>
+      </div>
+
       <div v-else-if="tabName === 'faq'">
         <FaqPage/>
       </div>
@@ -93,12 +97,14 @@ import MappingAlignmentPage from './components/pages/MappingAlignmentPage.vue';
 import TaxonomicIDPage from './components/pages/TaxonomicIDPage.vue';
 import GeneCallingPage from "./components/pages/GeneCallingPage.vue";
 import HostDepletionPage from "./components/pages/HostDepletionPage.vue";
+import AmrDetectionPage from "./components/pages/AmrDetectionPage.vue";
 import ResultsDisplayMapping from './components/ResultsDisplayMapping.vue';
 import ResultsDisplayAlignment from './components/ResultsDisplayAlignment.vue';
 import KmerHistogram from './components/KmerHistogram.vue';
 import WorkerAssembler from '@/workers/Assembler.worker';
 import WorkerMapper from '@/workers/Mapper.worker';
 import WorkerDepleter from '@/workers/Depleter.worker';
+import WorkerAmrDetector from '@/workers/AmrDetector.worker';
 import "@fontsource/ibm-plex-sans";
 import {
   Sidebar,
@@ -152,6 +158,7 @@ export default defineComponent({
     TaxonomicIDPage,
     GeneCallingPage,
     HostDepletionPage,
+    AmrDetectionPage,
     KmerHistogram,
     ResultsDisplayMapping,
     ResultsDisplayAlignment,
@@ -173,7 +180,7 @@ export default defineComponent({
         {id: 'TaxonomicID', sidebar_label: "Taxonomic ID", label: 'Taxonomic ID', icon: 'ScanFace'},
         {id: 'GeneCalling', sidebar_label: "Gene calling", label: 'Gene calling', icon: 'Dna'},
         {id: 'HostDepletion', sidebar_label: "Host depletion", label: 'Host depletion', icon: 'Funnel'},
-        {id: 'amrdetection', sidebar_label: "AMR detection (soon)", label: 'AMR detection (soon)', icon: 'Pill', comingSoon: true} as Tab,
+        {id: 'AMRDetection', sidebar_label: "AMR detection", label: 'AMR detection', icon: 'Pill'},
       ] as Tab[]
     }
   },
@@ -238,6 +245,15 @@ export default defineComponent({
             if (window.Worker) {
                 const worker = new WorkerDepleter();
                 this.store.commit('SET_WORKER_DEACON', worker);
+            } else {
+                throw new Error("WebWorkers are not supported by this web browser.");
+            }
+        });
+    import("@/pkg_amr")
+        .then(() => {
+            if (window.Worker) {
+                const worker = new WorkerAmrDetector();
+                this.store.commit('SET_WORKER_AMR', worker);
             } else {
                 throw new Error("WebWorkers are not supported by this web browser.");
             }
