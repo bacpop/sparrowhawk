@@ -12,36 +12,36 @@
         <div class="flex flex-col gap-4">
           <div>
             <p class="flex items-center gap-1">
-              <Tooltip>
+                <Tooltip>
                 <TooltipTrigger as-child>
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Minimum distinct gene-specific k-mers required for an exact gene call.</p>
+                  <p class="max-w-xs">Minimum fraction of stored gene-specific diagnostic k-mers required for an exact gene call.</p>
                 </TooltipContent>
               </Tooltip>
-              Minimum gene hits
+              Minimum gene fraction
             </p>
             <div class="flex flex-row items-center w-full gap-2">
-              <VueSlider class="flex-grow" v-model="minGeneHits" :lazy="true" :min="1" :max="40" :interval="1" :disabled="isDetectingAmr" />
-              <span class="block w-[40px] text-center border border-gray-300 rounded-md text-sm">{{ minGeneHits }}</span>
+              <VueSlider class="flex-grow" v-model="minGeneFractionPct" :lazy="true" :min="1" :max="25" :interval="1" :disabled="isDetectingAmr" />
+              <span class="block w-[48px] text-center border border-gray-300 rounded-md text-sm">{{ minGeneFractionPct }}%</span>
             </div>
           </div>
           <div>
             <p class="flex items-center gap-1">
-              <Tooltip>
+                <Tooltip>
                 <TooltipTrigger as-child>
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Minimum distinct family-specific k-mers required for a family-level fallback call.</p>
+                  <p class="max-w-xs">Minimum fraction of stored family-specific diagnostic k-mers required for a family-level fallback call.</p>
                 </TooltipContent>
               </Tooltip>
-              Minimum family hits
+              Minimum family fraction
             </p>
             <div class="flex flex-row items-center w-full gap-2">
-              <VueSlider class="flex-grow" v-model="minFamilyHits" :lazy="true" :min="1" :max="60" :interval="1" :disabled="isDetectingAmr" />
-              <span class="block w-[40px] text-center border border-gray-300 rounded-md text-sm">{{ minFamilyHits }}</span>
+              <VueSlider class="flex-grow" v-model="minFamilyFractionPct" :lazy="true" :min="5" :max="60" :interval="5" :disabled="isDetectingAmr" />
+              <span class="block w-[48px] text-center border border-gray-300 rounded-md text-sm">{{ minFamilyFractionPct }}%</span>
             </div>
           </div>
         </div>
@@ -99,6 +99,7 @@
                 <th class="px-3 py-2 font-medium text-gray-700">Class</th>
                 <th class="px-3 py-2 font-medium text-gray-700">Region</th>
                 <th class="px-3 py-2 font-medium text-gray-700">Hits</th>
+                <th class="px-3 py-2 font-medium text-gray-700">Diag. Fraction</th>
                 <th class="px-3 py-2 font-medium text-gray-700">Coverage</th>
               </tr>
             </thead>
@@ -109,7 +110,8 @@
                 <td class="px-3 py-2">{{ row.hit.gene_id ?? row.hit.gene_family }}</td>
                 <td class="px-3 py-2">{{ row.hit.class_name ?? 'n/a' }}</td>
                 <td class="px-3 py-2">{{ row.hit.start }}-{{ row.hit.end }}</td>
-                <td class="px-3 py-2">{{ row.hit.distinct_hit_kmers }}</td>
+                <td class="px-3 py-2">{{ row.hit.distinct_hit_kmers }}/{{ row.hit.diagnostic_kmer_total }}</td>
+                <td class="px-3 py-2">{{ (row.hit.diagnostic_kmer_fraction * 100).toFixed(1) }}%</td>
                 <td class="px-3 py-2">{{ row.hit.reference_coverage_pct.toFixed(1) }}</td>
               </tr>
             </tbody>
@@ -165,8 +167,8 @@ export default defineComponent({
   },
   setup() {
     useStore();
-    const minGeneHits: Ref<number> = ref(8);
-    const minFamilyHits: Ref<number> = ref(12);
+    const minGeneFractionPct: Ref<number> = ref(5);
+    const minFamilyFractionPct: Ref<number> = ref(30);
     const uploadedSampleNames: Ref<string[]> = ref([]);
 
     const { loadAmrIndex, detectAmr, resetAllResults_amr } = useActions([
@@ -193,7 +195,11 @@ export default defineComponent({
     const onDropFasta = (acceptFiles: File[]) => {
       if (acceptFiles.length > 0) {
         uploadedSampleNames.value = acceptFiles.map((file) => file.name.replace(regExpForAnyFastx, ""));
-        detectAmr({ files: acceptFiles, min_gene_hits: minGeneHits.value, min_family_hits: minFamilyHits.value });
+        detectAmr({
+          files: acceptFiles,
+          min_gene_fraction: minGeneFractionPct.value / 100,
+          min_family_fraction: minFamilyFractionPct.value / 100,
+        });
       }
     };
 
@@ -244,8 +250,8 @@ export default defineComponent({
       isFileDone,
       isFileInFlight,
       isLoadingAmrIndex,
-      minFamilyHits,
-      minGeneHits,
+      minFamilyFractionPct,
+      minGeneFractionPct,
       resetAll,
       uploadedSampleNames,
     };

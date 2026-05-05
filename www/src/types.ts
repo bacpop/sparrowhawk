@@ -103,6 +103,8 @@ export interface AmrHit {
     end: number;
     distinct_hit_kmers: number;
     total_hit_kmers: number;
+    diagnostic_kmer_total: number;
+    diagnostic_kmer_fraction: number;
     reference_coverage_pct: number;
     call_type: string;
 }

@@ -13,6 +13,7 @@ pub struct GeneEntry {
     pub family: String,
     pub class_name: String,
     pub length: usize,
+    pub gene_specific_kmers: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,6 +27,7 @@ pub struct AmrIndex {
     pub k: usize,
     pub genes: Vec<GeneEntry>,
     pub families: Vec<String>,
+    pub family_specific_kmers: Vec<usize>,
     pub kmer_map: HashMap<u64, KmerAssignment>,
 }
 
@@ -39,6 +41,8 @@ pub struct AmrHit {
     pub end: usize,
     pub distinct_hit_kmers: usize,
     pub total_hit_kmers: usize,
+    pub diagnostic_kmer_total: usize,
+    pub diagnostic_kmer_fraction: f64,
     pub reference_coverage_pct: f64,
     pub call_type: String,
 }
@@ -54,15 +58,15 @@ pub struct AmrSampleResult {
 
 #[derive(Debug, Clone)]
 pub struct DetectParams {
-    pub min_gene_hits: usize,
-    pub min_family_hits: usize,
+    pub min_gene_fraction: f64,
+    pub min_family_fraction: f64,
 }
 
 impl Default for DetectParams {
     fn default() -> Self {
         Self {
-            min_gene_hits: 8,
-            min_family_hits: 12,
+            min_gene_fraction: 0.05,
+            min_family_fraction: 0.30,
         }
     }
 }
@@ -246,6 +250,7 @@ pub fn build_index_from_resfinder_db(root: &Path, k: usize) -> Result<AmrIndex, 
                 family,
                 class_name: class_name.clone(),
                 length: record.seq.len(),
+                gene_specific_kmers: 0,
             });
             if record.seq.len() < k {
                 continue;
@@ -265,17 +270,22 @@ pub fn build_index_from_resfinder_db(root: &Path, k: usize) -> Result<AmrIndex, 
     }
 
     let mut kmer_map = HashMap::new();
+    let mut family_specific_kmers = vec![0usize; families.len()];
     for (kmer, refs) in raw_kmers {
         let gene_ids: HashSet<usize> = refs.iter().map(|(gid, _)| *gid).collect();
         if gene_ids.len() == 1 {
-            kmer_map.insert(kmer, KmerAssignment::Gene(*gene_ids.iter().next().unwrap()));
+            let gene_id = *gene_ids.iter().next().unwrap();
+            genes[gene_id].gene_specific_kmers += 1;
+            kmer_map.insert(kmer, KmerAssignment::Gene(gene_id));
             continue;
         }
         let family_ids: HashSet<usize> = refs.iter().map(|(_, fid)| *fid).collect();
         if family_ids.len() == 1 {
+            let family_id = *family_ids.iter().next().unwrap();
+            family_specific_kmers[family_id] += 1;
             kmer_map.insert(
                 kmer,
-                KmerAssignment::Family(*family_ids.iter().next().unwrap()),
+                KmerAssignment::Family(family_id),
             );
         }
     }
@@ -284,6 +294,7 @@ pub fn build_index_from_resfinder_db(root: &Path, k: usize) -> Result<AmrIndex, 
         k,
         genes,
         families,
+        family_specific_kmers,
         kmer_map,
     })
 }
@@ -329,10 +340,14 @@ pub fn detect_fasta(
 
         let mut claimed_families = HashSet::new();
         for (gene_id, acc) in gene_hits {
-            if acc.positions.len() < params.min_gene_hits {
+            let gene = &index.genes[gene_id];
+            if gene.gene_specific_kmers == 0 {
                 continue;
             }
-            let gene = &index.genes[gene_id];
+            let diagnostic_fraction = acc.positions.len() as f64 / gene.gene_specific_kmers as f64;
+            if diagnostic_fraction < params.min_gene_fraction {
+                continue;
+            }
             let coverage = (acc.positions.len() as f64 * index.k as f64 / gene.length as f64
                 * 100.0)
                 .min(100.0);
@@ -346,6 +361,8 @@ pub fn detect_fasta(
                 end: acc.max_pos,
                 distinct_hit_kmers: acc.positions.len(),
                 total_hit_kmers: acc.count,
+                diagnostic_kmer_total: gene.gene_specific_kmers,
+                diagnostic_kmer_fraction: diagnostic_fraction,
                 reference_coverage_pct: coverage,
                 call_type: "gene".to_string(),
             });
@@ -353,7 +370,12 @@ pub fn detect_fasta(
 
         for (family_id, acc) in family_hits {
             let family = &index.families[family_id];
-            if claimed_families.contains(family) || acc.positions.len() < params.min_family_hits {
+            let diagnostic_total = index.family_specific_kmers[family_id];
+            if claimed_families.contains(family) || diagnostic_total == 0 {
+                continue;
+            }
+            let diagnostic_fraction = acc.positions.len() as f64 / diagnostic_total as f64;
+            if diagnostic_fraction < params.min_family_fraction {
                 continue;
             }
             hits.push(AmrHit {
@@ -365,6 +387,8 @@ pub fn detect_fasta(
                 end: acc.max_pos,
                 distinct_hit_kmers: acc.positions.len(),
                 total_hit_kmers: acc.count,
+                diagnostic_kmer_total: diagnostic_total,
+                diagnostic_kmer_fraction: diagnostic_fraction,
                 reference_coverage_pct: 0.0,
                 call_type: "family".to_string(),
             });
@@ -415,8 +439,8 @@ impl WasmAmrIndex {
 pub struct WasmAmrSession {
     index: AmrIndex,
     pending: Vec<u8>,
-    min_gene_hits: usize,
-    min_family_hits: usize,
+    min_gene_fraction: f64,
+    min_family_fraction: f64,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -425,14 +449,14 @@ impl WasmAmrSession {
     #[wasm_bindgen(constructor)]
     pub fn new(
         index: &WasmAmrIndex,
-        min_gene_hits: usize,
-        min_family_hits: usize,
+        min_gene_fraction: f64,
+        min_family_fraction: f64,
     ) -> WasmAmrSession {
         WasmAmrSession {
             index: index.inner.clone(),
             pending: Vec::new(),
-            min_gene_hits,
-            min_family_hits,
+            min_gene_fraction,
+            min_family_fraction,
         }
     }
 
@@ -442,8 +466,8 @@ impl WasmAmrSession {
 
     pub fn finish(&mut self, sample_name: &str) -> Result<JsValue, JsValue> {
         let params = DetectParams {
-            min_gene_hits: self.min_gene_hits,
-            min_family_hits: self.min_family_hits,
+            min_gene_fraction: self.min_gene_fraction,
+            min_family_fraction: self.min_family_fraction,
         };
         let result = detect_fasta(&self.index, &self.pending, sample_name, &params)
             .map_err(|e| JsValue::from_str(&e))?;

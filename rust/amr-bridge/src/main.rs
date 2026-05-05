@@ -30,10 +30,10 @@ enum Command {
         fasta: PathBuf,
         #[arg(long)]
         sample_name: Option<String>,
-        #[arg(long, default_value_t = 8)]
-        min_gene_hits: usize,
-        #[arg(long, default_value_t = 12)]
-        min_family_hits: usize,
+        #[arg(long, default_value_t = 0.05)]
+        min_gene_fraction: f64,
+        #[arg(long, default_value_t = 0.30)]
+        min_family_fraction: f64,
     },
     Eval {
         #[arg(long)]
@@ -75,8 +75,8 @@ fn main() -> Result<(), String> {
             index,
             fasta,
             sample_name,
-            min_gene_hits,
-            min_family_hits,
+            min_gene_fraction,
+            min_family_fraction,
         } => {
             let index = load_index(&index)?;
             let bytes =
@@ -91,8 +91,8 @@ fn main() -> Result<(), String> {
                         .unwrap_or("sample")
                 }),
                 &DetectParams {
-                    min_gene_hits,
-                    min_family_hits,
+                    min_gene_fraction,
+                    min_family_fraction,
                 },
             )?;
             println!(

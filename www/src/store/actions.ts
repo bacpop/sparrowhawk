@@ -530,7 +530,7 @@ export default {
         };
     },
 
-    async detectAmr(context: ActionContext<RootState, RootState>, payload: { files: Array<File>; min_gene_hits: number; min_family_hits: number }) {
+    async detectAmr(context: ActionContext<RootState, RootState>, payload: { files: Array<File>; min_gene_fraction: number; min_family_fraction: number }) {
         const { commit, state } = context;
         if (!state.workerState.worker_amr) return;
         const workerAmr = state.workerState.worker_amr;
@@ -551,8 +551,8 @@ export default {
                 detect: true,
                 file,
                 sampleName,
-                min_gene_hits: payload.min_gene_hits,
-                min_family_hits: payload.min_family_hits,
+                min_gene_fraction: payload.min_gene_fraction,
+                min_family_fraction: payload.min_family_fraction,
             });
         }
     },

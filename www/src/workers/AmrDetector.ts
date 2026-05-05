@@ -21,13 +21,13 @@ export class AmrDetector {
         }
     }
 
-    async detect(file: File, sampleName: string, min_gene_hits: number, min_family_hits: number): Promise<void> {
+    async detect(file: File, sampleName: string, min_gene_fraction: number, min_family_fraction: number): Promise<void> {
         try {
             if (!this.index || !this.wasm) {
                 throw new Error("AMR index is not loaded");
             }
             const buf = new Uint8Array(await file.arrayBuffer());
-            const session = new this.wasm.WasmAmrSession(this.index, min_gene_hits, min_family_hits);
+            const session = new this.wasm.WasmAmrSession(this.index, min_gene_fraction, min_family_fraction);
             session.push_chunk(buf);
             const result = session.finish(sampleName) as any;
             this.worker.postMessage({ detected: true, sampleName, result });
