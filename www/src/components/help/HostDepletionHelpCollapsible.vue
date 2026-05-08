@@ -22,7 +22,7 @@
           <TabsContent value="overview" class="space-y-4">
             <p>
               Here you can either select or filter your reads (or in general, sequences) to, for example, remove host reads from your sequencing experiment data.
-              To do so, you will need an index, to be created with <a href="https://github.com/bede/deacon" target="_blank" class="text-blue-600 hover:underline">Deacon</a>. You have an example index below you can use. Afterwards, you can drag-and-drop, or select one or multiple FASTQ or FASTA files to process them. Afterwards, you can get back your filtered (or selected) reads (or sequences).
+              To do so, you will need an index, to be created with <a href="https://github.com/bede/deacon" target="_blank" class="text-blue-600 hover:underline">Deacon</a>. You have an example index below you can use. Afterwards, you can drag-and-drop, or select one or multiple FASTQ or FASTA files to process them. Afterwards, you can get back your filtered (or selected) reads (or sequences). Below we also provide an example small human respiratory tract metagenome you can use.
             </p>
 
             <div>
@@ -32,7 +32,10 @@
               </p>
               <ul class="list-disc list-inside mt-1">
                 <li>
-                  <a href="https://www.ebi.ac.uk/ena/browser/api/fasta/GCA_004138665.1?download=true&gzip=true" class="text-blue-600 hover:underline">Download FASTA</a>
+                  <a href="https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR311/057/SRR31126957/SRR31126957_1.fastq.gz" class="text-blue-600 hover:underline">SRR31126957_1.fastq.gz</a>
+                </li>
+                <li>
+                  <a href="https://ftp.sra.ebi.ac.uk/vol1/fastq/SRR311/057/SRR31126957/SRR31126957_2.fastq.gz" class="text-blue-600 hover:underline">SRR31126957_2.fastq.gz</a>
                 </li>
               </ul>
             </div>
