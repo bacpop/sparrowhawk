@@ -199,49 +199,34 @@ export default defineComponent({
 
     console.log("Loading wasm modules in workers...")
 
-    import("@/pkg")
-        .then(() => {
-          if (window.Worker) {
-            const worker = new WorkerAssembler();
-            this.store.commit('SET_WORKER', worker);
-          } else {
-            throw new Error("WebWorkers are not supported by this web browser.");
-          }
-        });
-    import("@/pkg_ska")
-        .then(() => {
-          if (window.Worker) {
-            const worker = new WorkerMapper();
-            this.store.commit('SET_WORKER_SKA', worker);
-          } else {
-            throw new Error("WebWorkers are not supported by this web browser.");
-          }
-        });
-    import("@/pkg_orphos-bridge")
-        .then(() => {
-          if (window.Worker) {
-            this.store.dispatch('initCallerWorkers', 4);
-          } else {
-            throw new Error("WebWorkers are not supported by this web browser.");
-          }
-        });
-    import("@/pkg_sketchlib")
-        .then(() => {
-            if (window.Worker) {
-                this.store.dispatch('initSketchlibWorkers', 4);
-            } else {
-                throw new Error("WebWorkers are not supported by this web browser.");
-            }
-       });
-    import("@/pkg_deacon")
-        .then(() => {
-            if (window.Worker) {
-                const worker = new WorkerDepleter();
-                this.store.commit('SET_WORKER_DEACON', worker);
-            } else {
-                throw new Error("WebWorkers are not supported by this web browser.");
-            }
-        });
+    if (window.Worker) {
+      const worker = new WorkerAssembler();
+      this.store.commit('SET_WORKER', worker);
+    } else {
+      throw new Error("WebWorkers are not supported by this web browser.");
+    }
+    if (window.Worker) {
+      const worker = new WorkerMapper();
+      this.store.commit('SET_WORKER_SKA', worker);
+    } else {
+      throw new Error("WebWorkers are not supported by this web browser.");
+    }
+    if (window.Worker) {
+      this.store.dispatch('initCallerWorkers', 4);
+    } else {
+      throw new Error("WebWorkers are not supported by this web browser.");
+    }
+    if (window.Worker) {
+      this.store.dispatch('initSketchlibWorkers', 4);
+    } else {
+      throw new Error("WebWorkers are not supported by this web browser.");
+    }
+    if (window.Worker) {
+      const worker = new WorkerDepleter();
+      this.store.commit('SET_WORKER_DEACON', worker);
+    } else {
+      throw new Error("WebWorkers are not supported by this web browser.");
+    }
   },
 
   methods: {
