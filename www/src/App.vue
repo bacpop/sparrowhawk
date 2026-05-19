@@ -1,6 +1,6 @@
 <template>
   <SidebarProvider class="h-svh">
-    <Sidebar class="mt-3.5 mb-6 mx-6 min-w-[185px] rounded-xl flex flex-col">
+    <Sidebar desktop-static class="mt-3.5 mb-6 mx-6 min-w-[185px] flex flex-col">
       <SidebarHeader>
         <img src="sparrowhawk-transparent.png" alt="Sparrowhawk" class="h-[120px] w-fit">
       </SidebarHeader>

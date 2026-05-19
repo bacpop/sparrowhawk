@@ -15,6 +15,7 @@ const props = withDefaults(defineProps<SidebarProps>(), {
   side: "left",
   variant: "sidebar",
   collapsible: "offcanvas",
+  desktopStatic: false,
 })
 
 const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
@@ -33,7 +34,7 @@ function handleMobileNavigationClick(event: MouseEvent) {
 
 <template>
   <div
-    v-if="collapsible === 'none'"
+    v-if="collapsible === 'none' || (props.desktopStatic && !isMobile)"
     data-slot="sidebar"
     :class="cn('bg-sidebar text-sidebar-foreground flex w-(--sidebar-width) flex-col', props.class)"
     v-bind="$attrs"
@@ -47,7 +48,7 @@ function handleMobileNavigationClick(event: MouseEvent) {
       data-slot="sidebar"
       data-mobile="true"
       :side="side"
-      class="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0"
+      class="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 border-0 shadow-none"
       :style="{
         '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
       }"

@@ -6,6 +6,7 @@ export interface SidebarProps {
   side?: "left" | "right"
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
+  desktopStatic?: boolean
   class?: HTMLAttributes["class"]
 }
 
