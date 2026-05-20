@@ -298,7 +298,7 @@ export default defineComponent({
 
         topLevelRows.push({
           ...allRows[0],
-          subRows: allRows.length > 1 ? allRows.slice(1) : undefined,
+          clusterDetails: allRows,
         });
       }
       return topLevelRows;
@@ -306,22 +306,13 @@ export default defineComponent({
 
     function downloadTsv(): void {
       const headers = [
-        "Sample", "Rank", "Species", "K-mer matches (%)",
+        "Sample", "Rank", "Species", "Similarity (%)",
         "Species (metadata)", "Gemsparcl ID", "GTDB species composition",
       ];
 
       const rows: string[][] = [];
       for (const row of tableData.value) {
-        rows.push([
-          row.sample,
-          String(row.rank),
-          row.species,
-          (row.probability * 100).toFixed(2),
-          row.metaSpecies,
-          row.metaGemsparcl,
-          row.metaGtdb,
-        ]);
-        for (const sub of row.subRows ?? []) {
+        for (const sub of row.clusterDetails ?? [row]) {
           rows.push([
             sub.sample,
             String(sub.rank),

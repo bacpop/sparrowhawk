@@ -1,14 +1,14 @@
-<script setup lang="ts" generic="TData, TValue">
+<script setup lang="ts">
 import type { ColumnDef, SortingState, ExpandedState } from '@tanstack/vue-table'
 import {
     FlexRender,
     getCoreRowModel,
     getSortedRowModel,
-    getExpandedRowModel,
     useVueTable,
 } from '@tanstack/vue-table'
 import { ref } from 'vue'
 import { valueUpdater } from '@/lib/utils'
+import type { TaxonomicIDRow } from './columns'
 import {
     Table,
     TableBody,
@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/table'
 
 const props = defineProps<{
-    columns: ColumnDef<TData, TValue>[]
-    data: TData[]
+    columns: ColumnDef<TaxonomicIDRow>[]
+    data: TaxonomicIDRow[]
 }>()
 
 const sorting = ref<SortingState>([])
@@ -31,8 +31,7 @@ const table = useVueTable({
     get columns() { return props.columns },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    getSubRows: (row: TData) => (row as { subRows?: TData[] }).subRows,
+    getRowCanExpand: row => (row.original.clusterDetails?.length ?? 0) > 0,
     onSortingChange: updaterOrValue => valueUpdater(updaterOrValue, sorting),
     onExpandedChange: updaterOrValue => valueUpdater(updaterOrValue, expanded),
     state: {
@@ -58,15 +57,47 @@ const table = useVueTable({
             </TableHeader>
             <TableBody>
                 <template v-if="table.getRowModel().rows?.length">
-                    <TableRow
-                        v-for="row in table.getRowModel().rows"
-                        :key="row.id"
-                        :class="row.depth > 0 ? 'bg-muted/40 text-muted-foreground' : ''"
-                    >
-                        <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id">
-                            <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
-                        </TableCell>
-                    </TableRow>
+                    <template v-for="row in table.getRowModel().rows" :key="row.id">
+                        <TableRow
+                            :class="[
+                                row.getCanExpand() ? 'cursor-pointer hover:bg-muted/40' : '',
+                                row.getIsExpanded() ? 'bg-muted/30' : '',
+                            ]"
+                            @click="row.getCanExpand() && row.toggleExpanded()"
+                        >
+                            <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id">
+                                <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
+                            </TableCell>
+                        </TableRow>
+                        <TableRow v-if="row.getIsExpanded()">
+                            <TableCell :colspan="columns.length" class="bg-muted/20 p-4">
+                                <div class="rounded-md border bg-white overflow-hidden">
+                                    <table class="w-full text-sm">
+                                        <thead class="bg-gray-50 text-gray-600">
+                                            <tr>
+                                                <th class="px-3 py-2 text-left font-medium">Rank</th>
+                                                <th class="px-3 py-2 text-left font-medium">Species per cluster</th>
+                                                <th class="px-3 py-2 text-right font-medium">Similarity</th>
+                                                <th class="px-3 py-2 text-left font-medium">GTDB species composition</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr
+                                                v-for="candidate in row.original.clusterDetails"
+                                                :key="row.id + '-' + candidate.rank"
+                                                class="border-t"
+                                            >
+                                                <td class="px-3 py-2">{{ candidate.rank }}</td>
+                                                <td class="px-3 py-2 italic">{{ candidate.metaSpecies || candidate.species }}</td>
+                                                <td class="px-3 py-2 text-right font-medium">{{ (candidate.probability * 100).toFixed(1) }}%</td>
+                                                <td class="px-3 py-2">{{ candidate.metaGtdb }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    </template>
                 </template>
                 <TableRow v-else>
                     <TableCell :colspan="columns.length" class="h-24 text-center">
