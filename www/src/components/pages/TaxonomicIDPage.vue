@@ -281,6 +281,43 @@ export default defineComponent({
       return species.trim().split(/\s+/)[0] ?? "";
     }
 
+
+    interface CompositionEntry {
+      name: string;
+      count: number;
+      original: string;
+    }
+
+    function parseCompositionEntry(entry: string): CompositionEntry | null {
+      const trimmed = entry.trim();
+      const match = trimmed.match(/^(.*)\s+\((\d+)\)$/);
+      if (!match) return null;
+
+      return {
+        name: match[1].trim(),
+        count: Number(match[2]),
+        original: trimmed,
+      };
+    }
+
+    function formatGtdbComposition(composition: string): string {
+      const entries = composition
+        .split(";")
+        .map(parseCompositionEntry);
+
+      if (!entries.length || entries.some(entry => entry === null)) {
+        return composition;
+      }
+
+      const parsedEntries = entries as CompositionEntry[];
+      const total = parsedEntries.reduce((sum, entry) => sum + entry.count, 0);
+      if (total === 0) return composition;
+
+      return parsedEntries
+        .map(entry => `${entry.name} (${entry.count}; ${((entry.count / total) * 100).toFixed(1)}%)`)
+        .join(" ; ");
+    }
+
     function compactRowFor(allRows: TaxonomicIDRow[]): TaxonomicIDRow {
       const firstRankRows = allRows.filter(row => row.rank === 1);
       if (firstRankRows.length <= 1) {
@@ -316,7 +353,7 @@ export default defineComponent({
             probability: sampleResult.idProbs[i],
             metaSpecies: parts[0]?.trim() ?? "",
             metaGemsparcl: parts[1]?.trim() ?? "",
-            metaGtdb: parts[2]?.trim() ?? "",
+            metaGtdb: formatGtdbComposition(parts[2]?.trim() ?? ""),
           };
         });
 
