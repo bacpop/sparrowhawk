@@ -49,6 +49,7 @@ export interface AllResultsSka {
 
 export interface SampleIdentifyResult {
     idProbs: number[]
+    idRanks: number[]
     idSpecies: string[]
     idMetadata: string[]
 }

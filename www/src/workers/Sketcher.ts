@@ -1,5 +1,6 @@
 interface IdentifyResult {
     probs: number[];
+    ranks: number[];
     names: string[];
     metadata: string[];
 }
@@ -54,6 +55,7 @@ export class Sketcher {
             this.worker.postMessage({
                 sampleName: sampleName,
                 probs: results.probs,
+                ranks: results.ranks,
                 names: results.names,
                 metadata: results.metadata
             });

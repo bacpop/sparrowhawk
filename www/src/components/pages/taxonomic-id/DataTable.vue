@@ -71,13 +71,13 @@ const table = useVueTable({
                         </TableRow>
                         <TableRow v-if="row.getIsExpanded()">
                             <TableCell :colspan="columns.length" class="bg-muted/20 p-4">
-                                <div class="rounded-md border bg-white overflow-hidden">
-                                    <table class="w-full text-sm">
+                                <div class="w-fit max-w-full rounded-md border bg-white overflow-x-auto">
+                                    <table class="w-auto text-sm">
                                         <thead class="bg-gray-50 text-gray-600">
                                             <tr>
-                                                <th class="px-3 py-2 text-left font-medium">Rank</th>
-                                                <th class="px-3 py-2 text-left font-medium">Species per cluster</th>
-                                                <th class="px-3 py-2 text-right font-medium">Similarity</th>
+                                                <th class="px-3 py-2 text-left font-medium whitespace-nowrap">Rank</th>
+                                                <th class="px-3 py-2 text-left font-medium whitespace-nowrap">Species per cluster</th>
+                                                <th class="px-3 py-2 text-right font-medium whitespace-nowrap">Similarity</th>
                                                 <th class="px-3 py-2 text-left font-medium">GTDB species composition</th>
                                             </tr>
                                         </thead>
@@ -87,10 +87,10 @@ const table = useVueTable({
                                                 :key="row.id + '-' + candidate.rank"
                                                 class="border-t"
                                             >
-                                                <td class="px-3 py-2">{{ candidate.rank }}</td>
-                                                <td class="px-3 py-2 italic">{{ candidate.metaSpecies || candidate.species }}</td>
-                                                <td class="px-3 py-2 text-right font-medium">{{ (candidate.probability * 100).toFixed(1) }}%</td>
-                                                <td class="px-3 py-2">{{ candidate.metaGtdb }}</td>
+                                                <td class="px-3 py-2 whitespace-nowrap">{{ candidate.rank }}</td>
+                                                <td class="px-3 py-2 italic whitespace-nowrap">{{ candidate.species }}</td>
+                                                <td class="px-3 py-2 text-right font-medium whitespace-nowrap">{{ (candidate.probability * 100).toFixed(1) }}%</td>
+                                                <td class="px-3 py-2 max-w-xl whitespace-normal">{{ candidate.metaGtdb }}</td>
                                             </tr>
                                         </tbody>
                                     </table>

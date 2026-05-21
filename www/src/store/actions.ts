@@ -328,6 +328,7 @@ export default {
                         commit("saveIDResults", {
                             sampleName,
                             probs: messageData.data.probs,
+                            ranks: messageData.data.ranks,
                             names: messageData.data.names,
                             metadata: messageData.data.metadata,
                         });

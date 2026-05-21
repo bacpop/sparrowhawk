@@ -277,6 +277,30 @@ export default defineComponent({
 
     const tableColumns = columns;
 
+    function genusFor(species: string): string {
+      return species.trim().split(/\s+/)[0] ?? "";
+    }
+
+    function compactRowFor(allRows: TaxonomicIDRow[]): TaxonomicIDRow {
+      const firstRankRows = allRows.filter(row => row.rank === 1);
+      if (firstRankRows.length <= 1) {
+        return { ...allRows[0], clusterDetails: allRows };
+      }
+
+      const species = [...new Set(firstRankRows.map(row => row.species))];
+      const genera = [...new Set(species.map(genusFor).filter(Boolean))];
+      const displaySpecies = species.length === 1
+        ? species[0]
+        : (genera.length === 1 ? `${genera[0]} spp.` : "Unknown (tie)");
+
+      return {
+        ...firstRankRows[0],
+        species: displaySpecies,
+        metaGemsparcl: firstRankRows.map(row => row.metaGemsparcl).filter(Boolean).join(", "),
+        clusterDetails: allRows,
+      };
+    }
+
     const tableData = computed<TaxonomicIDRow[]>(() => {
       const results = allResults_sketchlib.value.results as Record<string, SampleIdentifyResult>;
       const topLevelRows: TaxonomicIDRow[] = [];
@@ -284,22 +308,19 @@ export default defineComponent({
         if (!sampleResult?.idSpecies?.length) continue;
 
         const allRows: TaxonomicIDRow[] = sampleResult.idSpecies.map((species, i) => {
-          const parts = (sampleResult.idMetadata[i] ?? '').split('|');
+          const parts = (sampleResult.idMetadata[i] ?? "").split("|");
           return {
             sample: sampleName,
-            rank: i + 1,
+            rank: sampleResult.idRanks?.[i] ?? i + 1,
             species,
             probability: sampleResult.idProbs[i],
-            metaSpecies: parts[0]?.trim() ?? '',
-            metaGemsparcl: parts[1]?.trim() ?? '',
-            metaGtdb: parts[2]?.trim() ?? '',
+            metaSpecies: parts[0]?.trim() ?? "",
+            metaGemsparcl: parts[1]?.trim() ?? "",
+            metaGtdb: parts[2]?.trim() ?? "",
           };
         });
 
-        topLevelRows.push({
-          ...allRows[0],
-          clusterDetails: allRows,
-        });
+        topLevelRows.push(compactRowFor(allRows));
       }
       return topLevelRows;
     });
