@@ -6,6 +6,7 @@ export interface WorkerState {
     worker_deacon: Worker | null;
     workers_sketchlib: Worker[];
     workers_orphos: Worker[];
+    workers_amr: Worker[];
 }
 
 export interface AllResults {
@@ -94,6 +95,58 @@ export interface AllResultsDeacon {
     error: string | null
 }
 
+export interface AmrDetectionHit {
+    query_id: string;
+    query_kind: string;
+    unit_id: string;
+    unit_type: string;
+    unit_label: string;
+    gene_id: string | null;
+    element_symbol: string | null;
+    gene_symbol: string | null;
+    allele_symbol: string | null;
+    family: string;
+    hierarchy_node: string | null;
+    class_name: string | null;
+    subclass: string | null;
+    member_count: number;
+    start: number;
+    end: number;
+    call_stage: string;
+    first_pass_distinct: number;
+    first_pass_total: number;
+    first_pass_diagnostic_total: number;
+    first_pass_fraction: number;
+    refinement_distinct: number;
+    refinement_total: number;
+    refinement_diagnostic_total: number;
+    refinement_fraction: number;
+    call_fraction: number;
+    call_type: string;
+}
+
+export interface AmrDetectionResult {
+    sample_name: string;
+    database_version: string;
+    query_kind: string;
+    index_alphabet: string;
+    index_k: number;
+    refinement_mode: string;
+    refinement_k: number;
+    hits: AmrDetectionHit[];
+    gene_count: number;
+    family_count: number;
+}
+
+export interface AllResultsAmr {
+    indexFileName: string | null;
+    indexInfo: string | null;
+    indexLoaded: boolean;
+    isLoadingIndex: boolean;
+    result: AmrDetectionResult | null;
+    error: string | null
+}
+
 export interface ReadsPreprocessing {
     nKmers: number | null;
     histo: [];
@@ -116,5 +169,7 @@ export interface ProcessingState {
     geneCallingProgressTotal: number;
     isFilteringDeacon: boolean;
     isFilteringDeaconFiles: Set<string>;
+    isDetectingAmr: boolean;
+    isDetectingAmrFiles: Set<string>;
     isClustering: boolean;
 }

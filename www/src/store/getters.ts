@@ -30,7 +30,8 @@ export const getters: GetterTree<RootState, RootState> = {
             state.processingState.isIndexingRef ||
             state.processingState.isMapping ||
             state.processingState.isAligning ||
-            state.processingState.isIdentifying;
+            state.processingState.isIdentifying ||
+            state.processingState.isDetectingAmr;
     },
     assemblyState(state: RootState): string {
         return state.processingState.assemblyState;
@@ -117,6 +118,8 @@ export const getters: GetterTree<RootState, RootState> = {
     orphosError(state: RootState)    { return state.allResults_orphos.error; },
     // DEACON errors
     deaconError(state: RootState)    { return state.allResults_deacon.error; },
+    // AMR errors
+    amrError(state: RootState)       { return state.allResults_amr.error; },
 
     // DEACON
     deaconIndexLoaded(state: RootState)    { return state.allResults_deacon.indexLoaded; },
@@ -125,4 +128,12 @@ export const getters: GetterTree<RootState, RootState> = {
     filteringDeaconFiles(state: RootState): Set<string> { return state.processingState.isFilteringDeaconFiles; },
     deaconFiltered(state: RootState)       { return Object.keys(state.allResults_deacon.results).length > 0; },
     deaconResults(state: RootState)        { return state.allResults_deacon.results; },
+
+    // AMR
+    amrIndexLoaded(state: RootState)    { return state.allResults_amr.indexLoaded; },
+    isLoadingAmrIndex(state: RootState) { return state.allResults_amr.isLoadingIndex; },
+    isDetectingAmr(state: RootState)    { return state.processingState.isDetectingAmr; },
+    detectingAmrFiles(state: RootState): Set<string> { return state.processingState.isDetectingAmrFiles; },
+    amrDetected(state: RootState)       { return state.allResults_amr.result !== null; },
+    amrResult(state: RootState)         { return state.allResults_amr.result; },
 }

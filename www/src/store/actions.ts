@@ -2,7 +2,8 @@ import {ActionContext} from "vuex";
 import {RootState} from "@/store/state";
 import WorkerSketcher from '@/workers/Sketcher.worker';
 import WorkerCaller from '@/workers/Caller.worker';
-import {regExpWithTwoNumbers, regExpForAnyFastx, getFilesToProcess} from "@/utils";
+import WorkerAmrDetector from '@/workers/AmrDetector.worker';
+import {regExpWithTwoNumbers, regExpForAnyFastx, regExpForAnyFasta, getFilesToProcess} from "@/utils";
 
 export default {
     async processReads(context: ActionContext<RootState, RootState>, payload: {
@@ -513,5 +514,76 @@ export default {
 
     async resetAllResults_deacon(context: ActionContext<RootState, RootState>) {
         context.commit("resetAllResults_deacon");
+    },
+
+    // AMR
+    async initAmrWorkers(context: ActionContext<RootState, RootState>, numWorkers: number) {
+        const {commit, state} = context;
+        for (const worker of state.workerState.workers_amr) {
+            worker.terminate();
+        }
+        const pool: Worker[] = [];
+        for (let i = 0; i < numWorkers; i++) {
+            pool.push(new WorkerAmrDetector());
+        }
+        console.log(`Spawned ${numWorkers} AMR worker(s)`);
+        commit("SET_WORKERS_AMR", pool);
+    },
+
+    async detectAmrFile(context: ActionContext<RootState, RootState>, payload: { files: Array<File>; min_gene_fraction: number; min_family_fraction: number }) {
+        const {commit, state} = context;
+        commit("resetAllResults_amr");
+        const pool = state.workerState.workers_amr;
+        if (!pool.length) {
+            console.log("No AMR worker available");
+            commit("setAmrError", "worker");
+            return;
+        }
+        if (payload.files.length !== 1) {
+            commit("setAmrError", "file_count");
+            return;
+        }
+
+        const file = payload.files[0];
+        if (!regExpForAnyFasta.test(file.name)) {
+            commit("setAmrError", "fasta");
+            return;
+        }
+
+        const sampleName = file.name.replace(regExpForAnyFasta, "");
+        const worker = pool[0];
+        worker.onmessage = (messageData) => {
+            if (!(messageData.data instanceof Object)) return;
+            if (messageData.data.error) {
+                if (messageData.data.sampleName) {
+                    commit("removeDetectingAmrFile", messageData.data.sampleName);
+                }
+                commit("setAmrError", messageData.data.message ?? "generic");
+            } else if (messageData.data.indexLoaded) {
+                commit("setAmrIndexLoaded", {
+                    fileName: messageData.data.fileName,
+                    info: messageData.data.info,
+                });
+            } else if (messageData.data.detected) {
+                commit("removeDetectingAmrFile", messageData.data.sampleName);
+                commit("saveAmrResult", messageData.data.result);
+            }
+        };
+
+        if (!state.allResults_amr.indexLoaded && !state.allResults_amr.isLoadingIndex) {
+            commit("setLoadingAmrIndex");
+        }
+        commit("addDetectingAmrFile", sampleName);
+        worker.postMessage({
+            detectAmr: true,
+            file,
+            sampleName,
+            min_gene_fraction: payload.min_gene_fraction,
+            min_family_fraction: payload.min_family_fraction,
+        });
+    },
+
+    async resetAllResults_amr(context: ActionContext<RootState, RootState>) {
+        context.commit("resetAllResults_amr");
     },
 };

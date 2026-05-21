@@ -1,5 +1,5 @@
 import {RootState} from "@/store/state";
-import {GeneCallResult, DepletionResult, Dict, TransmissionGraphData} from "@/types";
+import {GeneCallResult, DepletionResult, AmrDetectionResult, Dict, TransmissionGraphData} from "@/types";
 
 export default {
     // Processing state mutations
@@ -51,6 +51,8 @@ export default {
             geneCallingProgressTotal: 0,
             isFilteringDeacon: false,
             isFilteringDeaconFiles: new Set<string>(),
+            isDetectingAmr: false,
+            isDetectingAmrFiles: new Set<string>(),
             isClustering: false,
         };
     },
@@ -69,6 +71,9 @@ export default {
     },
     SET_WORKER_DEACON(state: RootState, worker: Worker | null) {
         state.workerState.worker_deacon = worker;
+    },
+    SET_WORKERS_AMR(state: RootState, workers: Worker[]) {
+        state.workerState.workers_amr = workers;
     },
 
     setPreprocessing(state: RootState, input: { nKmers: number, histo: [], used_min_count: number }) {
@@ -324,5 +329,41 @@ export default {
         if (state.workerState.worker_deacon) {
             state.workerState.worker_deacon.postMessage({ reset: true });
         }
+    },
+
+    // AMR
+    setLoadingAmrIndex(state: RootState) {
+        state.allResults_amr.isLoadingIndex = true;
+        state.allResults_amr.error = null;
+    },
+    setAmrIndexLoaded(state: RootState, input: { fileName: string; info: string }) {
+        state.allResults_amr.isLoadingIndex = false;
+        state.allResults_amr.indexLoaded = true;
+        state.allResults_amr.indexFileName = input.fileName;
+        state.allResults_amr.indexInfo = input.info;
+    },
+    addDetectingAmrFile(state: RootState, sampleName: string) {
+        state.processingState.isDetectingAmrFiles.add(sampleName);
+        state.processingState.isDetectingAmr = true;
+        state.allResults_amr.error = null;
+    },
+    removeDetectingAmrFile(state: RootState, sampleName: string) {
+        state.processingState.isDetectingAmrFiles.delete(sampleName);
+        if (state.processingState.isDetectingAmrFiles.size === 0) {
+            state.processingState.isDetectingAmr = false;
+        }
+    },
+    saveAmrResult(state: RootState, result: AmrDetectionResult) {
+        state.allResults_amr.result = result;
+    },
+    setAmrError(state: RootState, msg: string) {
+        state.allResults_amr.isLoadingIndex = false;
+        state.allResults_amr.error = msg;
+    },
+    resetAllResults_amr(state: RootState) {
+        state.allResults_amr.result = null;
+        state.allResults_amr.error = null;
+        state.processingState.isDetectingAmr = false;
+        state.processingState.isDetectingAmrFiles = new Set<string>();
     },
 };

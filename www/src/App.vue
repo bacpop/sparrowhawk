@@ -75,6 +75,10 @@
         <HostDepletionPage :tabName="tabName"/>
       </div>
 
+      <div v-else-if="tabName === 'AMRDetection'">
+        <AMRDetectionPage :tabName="tabName"/>
+      </div>
+
       <div v-else-if="tabName === 'faq'">
         <FaqPage/>
       </div>
@@ -93,6 +97,7 @@ import MappingAlignmentPage from './components/pages/MappingAlignmentPage.vue';
 import TaxonomicIDPage from './components/pages/TaxonomicIDPage.vue';
 import GeneCallingPage from "./components/pages/GeneCallingPage.vue";
 import HostDepletionPage from "./components/pages/HostDepletionPage.vue";
+import AMRDetectionPage from "./components/pages/AMRDetectionPage.vue";
 import ResultsDisplayMapping from './components/ResultsDisplayMapping.vue';
 import ResultsDisplayAlignment from './components/ResultsDisplayAlignment.vue';
 import KmerHistogram from './components/KmerHistogram.vue';
@@ -152,6 +157,7 @@ export default defineComponent({
     TaxonomicIDPage,
     GeneCallingPage,
     HostDepletionPage,
+    AMRDetectionPage,
     KmerHistogram,
     ResultsDisplayMapping,
     ResultsDisplayAlignment,
@@ -173,7 +179,7 @@ export default defineComponent({
         {id: 'TaxonomicID', sidebar_label: "Taxonomic ID", label: 'Taxonomic ID', icon: 'ScanFace'},
         {id: 'GeneCalling', sidebar_label: "Gene calling", label: 'Gene calling', icon: 'Dna'},
         {id: 'HostDepletion', sidebar_label: "Host depletion", label: 'Host depletion', icon: 'Funnel'},
-        {id: 'amrdetection', sidebar_label: "AMR detection (soon)", label: 'AMR detection (soon)', icon: 'Pill', comingSoon: true} as Tab,
+        {id: 'AMRDetection', sidebar_label: "AMR detection", label: 'AMR detection', icon: 'Pill'},
       ] as Tab[]
     }
   },
@@ -224,6 +230,11 @@ export default defineComponent({
     if (window.Worker) {
       const worker = new WorkerDepleter();
       this.store.commit('SET_WORKER_DEACON', worker);
+    } else {
+      throw new Error("WebWorkers are not supported by this web browser.");
+    }
+    if (window.Worker) {
+      this.store.dispatch('initAmrWorkers', 1);
     } else {
       throw new Error("WebWorkers are not supported by this web browser.");
     }
