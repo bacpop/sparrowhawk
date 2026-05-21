@@ -10,5 +10,5 @@
 
 [submodule "rust/sketchlib.rust"]
 	path = rust/sketchlib.rust
-	url  = https://github.com/vrbouza/sketchlib.rust.git
-	branch = main
+	url  = https://github.com/bacpop/sketchlib.rust.git
+	branch = sparrowhawk-dev
