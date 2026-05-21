@@ -60,6 +60,15 @@ export interface AllResultsSketchlib {
     error: string | null
 }
 
+export interface GeneMetadata {
+    contig: string;
+    start: number;
+    end: number;
+    strand: string;
+}
+
+export type GeneMetadataMap = Record<string, GeneMetadata>
+
 export interface GeneCallResult {
     fileName: string;
     outputFile: string;
@@ -70,6 +79,11 @@ export interface GeneCallResult {
     fastaGzi: Uint8Array<ArrayBuffer>;
     gffBgz: Uint8Array<ArrayBuffer>;
     gffCsi: Uint8Array<ArrayBuffer>;
+    geneMetadata: GeneMetadataMap;
+    amrResult: AmrDetectionResult | null;
+    amrHitCount: number;
+    amrAnnotationTsv: string;
+    amrError: string | null;
 }
 
 export interface AllResultsOrphos {

@@ -411,6 +411,11 @@ export default {
                         fastaGzi:      msg.data.fasta_gzi,
                         gffBgz:        msg.data.gff_bgz,
                         gffCsi:        msg.data.gff_csi,
+                        geneMetadata:  msg.data.gene_metadata ?? {},
+                        amrResult:     msg.data.amr_result,
+                        amrHitCount:   msg.data.amr_hit_count,
+                        amrAnnotationTsv: msg.data.amr_tsv,
+                        amrError:      msg.data.amr_error,
                     });
                 }
             };
@@ -427,6 +432,8 @@ export default {
             mask: boolean,
             tt: number,
             non_sd: boolean
+            min_gene_fraction: number
+            min_family_fraction: number
         }) {
         const { commit, state } = context;
         const pool = state.workerState.workers_orphos;
@@ -450,6 +457,8 @@ export default {
                 mask: payload.mask,
                 tt: payload.tt,
                 non_sd: payload.non_sd,
+                min_gene_fraction: payload.min_gene_fraction,
+                min_family_fraction: payload.min_family_fraction,
             });
         });
     },

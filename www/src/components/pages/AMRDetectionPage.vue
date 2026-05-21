@@ -165,6 +165,7 @@ import AMRDetectionHelpCollapsible from "@/components/help/AMRDetectionHelpColla
 import DataTable from "@/components/pages/taxonomic-id/DataTable.vue";
 import { columns, AmrDetectionRow } from "@/components/pages/amr-detection/columns";
 import { AmrDetectionResult } from "@/types";
+import { buildAmrTsv } from "@/amrTsv";
 import { fastaExtensionsWithDotAndCompressList, regExpForAnyFasta } from "@/utils";
 
 export default defineComponent({
@@ -245,39 +246,7 @@ export default defineComponent({
     function downloadTsv(): void {
       const result = amrResult.value;
       if (!result) return;
-      const headers = [
-        "Sample", "Database version", "Index alphabet", "Index k",
-        "Query", "Unit ID", "Unit label", "Unit type", "Call type",
-        "Element symbol", "Gene symbol", "Allele symbol", "Family",
-        "Hierarchy node", "Class", "Subclass", "Call fraction",
-        "Diagnostic k-mers matched", "Diagnostic k-mers total",
-        "Start", "End", "Member count",
-      ];
-      const rows = result.hits.map((hit) => [
-        result.sample_name,
-        result.database_version,
-        result.index_alphabet,
-        String(result.index_k),
-        hit.query_id,
-        hit.unit_id,
-        hit.unit_label,
-        hit.unit_type,
-        hit.call_type,
-        hit.element_symbol ?? '',
-        hit.gene_symbol ?? '',
-        hit.allele_symbol ?? '',
-        hit.family,
-        hit.hierarchy_node ?? '',
-        hit.class_name ?? '',
-        hit.subclass ?? '',
-        hit.call_fraction.toFixed(4),
-        String(hit.first_pass_distinct),
-        String(hit.first_pass_diagnostic_total),
-        String(hit.start),
-        String(hit.end),
-        String(hit.member_count),
-      ]);
-      const tsv = [headers, ...rows].map(r => r.join("\t")).join("\n");
+      const tsv = buildAmrTsv(result);
       const blob = new Blob([tsv], { type: "text/tab-separated-values" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

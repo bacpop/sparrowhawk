@@ -1,7 +1,5 @@
 import { gunzipSync } from "fflate";
-
-const AMR_INDEX_FILE_NAME = "amrfinderplus_2026-03-24.1_dna_k31.amridx.gz";
-const AMR_INDEX_URL = `/${AMR_INDEX_FILE_NAME}`;
+import { AMR_INDEX_FILE_NAME, createAmrDetector } from "@/workers/amrIndex";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WasmModuleAny = any;
@@ -73,13 +71,7 @@ export class AmrDetectorWorker {
 
     private async loadDetector(): Promise<void> {
         const wasm = await this.waitForWasm();
-        const response = await fetch(AMR_INDEX_URL);
-        if (!response.ok) {
-            throw new Error("index");
-        }
-        const compressed = new Uint8Array(await response.arrayBuffer());
-        const indexBytes = gunzipSync(compressed);
-        this.detector = new wasm.AmrDetector(indexBytes);
+        this.detector = await createAmrDetector(wasm);
         this.worker.postMessage({
             indexLoaded: true,
             fileName: AMR_INDEX_FILE_NAME,

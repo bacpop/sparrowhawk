@@ -1,5 +1,5 @@
-use std::io::{self, Read, Write};
 use super::bgzf::BgzfReader;
+use std::io::{self, Read, Write};
 
 // ---------------------------------------------------------------
 // Public API
@@ -22,7 +22,7 @@ pub fn faidx_index_fasta<R: Read, F: Write, G: Write>(
     let mut cur_seq_offset: u64 = 0; // uncompressed byte position of first base
     let mut cur_seq_len: u64 = 0;
     let mut cur_line_blen: usize = 0; // raw bytes per line (including newline)
-    let mut cur_line_len: usize = 0;  // bases per line (excluding newline)
+    let mut cur_line_len: usize = 0; // bases per line (excluding newline)
     let mut first_data_line: bool = false;
 
     let write_record = |fai: &mut F,
@@ -30,8 +30,12 @@ pub fn faidx_index_fasta<R: Read, F: Write, G: Write>(
                         seq_len: u64,
                         seq_offset: u64,
                         line_blen: usize,
-                        line_len: usize| -> io::Result<()> {
-        let line = format!("{}\t{}\t{}\t{}\t{}\n", name, seq_len, seq_offset, line_len, line_blen);
+                        line_len: usize|
+     -> io::Result<()> {
+        let line = format!(
+            "{}\t{}\t{}\t{}\t{}\n",
+            name, seq_len, seq_offset, line_len, line_blen
+        );
         fai.write_all(line.as_bytes())
     };
 

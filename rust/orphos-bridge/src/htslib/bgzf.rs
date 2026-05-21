@@ -1,5 +1,5 @@
+use flate2::{read::DeflateDecoder, write::DeflateEncoder, Compression};
 use std::io::{self, Read, Write};
-use flate2::{write::DeflateEncoder, read::DeflateDecoder, Compression};
 
 // Max uncompressed bytes per BGZF block
 const BGZF_BLOCK_SIZE: usize = 0xff00; // 65280
@@ -8,17 +8,16 @@ const BGZF_BLOCK_SIZE: usize = 0xff00; // 65280
 // Bytes 16–17 are BSIZE placeholder (total block size − 1), filled per block
 const HEADER_TEMPLATE: [u8; 18] = [
     0x1f, 0x8b, 0x08, 0x04, // magic, method, FLG=FEXTRA
-    0,    0,    0,    0,    // MTIME
-    0,    0xff,              // XFL, OS=255 (unknown)
-    0x06, 0x00,              // XLEN=6
+    0, 0, 0, 0, // MTIME
+    0, 0xff, // XFL, OS=255 (unknown)
+    0x06, 0x00, // XLEN=6
     b'B', b'C', 0x02, 0x00, // BC subfield id, length=2
-    0,    0,                 // BSIZE placeholder (bytes 16–17)
+    0, 0, // BSIZE placeholder (bytes 16–17)
 ];
 
 // Standard BGZF EOF marker block (28 bytes)
 pub const EOF_BLOCK: [u8; 28] = [
-    0x1f, 0x8b, 0x08, 0x04, 0, 0, 0, 0, 0, 0xff,
-    0x06, 0x00, b'B', b'C', 0x02, 0x00, 0x1b, 0x00,
+    0x1f, 0x8b, 0x08, 0x04, 0, 0, 0, 0, 0, 0xff, 0x06, 0x00, b'B', b'C', 0x02, 0x00, 0x1b, 0x00,
     0x03, 0x00, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
@@ -195,14 +194,21 @@ impl<R: Read> BgzfReader<R> {
 
         // Validate magic and flags
         if header[0] != 0x1f || header[1] != 0x8b {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "not a gzip stream"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "not a gzip stream",
+            ));
         }
         if header[2] != 0x08 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported gzip method"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "unsupported gzip method",
+            ));
         }
 
         let bsize = u16::from_le_bytes([header[16], header[17]]) as usize + 1;
-        let deflate_len = bsize.checked_sub(26)
+        let deflate_len = bsize
+            .checked_sub(26)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "BGZF block too small"))?;
 
         let mut deflate_data = vec![0u8; deflate_len];
@@ -212,7 +218,8 @@ impl<R: Read> BgzfReader<R> {
         read_exact_inner(&mut self.inner, &mut footer)?;
 
         let expected_crc = u32::from_le_bytes([footer[0], footer[1], footer[2], footer[3]]);
-        let expected_isize = u32::from_le_bytes([footer[4], footer[5], footer[6], footer[7]]) as usize;
+        let expected_isize =
+            u32::from_le_bytes([footer[4], footer[5], footer[6], footer[7]]) as usize;
 
         // Decompress
         self.block.clear();
@@ -223,13 +230,20 @@ impl<R: Read> BgzfReader<R> {
         if self.block.len() != expected_isize {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("BGZF isize mismatch: got {} expected {}", self.block.len(), expected_isize),
+                format!(
+                    "BGZF isize mismatch: got {} expected {}",
+                    self.block.len(),
+                    expected_isize
+                ),
             ));
         }
 
         let actual_crc = crc32fast::hash(&self.block);
         if actual_crc != expected_crc {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "BGZF CRC32 mismatch"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "BGZF CRC32 mismatch",
+            ));
         }
 
         self.cur_block_start = caddr_before;
@@ -312,7 +326,12 @@ fn read_exact_inner<R: Read>(r: &mut R, buf: &mut [u8]) -> io::Result<()> {
     let mut filled = 0;
     while filled < buf.len() {
         match r.read(&mut buf[filled..]) {
-            Ok(0) => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected EOF")),
+            Ok(0) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "unexpected EOF",
+                ))
+            }
             Ok(n) => filled += n,
             Err(e) => return Err(e),
         }

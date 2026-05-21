@@ -1,6 +1,6 @@
+use super::bgzf::{BgzfReader, BgzfWriter};
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
-use super::bgzf::{BgzfReader, BgzfWriter};
 
 // -----------------------------------------------------------------
 // CSI format constants (tabix -C -p gff, htslib default)
@@ -54,7 +54,11 @@ fn compute_loff(bin: u32, lidx: &[u64]) -> u64 {
     let offset0 = lidx.iter().rev().find(|&&v| v != 0).copied().unwrap_or(0);
     let bot = hts_bin_bot(bin) as usize;
     let val = if bot < lidx.len() { lidx[bot] } else { 0 };
-    if val != 0 { val } else { offset0 }
+    if val != 0 {
+        val
+    } else {
+        offset0
+    }
 }
 
 // -----------------------------------------------------------------
@@ -183,7 +187,7 @@ fn compress_binning(bins: &mut HashMap<u32, Vec<Chunk>>) {
                 continue;
             }
             let first_start = chunks.iter().map(|c| c.start).min().unwrap();
-            let last_end   = chunks.iter().map(|c| c.end).max().unwrap();
+            let last_end = chunks.iter().map(|c| c.end).max().unwrap();
             let span = (last_end >> 16).saturating_sub(first_start >> 16);
             if span < HTS_MIN_MARKER_DIST {
                 let child_chunks = bins.remove(&b).unwrap();
@@ -257,7 +261,10 @@ pub fn csi_index_gff<R: Read, W: Write>(bgzf_input: R, csi_output: W) -> io::Res
             }
         };
 
-        let chunk = Chunk { start: voff_start, end: voff_end };
+        let chunk = Chunk {
+            start: voff_start,
+            end: voff_end,
+        };
         seqs[tid].add_chunk(bin, chunk);
         seqs[tid].update_lidx(beg, end, voff_start);
     }
@@ -279,12 +286,22 @@ pub fn csi_index_gff<R: Read, W: Write>(bgzf_input: R, csi_output: W) -> io::Res
     for seq in &mut seqs {
         compress_binning(&mut seq.bins);
 
-        let min_voff = if seq.min_voff == u64::MAX { 0 } else { seq.min_voff };
+        let min_voff = if seq.min_voff == u64::MAX {
+            0
+        } else {
+            seq.min_voff
+        };
         seq.bins.insert(
             META_BIN,
             vec![
-                Chunk { start: min_voff,    end: seq.max_voff },
-                Chunk { start: seq.n_mapped, end: 0 },
+                Chunk {
+                    start: min_voff,
+                    end: seq.max_voff,
+                },
+                Chunk {
+                    start: seq.n_mapped,
+                    end: 0,
+                },
             ],
         );
     }
@@ -314,14 +331,14 @@ pub fn csi_index_gff<R: Read, W: Write>(bgzf_input: R, csi_output: W) -> io::Res
     w.write_all(&l_meta.to_le_bytes())?;
 
     // Meta blob: preset, col_seq, col_beg, col_end, meta_char, line_skip, l_nm, names.
-    w.write_all(&0u32.to_le_bytes())?;   // preset = TBX_GENERIC
-    w.write_all(&1u32.to_le_bytes())?;   // col_seq = 1 (1-based)
-    w.write_all(&4u32.to_le_bytes())?;   // col_beg = 4 (1-based)
-    w.write_all(&5u32.to_le_bytes())?;   // col_end = 5 (1-based)
-    w.write_all(&35u32.to_le_bytes())?;  // meta_char = '#'
-    w.write_all(&0u32.to_le_bytes())?;   // line_skip = 0
-    w.write_all(&l_nm.to_le_bytes())?;   // l_nm
-    w.write_all(&names_buf)?;            // seq names (null-terminated, concatenated)
+    w.write_all(&0u32.to_le_bytes())?; // preset = TBX_GENERIC
+    w.write_all(&1u32.to_le_bytes())?; // col_seq = 1 (1-based)
+    w.write_all(&4u32.to_le_bytes())?; // col_beg = 4 (1-based)
+    w.write_all(&5u32.to_le_bytes())?; // col_end = 5 (1-based)
+    w.write_all(&35u32.to_le_bytes())?; // meta_char = '#'
+    w.write_all(&0u32.to_le_bytes())?; // line_skip = 0
+    w.write_all(&l_nm.to_le_bytes())?; // l_nm
+    w.write_all(&names_buf)?; // seq names (null-terminated, concatenated)
 
     // n_ref
     w.write_all(&(seqs.len() as i32).to_le_bytes())?;
@@ -368,6 +385,10 @@ fn parse_u64(bytes: &[u8]) -> io::Result<u64> {
     let s = std::str::from_utf8(bytes)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "non-UTF8 field"))?
         .trim();
-    s.parse::<u64>()
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, format!("cannot parse integer: {}", s)))
+    s.parse::<u64>().map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("cannot parse integer: {}", s),
+        )
+    })
 }

@@ -10,8 +10,12 @@ pub struct FaidxResult {
 }
 
 impl FaidxResult {
-    pub fn take_fai(self) -> Vec<u8> { self.fai }
-    pub fn take_gzi(self) -> Vec<u8> { self.gzi }
+    pub fn take_fai(self) -> Vec<u8> {
+        self.fai
+    }
+    pub fn take_gzi(self) -> Vec<u8> {
+        self.gzi
+    }
 }
 
 /// Compress `data` into a BGZF stream and return the bytes.

@@ -142,6 +142,60 @@
             </label>
           </div>
 
+          <div>
+            <p class="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="max-w-xs">Minimum fraction of exact-gene diagnostic k-mers required to annotate a called CDS as an AMR gene.</p>
+                </TooltipContent>
+              </Tooltip>
+              Minimum AMR gene fraction
+            </p>
+            <div class="flex flex-row items-center w-full gap-2">
+              <VueSlider class="flex-grow"
+                         v-model="min_gene_fraction"
+                         :lazy="true"
+                         :min="0"
+                         :max="1"
+                         :interval="0.01"
+                         :disabled="callingGenes"
+              />
+              <span class="block w-[46px] text-center border border-gray-300 rounded-md text-sm">
+                {{ min_gene_fraction.toFixed(2) }}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <p class="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="max-w-xs">Minimum fraction of diagnostic k-mers required to annotate a called CDS as a collapsed AMR family or hierarchy report unit.</p>
+                </TooltipContent>
+              </Tooltip>
+              Minimum AMR family fraction
+            </p>
+            <div class="flex flex-row items-center w-full gap-2">
+              <VueSlider class="flex-grow"
+                         v-model="min_family_fraction"
+                         :lazy="true"
+                         :min="0"
+                         :max="1"
+                         :interval="0.01"
+                         :disabled="callingGenes"
+              />
+              <span class="block w-[46px] text-center border border-gray-300 rounded-md text-sm">
+                {{ min_family_fraction.toFixed(2) }}
+              </span>
+            </div>
+          </div>
+
         </div>
       </TooltipProvider>
     </div>
@@ -154,7 +208,7 @@
           Error during processing — most likely a memory issue. Try with fewer or smaller files.
         </template>
         <template v-else>
-          An unexpected error occurred. Please reset and try again.
+          Error during processing: {{ orphosError }}
         </template>
       </div>
 
@@ -225,6 +279,7 @@
               <tr class="bg-gray-50 text-left">
                 <th class="px-3 py-2 font-medium text-gray-700">File name</th>
                 <th class="px-3 py-2 font-medium text-gray-700">Genes called</th>
+                <th class="px-3 py-2 font-medium text-gray-700">AMR hits</th>
                 <th class="px-3 py-2 font-medium text-gray-700">Download</th>
                 <th class="px-3 py-2 font-medium text-gray-700">View</th>
               </tr>
@@ -235,10 +290,20 @@
                 <td class="px-3 py-2 font-mono truncate max-w-[200px]">{{ result.fileName }}</td>
                 <td class="px-3 py-2">{{ result.geneCount }}</td>
                 <td class="px-3 py-2">
-                  <Button variant="outline" size="sm" @click="downloadGff(result)">
-                    <Download class="mr-1 h-3 w-3" />
-                    .gff
-                  </Button>
+                  <span>{{ result.amrHitCount }}</span>
+                  <span v-if="result.amrError" class="ml-2 text-xs text-amber-700">AMR warning</span>
+                </td>
+                <td class="px-3 py-2">
+                  <div class="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" @click="downloadGff(result)">
+                      <Download class="mr-1 h-3 w-3" />
+                      .gff
+                    </Button>
+                    <Button v-if="result.amrAnnotationTsv" variant="outline" size="sm" @click="downloadAmrTsv(result)">
+                      <Download class="mr-1 h-3 w-3" />
+                      .amr.tsv
+                    </Button>
+                  </div>
                 </td>
                 <td class="px-3 py-2">
                   <Button variant="outline" size="sm"
@@ -280,8 +345,7 @@ import { GeneCallResult } from "@/types";
 import { buildZip, buildTarGz } from "@/archiveUtils";
 import * as ReactDOM from 'react-dom/client';
 import * as React from 'react';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-import { GeneViewer } from 'mgnify-jbrowse';
+import { GeneCallingGenomeViewer } from '@/components/gene-calling/GeneCallingGenomeViewer';
 
 const STEP_LABELS: Record<string, string> = {
     creating_interface:   'Creating interface',
@@ -290,6 +354,8 @@ const STEP_LABELS: Record<string, string> = {
     calling_genes:        'Calling genes',
     genes_called:         'Genes called',
     writing_gff:          'Writing and indexing GFF file',
+    detecting_amr:        'Detecting AMR in called genes',
+    writing_annotated_gff:'Writing annotated GFF file',
     done:                 'Done',
 };
 
@@ -325,6 +391,8 @@ export default defineComponent({
     const closed_ends: Ref<boolean> = ref(false);
     const mask: Ref<boolean> = ref(false);
     const non_sd: Ref<boolean> = ref(false);
+    const min_gene_fraction: Ref<number> = ref(0.10);
+    const min_family_fraction: Ref<number> = ref(0.10);
     const tt: Ref<number> = ref(0);
     const numWorkers: Ref<number> = ref(4);
     const uploadedFileNames: Ref<string[]> = ref([]);
@@ -400,10 +468,13 @@ export default defineComponent({
         blobRangeCache.set(csiUrl,   result.gffCsi.buffer as ArrayBuffer);
         ensureFetchPatchedForBlobRange();
 
-        const el = React.createElement(GeneViewer as React.ElementType, {
-            assembly: { name: result.fileName, fasta: { fastaUrl, faiUrl, gziUrl } },
-            annotation: { name: 'Genes', gff: { gffUrl, csiUrl, gffAdapterMode: 'plain' } },
-            ui: { showLegends: false, showFeaturePanel: false },
+        const el = React.createElement(GeneCallingGenomeViewer as React.ElementType, {
+            fileName: result.fileName,
+            fastaUrl,
+            faiUrl,
+            gziUrl,
+            gffUrl,
+            csiUrl,
             heightPx: 600,
         });
         if (!reactRoot) {
@@ -451,6 +522,8 @@ export default defineComponent({
         mask: mask.value,
         tt: tt.value,
         non_sd: non_sd.value,
+        min_gene_fraction: min_gene_fraction.value,
+        min_family_fraction: min_family_fraction.value,
       });
     }
 
@@ -471,10 +544,24 @@ export default defineComponent({
       URL.revokeObjectURL(url);
     }
 
+
+    function downloadAmrTsv(result: GeneCallResult): void {
+      if (!result.amrAnnotationTsv) return;
+      const blob = new Blob([result.amrAnnotationTsv], { type: 'text/tab-separated-values' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.fileName.replace(/\.[^.]+$/, '') + '.amr.tsv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
     function downloadZip(): void {
       const files: Record<string, string> = {};
       for (const result of Object.values(orphosResults.value)) {
-        files[result.fileName.replace(/\.[^.]+$/, '') + '.gff'] = result.outputFile;
+        const stem = result.fileName.replace(/\.[^.]+$/, '');
+        files[stem + '.gff'] = result.outputFile;
+        if (result.amrAnnotationTsv) files[stem + '.amr.tsv'] = result.amrAnnotationTsv;
       }
       const bytes = buildZip(files);
       const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/zip' });
@@ -489,7 +576,9 @@ export default defineComponent({
     function downloadTarGz(): void {
       const files: Record<string, string> = {};
       for (const result of Object.values(orphosResults.value)) {
-        files[result.fileName.replace(/\.[^.]+$/, '') + '.gff'] = result.outputFile;
+        const stem = result.fileName.replace(/\.[^.]+$/, '');
+        files[stem + '.gff'] = result.outputFile;
+        if (result.amrAnnotationTsv) files[stem + '.amr.tsv'] = result.amrAnnotationTsv;
       }
       const bytes = buildTarGz(files);
       const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/gzip' });
@@ -518,6 +607,8 @@ export default defineComponent({
       mask,
       non_sd,
       tt,
+      min_gene_fraction,
+      min_family_fraction,
       numWorkers,
       onNumWorkersChange,
       uploadedFileNames,
@@ -529,6 +620,7 @@ export default defineComponent({
       orphosResults,
       resultCount,
       downloadGff,
+      downloadAmrTsv,
       downloadZip,
       downloadTarGz,
       selectedGenome,

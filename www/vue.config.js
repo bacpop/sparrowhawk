@@ -12,6 +12,12 @@ module.exports = defineConfig({
         experiments: {
             asyncWebAssembly: true,
         },
+        ignoreWarnings: [
+            {
+                module: /@jbrowse[\\/]react-app2[\\/]esm[\\/]rpcWorker\.js/,
+                message: /Critical dependency: the request of a dependency is an expression/,
+            },
+        ],
 
         // To fix fallback madness issue
         resolve: {
