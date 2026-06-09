@@ -7,7 +7,7 @@ export interface TaxonomicIDRow {
     sample: string
     rank: number
     species: string
-    probability: number
+    ani: number
     metaSpecies: string
     metaGemsparcl: string
     metaGtdb: string
@@ -24,6 +24,13 @@ function sortableHeader(label: string, align?: 'right') {
             onClick: () => column.toggleSorting(sorted === 'asc'),
         }, () => [label, h(icon, { class: 'ml-2 h-4 w-4' })])
     }
+}
+
+export function aniTextClass(ani: number): string {
+    const percent = ani * 100
+    if (percent < 75) return 'text-red-600'
+    if (percent <= 85) return 'text-yellow-600'
+    return ''
 }
 
 export const columns: ColumnDef<TaxonomicIDRow>[] = [
@@ -49,11 +56,11 @@ export const columns: ColumnDef<TaxonomicIDRow>[] = [
         cell: ({ row }) => h('div', { class: 'italic' }, row.getValue('species')),
     },
     {
-        accessorKey: 'probability',
-        header: sortableHeader('Similarity', 'right'),
+        accessorKey: 'ani',
+        header: sortableHeader('ANI', 'right'),
         cell: ({ row }) => {
-            const prob = row.getValue('probability') as number
-            return h('div', { class: 'text-right font-medium' }, `${(prob * 100).toFixed(1)}%`)
+            const ani = row.getValue('ani') as number
+            return h('div', { class: ['text-right font-medium', aniTextClass(ani)] }, (ani * 100).toFixed(1) + '%')
         },
     },
     {

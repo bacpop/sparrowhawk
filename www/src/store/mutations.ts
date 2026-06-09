@@ -233,10 +233,10 @@ export default {
             state.processingState.isIdentifying = false;
         }
     },
-    saveIDResults(state: RootState, input: { sampleName: string, probs: number[], ranks: number[], names: string[], metadata: string[] }) {
+    saveIDResults(state: RootState, input: { sampleName: string, ani: number[], ranks: number[], names: string[], metadata: string[] }) {
         console.log("Storing results for sample: " + input.sampleName);
         state.allResults_sketchlib.results[input.sampleName] = {
-            idProbs: input.probs,
+            idAni: input.ani,
             idRanks: input.ranks,
             idSpecies: input.names,
             idMetadata: input.metadata,

@@ -9,6 +9,7 @@ import {
 import { ref } from 'vue'
 import { valueUpdater } from '@/lib/utils'
 import type { TaxonomicIDRow } from './columns'
+import { aniTextClass } from './columns'
 import {
     Table,
     TableBody,
@@ -77,7 +78,8 @@ const table = useVueTable({
                                             <tr>
                                                 <th class="px-3 py-2 text-left font-medium whitespace-nowrap">Rank</th>
                                                 <th class="px-3 py-2 text-left font-medium whitespace-nowrap">Species per cluster</th>
-                                                <th class="px-3 py-2 text-right font-medium whitespace-nowrap">Similarity</th>
+                                                <th class="px-3 py-2 text-right font-medium whitespace-nowrap">ANI</th>
+                                                <th class="px-3 py-2 text-left font-medium whitespace-nowrap">Gemsparcl ID</th>
                                                 <th class="px-3 py-2 text-left font-medium">GTDB species composition</th>
                                             </tr>
                                         </thead>
@@ -89,7 +91,8 @@ const table = useVueTable({
                                             >
                                                 <td class="px-3 py-2 whitespace-nowrap">{{ candidate.rank }}</td>
                                                 <td class="px-3 py-2 italic whitespace-nowrap">{{ candidate.species }}</td>
-                                                <td class="px-3 py-2 text-right font-medium whitespace-nowrap">{{ (candidate.probability * 100).toFixed(1) }}%</td>
+                                                <td :class="['px-3 py-2 text-right font-medium whitespace-nowrap', aniTextClass(candidate.ani)]">{{ (candidate.ani * 100).toFixed(1) }}%</td>
+                                                <td class="px-3 py-2 whitespace-nowrap">{{ candidate.metaGemsparcl }}</td>
                                                 <td class="px-3 py-2 max-w-xl whitespace-normal">{{ candidate.metaGtdb }}</td>
                                             </tr>
                                         </tbody>

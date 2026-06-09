@@ -322,13 +322,13 @@ export default {
                         const sampleName = messageData.data.sampleName;
                         commit("setSketchlibError", messageData.data.message ?? "generic");
                         if (sampleName) commit("removeIdentifyingFile", sampleName);
-                    } else if ("probs" in messageData.data && "sampleName" in messageData.data) {
+                    } else if ("ani" in messageData.data && "sampleName" in messageData.data) {
                         const sampleName = messageData.data.sampleName;
                         console.log("Saving results for sample: " + sampleName);
                         commit("removeIdentifyingFile", sampleName);
                         commit("saveIDResults", {
                             sampleName,
-                            probs: messageData.data.probs,
+                            ani: messageData.data.ani,
                             ranks: messageData.data.ranks,
                             names: messageData.data.names,
                             metadata: messageData.data.metadata,

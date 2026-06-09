@@ -130,7 +130,7 @@
           Error during processing — most likely a memory issue. Try with fewer or smaller files.
         </template>
         <template v-else>
-          An unexpected error occurred. Please reset and try again.
+          {{ sketchlibError }}
         </template>
       </div>
 
@@ -175,22 +175,20 @@
           </div>
         </div>
 
-        <!-- Clear button -->
-        <div v-if="uploadedFileNames.length > 0" class="mx-6 mr-0 mt-4">
+        <!-- Results actions -->
+        <div v-if="uploadedFileNames.length > 0" class="mx-6 mr-0 mt-4 flex items-center gap-2">
           <Button variant="outline" size="sm" @click="resetAll">
             <Trash2 class="mr-1 h-3 w-3" />
             Clear results
+          </Button>
+          <Button v-if="sampleIdentified" variant="outline" size="sm" @click="downloadTsv">
+            <Download class="mr-2 h-4 w-4" />
+            Download TSV
           </Button>
         </div>
 
         <!-- Show results as a single table with expandable rows per sample -->
         <div v-if="sampleIdentified" class="px-6 mt-4">
-          <div class="flex justify-start mb-2">
-            <Button variant="outline" size="sm" @click="downloadTsv">
-              <Download class="mr-2 h-4 w-4" />
-              Download TSV
-            </Button>
-          </div>
           <div class="max-h-96 overflow-y-auto">
             <DataTable :columns="tableColumns" :data="tableData" />
           </div>
@@ -350,7 +348,7 @@ export default defineComponent({
             sample: sampleName,
             rank: sampleResult.idRanks?.[i] ?? i + 1,
             species,
-            probability: sampleResult.idProbs[i],
+            ani: sampleResult.idAni[i],
             metaSpecies: parts[0]?.trim() ?? "",
             metaGemsparcl: parts[1]?.trim() ?? "",
             metaGtdb: formatGtdbComposition(parts[2]?.trim() ?? ""),
@@ -364,7 +362,7 @@ export default defineComponent({
 
     function downloadTsv(): void {
       const headers = [
-        "Sample", "Rank", "Species", "Similarity (%)",
+        "Sample", "Rank", "Species", "ANI (%)",
         "Species (metadata)", "Gemsparcl ID", "GTDB species composition",
       ];
 
@@ -375,7 +373,7 @@ export default defineComponent({
             sub.sample,
             String(sub.rank),
             sub.species,
-            (sub.probability * 100).toFixed(2),
+            (sub.ani * 100).toFixed(2),
             sub.metaSpecies,
             sub.metaGemsparcl,
             sub.metaGtdb,

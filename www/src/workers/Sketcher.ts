@@ -1,5 +1,5 @@
 interface IdentifyResult {
-    probs: number[];
+    ani: number[];
     ranks: number[];
     names: string[];
     metadata: string[];
@@ -7,7 +7,7 @@ interface IdentifyResult {
 
 interface SketchlibData {
     query(file1: File, file2: File | null, proportion_reads: number, min_count: number, min_qual: number): Promise<void>;
-    get_probs(top_n: number): string;
+    get_ani(top_n: number): string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,6 +27,9 @@ export class Sketcher {
             import("@/pkg_sketchlib")
                 .then((w) => {
                     this.wasm = w;
+                    if (this.wasm.init_panic_hook) {
+                        this.wasm.init_panic_hook();
+                    }
                     resolve(w);
                 });
         });
@@ -50,17 +53,22 @@ export class Sketcher {
 
             await this.SketchlibData!.query(file1, file2, proportion_reads, min_count, min_qual);
 
-            const results: IdentifyResult = JSON.parse(this.SketchlibData!.get_probs(3));
+            const results: IdentifyResult = JSON.parse(this.SketchlibData!.get_ani(3));
+            const ani = results.ani;
 
             this.worker.postMessage({
                 sampleName: sampleName,
-                probs: results.probs,
+                ani,
                 ranks: results.ranks,
                 names: results.names,
                 metadata: results.metadata
             });
-        } catch {
-            this.worker.postMessage({ error: true, sampleName, message: 'memory' });
+        } catch (error) {
+            this.worker.postMessage({
+                error: true,
+                sampleName,
+                message: error instanceof Error ? error.message : String(error),
+            });
         }
     }
 
