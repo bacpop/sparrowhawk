@@ -12,23 +12,6 @@ module.exports = defineConfig({
         experiments: {
             asyncWebAssembly: true,
         },
-        ignoreWarnings: [
-            (warning) => {
-                const message = warning.message || "";
-                const moduleName = [
-                    warning.module?.resource,
-                    warning.module?.userRequest,
-                    warning.moduleName,
-                    typeof warning.module?.identifier === "function" ? warning.module.identifier() : "",
-                ].filter(Boolean).join(" ");
-
-                return (
-                    message.includes("Critical dependency: the request of a dependency is an expression") &&
-                    moduleName.includes("@jbrowse/react-app2") &&
-                    moduleName.includes("rpcWorker.js")
-                );
-            },
-        ],
 
         // To fix fallback madness issue
         resolve: {
