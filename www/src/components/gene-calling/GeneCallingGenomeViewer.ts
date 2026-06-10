@@ -3,7 +3,7 @@ import { createViewState, JBrowseApp } from '@jbrowse/react-app2';
 import makeWorkerInstance from '@jbrowse/react-app2/esm/makeWorkerInstance';
 import MgnifyGeneViewerPlugin from 'mgnify-jbrowse/dist/components/GeneViewer/jbrowse/plugin';
 import { FeaturePanel } from 'mgnify-jbrowse/dist/components/GeneViewer/components/FeaturePanel';
-import { fetchFirstFaiRef, queryGffRegionFromPlainGff } from 'mgnify-jbrowse/dist/components/GeneViewer/gff';
+import { fetchFirstFaiRef, queryGffRegion } from 'mgnify-jbrowse/dist/components/GeneViewer/gff';
 import { useGeneViewerSessionSync } from 'mgnify-jbrowse/dist/components/GeneViewer/hooks/useGeneViewerSessionSync';
 import { useGeneViewerTrackRefresh } from 'mgnify-jbrowse/dist/components/GeneViewer/hooks/useGeneViewerTrackRefresh';
 import { useGeneViewerHideDrawer } from 'mgnify-jbrowse/dist/components/GeneViewer/hooks/useGeneViewerHideDrawer';
@@ -97,8 +97,12 @@ function buildGeneTrackConfig(props: GeneCallingGenomeViewerProps) {
         assemblyNames: [props.fileName],
         category: ['Annotations'],
         adapter: {
-            type: 'Gff3WithEssentialityAdapter',
-            gffLocation: { uri: props.gffUrl },
+            type: 'Gff3TabixWithEssentialityAdapter',
+            gffGzLocation: { uri: props.gffUrl },
+            index: {
+                indexType: 'CSI',
+                location: { uri: props.csiUrl },
+            },
             featureJoinAttribute: 'ID',
         },
         displays: [
@@ -189,7 +193,7 @@ export function GeneCallingGenomeViewer(props: GeneCallingGenomeViewerProps) {
     const heightPx = props.heightPx ?? 600;
 
     const assemblyConfig = useMemo(() => buildAssemblyConfig(props), [props.fileName, props.fastaUrl, props.faiUrl, props.gziUrl]);
-    const geneTrackConfig = useMemo(() => buildGeneTrackConfig(props), [props.fileName, props.gffUrl]);
+    const geneTrackConfig = useMemo(() => buildGeneTrackConfig(props), [props.fileName, props.gffUrl, props.csiUrl]);
 
     useEffect(() => {
         let cancelled = false;
@@ -244,8 +248,9 @@ export function GeneCallingGenomeViewer(props: GeneCallingGenomeViewerProps) {
         const buffer = Math.max(0, Math.floor(regionLen * 0.25));
         window.setTimeout(async () => {
             try {
-                const features = await queryGffRegionFromPlainGff({
+                const features = await queryGffRegion({
                     gffUrl: props.gffUrl,
+                    csiUrl: props.csiUrl,
                     refName,
                     start: Math.max(0, start - buffer),
                     end: end + buffer,
@@ -257,7 +262,7 @@ export function GeneCallingGenomeViewer(props: GeneCallingGenomeViewerProps) {
             }
         }, 150);
         return () => { cancelled = true; };
-    }, [visibleRegion?.refName, visibleRegion?.start, visibleRegion?.end, props.gffUrl]);
+    }, [visibleRegion?.refName, visibleRegion?.start, visibleRegion?.end, props.gffUrl, props.csiUrl]);
 
     const resolveToLocusTag = useCallback((id: string, features: GffFeature[]) => {
         const norm = String(id).trim();
