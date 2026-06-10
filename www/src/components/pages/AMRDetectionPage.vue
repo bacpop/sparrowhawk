@@ -44,14 +44,14 @@
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Minimum fraction of diagnostic k-mers required to call collapsed family or hierarchy report units.</p>
+                  <p class="max-w-xs">Minimum fraction of diagnostic k-mers required to call collapsed gene-group or hierarchy report units.</p>
                 </TooltipContent>
               </Tooltip>
-              Minimum family fraction
+              Minimum gene-group fraction
             </p>
             <div class="flex flex-row items-center w-full gap-2">
               <VueSlider class="flex-grow"
-                         v-model="min_family_fraction"
+                         v-model="min_gene_group_fraction"
                          :lazy="true"
                          :min="0"
                          :max="1"
@@ -59,7 +59,7 @@
                          :disabled="isDetectingAmr"
               />
               <span class="block w-[46px] text-center border border-gray-300 rounded-md text-sm">
-                {{ min_family_fraction.toFixed(2) }}
+                {{ min_gene_group_fraction.toFixed(2) }}
               </span>
             </div>
           </div>
@@ -196,7 +196,7 @@ export default defineComponent({
   setup() {
     const store = useStore();
     const min_gene_fraction: Ref<number> = ref(0.10);
-    const min_family_fraction: Ref<number> = ref(0.10);
+    const min_gene_group_fraction: Ref<number> = ref(0.10);
     const uploadedFileNames: Ref<string[]> = ref([]);
 
     const { detectAmrFile, resetAllResults_amr } = useActions(["detectAmrFile", "resetAllResults_amr"]);
@@ -208,7 +208,7 @@ export default defineComponent({
       detectAmrFile({
         files: acceptFiles,
         min_gene_fraction: min_gene_fraction.value,
-        min_family_fraction: min_family_fraction.value,
+        min_gene_group_fraction: min_gene_group_fraction.value,
       });
     }
 
@@ -232,7 +232,6 @@ export default defineComponent({
         sample: result.sample_name,
         query: hit.query_id,
         unitLabel: hit.unit_label,
-        unitType: hit.unit_type,
         callType: hit.call_type,
         category: hit.type_name ?? '',
         subtype: hit.subtype ?? '',
@@ -271,7 +270,7 @@ export default defineComponent({
 
     return {
       min_gene_fraction,
-      min_family_fraction,
+      min_gene_group_fraction,
       uploadedFileNames,
       resetAll,
       getRootPropsSample,

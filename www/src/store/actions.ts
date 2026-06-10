@@ -433,7 +433,7 @@ export default {
             tt: number,
             non_sd: boolean
             min_gene_fraction: number
-            min_family_fraction: number
+            min_gene_group_fraction: number
         }) {
         const { commit, state } = context;
         const pool = state.workerState.workers_orphos;
@@ -458,7 +458,7 @@ export default {
                 tt: payload.tt,
                 non_sd: payload.non_sd,
                 min_gene_fraction: payload.min_gene_fraction,
-                min_family_fraction: payload.min_family_fraction,
+                min_gene_group_fraction: payload.min_gene_group_fraction,
             });
         });
     },
@@ -539,7 +539,7 @@ export default {
         commit("SET_WORKERS_AMR", pool);
     },
 
-    async detectAmrFile(context: ActionContext<RootState, RootState>, payload: { files: Array<File>; min_gene_fraction: number; min_family_fraction: number }) {
+    async detectAmrFile(context: ActionContext<RootState, RootState>, payload: { files: Array<File>; min_gene_fraction: number; min_gene_group_fraction: number }) {
         const {commit, state} = context;
         commit("resetAllResults_amr");
         const pool = state.workerState.workers_amr;
@@ -588,7 +588,7 @@ export default {
             file,
             sampleName,
             min_gene_fraction: payload.min_gene_fraction,
-            min_family_fraction: payload.min_family_fraction,
+            min_gene_group_fraction: payload.min_gene_group_fraction,
         });
     },
 

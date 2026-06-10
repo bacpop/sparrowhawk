@@ -7,7 +7,6 @@ export interface AmrDetectionRow {
     sample: string
     query: string
     unitLabel: string
-    unitType: string
     callType: string
     category: string
     subtype: string
@@ -40,10 +39,6 @@ export const columns: ColumnDef<AmrDetectionRow>[] = [
     {
         accessorKey: 'callType',
         header: sortableHeader('Call'),
-    },
-    {
-        accessorKey: 'unitType',
-        header: sortableHeader('Type'),
     },
     {
         accessorKey: 'category',

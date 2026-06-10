@@ -326,12 +326,11 @@ impl OrphosData {
 struct AmrAnnotation {
     unit_id: String,
     unit_label: String,
-    unit_type: String,
     call_type: String,
     element_symbol: String,
     gene_symbol: String,
     allele_symbol: String,
-    family: String,
+    gene_group: String,
     type_name: String,
     subtype: String,
     class_name: String,
@@ -343,7 +342,7 @@ struct AmrAnnotation {
 
 impl AmrAnnotation {
     fn score(&self) -> (u8, u64, usize) {
-        let specificity = if self.unit_type == "exact_gene" { 1 } else { 0 };
+        let specificity = if self.call_type == "gene" { 1 } else { 0 };
         (
             specificity,
             (self.call_fraction * 1_000_000.0).round() as u64,
@@ -434,12 +433,11 @@ fn parse_amr_annotations(amr_json: &str) -> HashMap<String, AmrAnnotation> {
         let annotation = AmrAnnotation {
             unit_id: json_string(hit, "unit_id"),
             unit_label: json_string(hit, "unit_label"),
-            unit_type: json_string(hit, "unit_type"),
             call_type: json_string(hit, "call_type"),
             element_symbol: json_string(hit, "element_symbol"),
             gene_symbol: json_string(hit, "gene_symbol"),
             allele_symbol: json_string(hit, "allele_symbol"),
-            family: json_string(hit, "family"),
+            gene_group: json_string_any(hit, &["gene_group", "family"]),
             type_name: json_string(hit, "type_name"),
             subtype: json_string(hit, "subtype"),
             class_name: json_string(hit, "class_name"),
@@ -460,6 +458,13 @@ fn parse_amr_annotations(amr_json: &str) -> HashMap<String, AmrAnnotation> {
 
 fn json_string(hit: &json::JsonValue, key: &str) -> String {
     hit[key].as_str().unwrap_or_default().to_string()
+}
+
+fn json_string_any(hit: &json::JsonValue, keys: &[&str]) -> String {
+    keys.iter()
+        .find_map(|key| hit[*key].as_str())
+        .unwrap_or_default()
+        .to_string()
 }
 
 fn annotate_gff_bytes(gff_bytes: &[u8], annotations: &HashMap<String, AmrAnnotation>) -> Vec<u8> {
@@ -484,16 +489,15 @@ fn annotate_gff_bytes(gff_bytes: &[u8], annotations: &HashMap<String, AmrAnnotat
                     attrs.push(';');
                 }
                 attrs.push_str(&format!(
-                    "Name={};amr_unit_id={};amr_unit_label={};amr_unit_type={};amr_call_type={};amr_element_symbol={};amr_gene_symbol={};amr_allele_symbol={};amr_family={};amr_category={};amr_subtype={};amr_class={};amr_subclass={};amr_call_fraction={:.4};amr_diagnostic_kmers={}/{}",
+                    "Name={};amr_unit_id={};amr_unit_label={};amr_call_type={};amr_element_symbol={};amr_gene_symbol={};amr_allele_symbol={};amr_gene_group={};amr_category={};amr_subtype={};amr_class={};amr_subclass={};amr_call_fraction={:.4};amr_diagnostic_kmers={}/{}",
                     gff_escape(&annotation.unit_label),
                     gff_escape(&annotation.unit_id),
                     gff_escape(&annotation.unit_label),
-                    gff_escape(&annotation.unit_type),
                     gff_escape(&annotation.call_type),
                     gff_escape(&annotation.element_symbol),
                     gff_escape(&annotation.gene_symbol),
                     gff_escape(&annotation.allele_symbol),
-                    gff_escape(&annotation.family),
+                    gff_escape(&annotation.gene_group),
                     gff_escape(&annotation.type_name),
                     gff_escape(&annotation.subtype),
                     gff_escape(&annotation.class_name),
@@ -547,11 +551,11 @@ mod tests {
     #[test]
     fn annotate_gff_adds_best_amr_hit_by_gene_id() {
         let gff = b"##gff-version  3\ncontig\tOrphos\tCDS\t1\t12\t.\t+\t0\tID=gene_1;partial=00;\n";
-        let amr_json = r#"{"hits":[{"query_id":"gene_1","unit_id":"u1","unit_label":"blaA","unit_type":"hierarchy_node","call_type":"family","element_symbol":"","gene_symbol":"blaA","allele_symbol":"","family":"bla","class_name":"BETA-LACTAM","subclass":"","call_fraction":0.5,"first_pass_distinct":5,"first_pass_diagnostic_total":10,"member_count":3},{"query_id":"gene_1","unit_id":"u2","unit_label":"aac(6')-Ib","unit_type":"exact_gene","call_type":"gene","element_symbol":"aac(6')-Ib","gene_symbol":"aac","allele_symbol":"aac(6')-Ib","family":"aac","class_name":"AMINOGLYCOSIDE","subclass":"","call_fraction":0.4,"first_pass_distinct":4,"first_pass_diagnostic_total":10,"member_count":1}]}"#;
+        let amr_json = r#"{"hits":[{"query_id":"gene_1","unit_id":"u1","unit_label":"blaA","call_type":"gene_group","element_symbol":"","gene_symbol":"blaA","allele_symbol":"","gene_group":"bla","class_name":"BETA-LACTAM","subclass":"","call_fraction":0.5,"first_pass_distinct":5,"first_pass_diagnostic_total":10,"member_count":3},{"query_id":"gene_1","unit_id":"u2","unit_label":"aac(6')-Ib","call_type":"gene","element_symbol":"aac(6')-Ib","gene_symbol":"aac","allele_symbol":"aac(6')-Ib","gene_group":"aac","class_name":"AMINOGLYCOSIDE","subclass":"","call_fraction":0.4,"first_pass_distinct":4,"first_pass_diagnostic_total":10,"member_count":1}]}"#;
         let annotations = parse_amr_annotations(amr_json);
         let annotated = String::from_utf8(annotate_gff_bytes(gff, &annotations)).unwrap();
         assert!(annotated.contains("ID=gene_1;partial=00;Name=aac(6')-Ib;"));
-        assert!(annotated.contains("amr_unit_type=exact_gene"));
+        assert!(annotated.contains("amr_call_type=gene"));
         assert!(annotated.contains("amr_diagnostic_kmers=4/10"));
     }
 

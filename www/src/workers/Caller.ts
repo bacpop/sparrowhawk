@@ -79,7 +79,7 @@ export class Caller {
         return this.amrDetector;
     }
 
-    async callGenes(fileName: string, input_file: File, metag: boolean, closed_ends: boolean, mask: boolean, tt: number, non_sd: boolean, min_gene_fraction: number, min_family_fraction: number): Promise<void> {
+    async callGenes(fileName: string, input_file: File, metag: boolean, closed_ends: boolean, mask: boolean, tt: number, non_sd: boolean, min_gene_fraction: number, min_gene_group_fraction: number): Promise<void> {
         console.log("Starting gene calling for: " + fileName);
         await this.waitForWasm();
 
@@ -112,7 +112,7 @@ export class Caller {
                         fileName,
                         cdsBytes,
                         min_gene_fraction,
-                        min_family_fraction
+                        min_gene_group_fraction
                     );
                     amrResult = JSON.parse(amrJson) as AmrDetectionResult;
                     amrTsv = buildGeneCallingAmrTsv(amrResult, geneMetadata);

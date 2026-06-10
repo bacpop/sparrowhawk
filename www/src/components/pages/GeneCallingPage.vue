@@ -176,14 +176,14 @@
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Minimum fraction of diagnostic k-mers required to annotate a called CDS as a collapsed AMR family or hierarchy report unit.</p>
+                  <p class="max-w-xs">Minimum fraction of diagnostic k-mers required to annotate a called CDS as a collapsed AMR gene-group or hierarchy report unit.</p>
                 </TooltipContent>
               </Tooltip>
-              Minimum AMR family fraction
+              Minimum AMR gene-group fraction
             </p>
             <div class="flex flex-row items-center w-full gap-2">
               <VueSlider class="flex-grow"
-                         v-model="min_family_fraction"
+                         v-model="min_gene_group_fraction"
                          :lazy="true"
                          :min="0"
                          :max="1"
@@ -191,7 +191,7 @@
                          :disabled="callingGenes"
               />
               <span class="block w-[46px] text-center border border-gray-300 rounded-md text-sm">
-                {{ min_family_fraction.toFixed(2) }}
+                {{ min_gene_group_fraction.toFixed(2) }}
               </span>
             </div>
           </div>
@@ -392,7 +392,7 @@ export default defineComponent({
     const mask: Ref<boolean> = ref(false);
     const non_sd: Ref<boolean> = ref(false);
     const min_gene_fraction: Ref<number> = ref(0.10);
-    const min_family_fraction: Ref<number> = ref(0.10);
+    const min_gene_group_fraction: Ref<number> = ref(0.10);
     const tt: Ref<number> = ref(0);
     const numWorkers: Ref<number> = ref(4);
     const uploadedFileNames: Ref<string[]> = ref([]);
@@ -523,7 +523,7 @@ export default defineComponent({
         tt: tt.value,
         non_sd: non_sd.value,
         min_gene_fraction: min_gene_fraction.value,
-        min_family_fraction: min_family_fraction.value,
+        min_gene_group_fraction: min_gene_group_fraction.value,
       });
     }
 
@@ -608,7 +608,7 @@ export default defineComponent({
       non_sd,
       tt,
       min_gene_fraction,
-      min_family_fraction,
+      min_gene_group_fraction,
       numWorkers,
       onNumWorkersChange,
       uploadedFileNames,

@@ -44,7 +44,7 @@ export class AmrDetectorWorker {
         }
     }
 
-    async detectThisFile(file: File, sampleName: string, min_gene_fraction: number, min_family_fraction: number): Promise<void> {
+    async detectThisFile(file: File, sampleName: string, min_gene_fraction: number, min_gene_group_fraction: number): Promise<void> {
         try {
             await this.ensureDetector();
             const raw = new Uint8Array(await file.arrayBuffer());
@@ -53,7 +53,7 @@ export class AmrDetectorWorker {
                 sampleName,
                 fastaBytes,
                 min_gene_fraction,
-                min_family_fraction
+                min_gene_group_fraction
             );
             this.worker.postMessage({
                 detected: true,

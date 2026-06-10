@@ -113,13 +113,12 @@ export interface AmrDetectionHit {
     query_id: string;
     query_kind: string;
     unit_id: string;
-    unit_type: string;
     unit_label: string;
     gene_id: string | null;
     element_symbol: string | null;
     gene_symbol: string | null;
     allele_symbol: string | null;
-    family: string;
+    gene_group: string;
     hierarchy_node: string | null;
     class_name: string | null;
     subclass: string | null;
@@ -151,7 +150,7 @@ export interface AmrDetectionResult {
     refinement_k: number;
     hits: AmrDetectionHit[];
     gene_count: number;
-    family_count: number;
+    gene_group_count: number;
 }
 
 export interface AllResultsAmr {

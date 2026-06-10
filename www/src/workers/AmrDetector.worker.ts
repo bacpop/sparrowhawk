@@ -5,7 +5,7 @@ interface DetectAmrMessage {
     file: File;
     sampleName: string;
     min_gene_fraction: number;
-    min_family_fraction: number;
+    min_gene_group_fraction: number;
 }
 
 type WorkerMessage = DetectAmrMessage;
@@ -21,7 +21,7 @@ ctx.onmessage = (evt: MessageEvent<WorkerMessage>) => {
             data.file,
             data.sampleName,
             data.min_gene_fraction,
-            data.min_family_fraction
+            data.min_gene_group_fraction
         );
     } else {
         throw new Error("Event " + JSON.stringify(evt.data) + " is not supported");

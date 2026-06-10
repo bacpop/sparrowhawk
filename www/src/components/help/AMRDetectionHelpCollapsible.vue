@@ -32,7 +32,7 @@
                 <dd class="ml-4">Minimum fraction of diagnostic k-mers required for exact gene report units.</dd>
               </div>
               <div>
-                <dt class="font-medium text-gray-900">Minimum family fraction</dt>
+                <dt class="font-medium text-gray-900">Minimum gene-group fraction</dt>
                 <dd class="ml-4">Minimum fraction of diagnostic k-mers required for collapsed hierarchy report units.</dd>
               </div>
             </dl>
