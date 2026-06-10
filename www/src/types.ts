@@ -123,6 +123,8 @@ export interface AmrDetectionHit {
     hierarchy_node: string | null;
     class_name: string | null;
     subclass: string | null;
+    type_name: string | null;
+    subtype: string | null;
     member_count: number;
     start: number;
     end: number;

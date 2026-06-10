@@ -234,6 +234,8 @@ export default defineComponent({
         unitLabel: hit.unit_label,
         unitType: hit.unit_type,
         callType: hit.call_type,
+        category: hit.type_name ?? '',
+        subtype: hit.subtype ?? '',
         className: hit.class_name ?? '',
         subclass: hit.subclass ?? '',
         callFraction: hit.call_fraction,

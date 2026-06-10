@@ -332,6 +332,8 @@ struct AmrAnnotation {
     gene_symbol: String,
     allele_symbol: String,
     family: String,
+    type_name: String,
+    subtype: String,
     class_name: String,
     subclass: String,
     call_fraction: f64,
@@ -438,6 +440,8 @@ fn parse_amr_annotations(amr_json: &str) -> HashMap<String, AmrAnnotation> {
             gene_symbol: json_string(hit, "gene_symbol"),
             allele_symbol: json_string(hit, "allele_symbol"),
             family: json_string(hit, "family"),
+            type_name: json_string(hit, "type_name"),
+            subtype: json_string(hit, "subtype"),
             class_name: json_string(hit, "class_name"),
             subclass: json_string(hit, "subclass"),
             call_fraction: hit["call_fraction"].as_f64().unwrap_or(0.0),
@@ -480,7 +484,7 @@ fn annotate_gff_bytes(gff_bytes: &[u8], annotations: &HashMap<String, AmrAnnotat
                     attrs.push(';');
                 }
                 attrs.push_str(&format!(
-                    "Name={};amr_unit_id={};amr_unit_label={};amr_unit_type={};amr_call_type={};amr_element_symbol={};amr_gene_symbol={};amr_allele_symbol={};amr_family={};amr_class={};amr_subclass={};amr_call_fraction={:.4};amr_diagnostic_kmers={}/{}",
+                    "Name={};amr_unit_id={};amr_unit_label={};amr_unit_type={};amr_call_type={};amr_element_symbol={};amr_gene_symbol={};amr_allele_symbol={};amr_family={};amr_category={};amr_subtype={};amr_class={};amr_subclass={};amr_call_fraction={:.4};amr_diagnostic_kmers={}/{}",
                     gff_escape(&annotation.unit_label),
                     gff_escape(&annotation.unit_id),
                     gff_escape(&annotation.unit_label),
@@ -490,6 +494,8 @@ fn annotate_gff_bytes(gff_bytes: &[u8], annotations: &HashMap<String, AmrAnnotat
                     gff_escape(&annotation.gene_symbol),
                     gff_escape(&annotation.allele_symbol),
                     gff_escape(&annotation.family),
+                    gff_escape(&annotation.type_name),
+                    gff_escape(&annotation.subtype),
                     gff_escape(&annotation.class_name),
                     gff_escape(&annotation.subclass),
                     annotation.call_fraction,

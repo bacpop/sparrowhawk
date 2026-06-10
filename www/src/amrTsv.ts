@@ -3,6 +3,7 @@ import { AmrDetectionResult, GeneMetadataMap } from "@/types";
 const BASE_HEADERS = [
     "Sample", "Database version", "Index alphabet", "Index k",
     "Query", "Unit ID", "Unit label", "Unit type", "Call type",
+    "Category", "Subtype",
     "Element symbol", "Gene symbol", "Allele symbol", "Family",
     "Hierarchy node", "Class", "Subclass", "Call fraction",
     "Diagnostic k-mers matched", "Diagnostic k-mers total",
@@ -19,6 +20,8 @@ function baseRow(result: AmrDetectionResult, hit: AmrDetectionResult["hits"][num
         hit.unit_label,
         hit.unit_type,
         hit.call_type,
+        hit.type_name ?? '',
+        hit.subtype ?? '',
         hit.element_symbol ?? '',
         hit.gene_symbol ?? '',
         hit.allele_symbol ?? '',
