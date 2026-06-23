@@ -1,6 +1,6 @@
 <template>
-  <div class="flex flex-row">
-    <div class="w-[350px] shrink-0">
+  <div class="flex flex-col gap-6 md:flex-row md:gap-0">
+    <div class="w-full md:w-[350px] md:shrink-0">
       <h1 class="text-2xl font-medium flex items-center gap-2 mb-4">
         <Codesandbox class="w-6 h-6" />
         {{ tabName }}
@@ -178,7 +178,7 @@
       </TooltipProvider>
     </div>
 
-    <div class="min-w-0 flex-1 overflow-hidden pt-12">
+    <div class="min-w-0 w-full flex-1 overflow-visible pt-0 md:overflow-hidden md:pt-12">
       <div v-if="errorInProcessing" class="mx-6 mr-0 mb-4 p-3 bg-red-50 border border-red-300 rounded-md text-sm text-red-800">
         <template v-if="assemblyErrorType === 'file_count'">
           Assembly requires one or two FASTQ files. Please upload between one and two files and try again.
