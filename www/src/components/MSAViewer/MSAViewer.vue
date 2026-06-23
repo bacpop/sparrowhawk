@@ -123,14 +123,10 @@ const colorScheme = computed(() =>
     isNucleotide.value ? ResidueColorSchemes.nucleotide : ResidueColorSchemes.protein
 );
 
-// Maximum columns we can reasonably display (browser can't handle millions of pixels)
-const MAX_DISPLAY_COLS = 20_000;
-
 // Dimensions - simple computed values
 const rowCount = computed(() => props.data?.length || 0);
 const rawColCount = computed(() => props.data?.[0]?.sequence?.length || 0);
-const colCount = computed(() => Math.min(rawColCount.value, MAX_DISPLAY_COLS));
-const isDataTruncated = computed(() => rawColCount.value > MAX_DISPLAY_COLS);
+const colCount = computed(() => rawColCount.value);
 const totalGridWidth = computed(() => colCount.value * CELL_SIZE);
 const totalGridHeight = computed(() => rowCount.value * CELL_SIZE);
 
@@ -365,9 +361,6 @@ onUnmounted(() => {
       No alignment data to display
     </div>
 
-    <div v-if="isDataTruncated" class="bg-amber-100 border-b border-amber-300 px-3 py-1 text-sm text-amber-800">
-      Showing first {{ MAX_DISPLAY_COLS.toLocaleString() }} of {{ rawColCount.toLocaleString() }} positions.
-    </div>
 
     <Teleport to="body">
       <div

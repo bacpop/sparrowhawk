@@ -158,9 +158,7 @@
           <p class="text-sm text-gray-500">
             Identifying {{ identifyingFilesArray.length }} sample(s)...
           </p>
-          <div v-if="identifyingFilesArray.length > 0" class="text-xs text-gray-400 mt-1">
-            Processing: {{ identifyingFilesArray.join(', ') }}
-          </div>
+
         </div>
 
         <!-- Show uploaded files with per-file status -->
