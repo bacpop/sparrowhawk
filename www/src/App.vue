@@ -39,7 +39,7 @@
     </Sidebar>
 
     <!-- Main Content -->
-    <main class="bg-white mt-6 mb-6 rounded-tl-xl rounded-bl-xl border border-gray-200 border-r-0 flex-1 overflow-y-auto p-8">
+    <main class="bg-white mt-6 mb-6 rounded-tl-xl rounded-bl-xl border border-gray-200 border-r-0 flex-1 overflow-y-auto p-4 pt-12 md:p-8">
       <SidebarTrigger class="md:hidden fixed top-3 left-3 z-50 bg-white shadow-md rounded-md" />
       <div v-if="tabName === 'Assembly'">
         <AssemblyPage :tabName="tabName">
