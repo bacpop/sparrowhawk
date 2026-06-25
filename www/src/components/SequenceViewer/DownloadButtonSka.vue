@@ -11,6 +11,7 @@
 import {defineComponent} from "vue";
 import {useState} from "vuex-composition-helpers";
 import {Button} from "@/components/ui/button";
+import {downloadTextFile} from "@/downloadUtils";
 
 export default defineComponent({
   name: 'DownloadButtonSka',
@@ -41,18 +42,8 @@ export default defineComponent({
         }
         text += mapping_alignment + "\n";
       }
-      console.log(text);
 
-      const filename = 'alignment.aln';
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(text));
-      element.setAttribute('download', filename);
-
-      element.style.display = 'none';
-      document.body.appendChild(element);
-
-      element.click();
-      document.body.removeChild(element);
+      downloadTextFile(text, "alignment.aln", "text/x-fasta");
     }
   }
 });

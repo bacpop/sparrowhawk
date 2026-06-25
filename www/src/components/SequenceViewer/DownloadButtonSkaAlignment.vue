@@ -29,6 +29,7 @@
 import {defineComponent} from "vue";
 import {useState} from "vuex-composition-helpers";
 import {Button} from "@/components/ui/button";
+import {downloadTextFile} from "@/downloadUtils";
 
 export default defineComponent({
   name: 'DownloadButtonSkaAlignment',
@@ -45,39 +46,15 @@ export default defineComponent({
   },
   methods: {
     downloadALN(): void {
-      const filename = 'alignment.aln';
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(this.allResults_ska.alignResults[0].alignment));
-      element.setAttribute('download', filename);
-
-      element.style.display = 'none';
-      document.body.appendChild(element);
-
-      element.click();
-      document.body.removeChild(element);
+      downloadTextFile(this.allResults_ska.alignResults[0].alignment, "alignment.aln", "text/x-fasta");
     },
     downloadTREE(): void {
-      const filename = 'alignmenttree.tree';
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(this.allResults_ska.alignResults[0].newick));
-      element.setAttribute('download', filename);
-
-      element.style.display = 'none';
-      document.body.appendChild(element);
-
-      element.click();
-      document.body.removeChild(element);
+      downloadTextFile(this.allResults_ska.alignResults[0].newick, "alignmenttree.tree", "text/x-newick");
     },
     downloadCSV(): void {
       const csv = this.allResults_ska.alignResults[0]?.distances_csv;
       if (!csv) return;
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv));
-      element.setAttribute('download', 'distances.csv');
-      element.style.display = 'none';
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
+      downloadTextFile(csv, "distances.csv", "text/csv");
     }
   }
 });

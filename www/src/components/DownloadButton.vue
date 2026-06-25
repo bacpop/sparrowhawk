@@ -28,6 +28,7 @@ import {defineComponent, Ref} from "vue";
 import {useState} from "vuex-composition-helpers";
 import type {AllResults} from "@/types";
 import {Button} from "@/components/ui/button";
+import {downloadTextFile} from "@/downloadUtils";
 
 export default defineComponent({
   name: 'DownloadButton',
@@ -43,63 +44,16 @@ export default defineComponent({
   },
   methods: {
     downloadFASTA(): void {
-      console.log(this.allResults.fastaOutput);
-
-      const filename = 'assembly.fasta';
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(this.allResults.fastaOutput));
-      element.setAttribute('download', filename);
-
-      element.style.display = 'none';
-      document.body.appendChild(element);
-
-      element.click();
-      document.body.removeChild(element);
+      downloadTextFile(this.allResults.fastaOutput, "assembly.fasta", "text/x-fasta");
     },
-
     downloadDOT(): void {
-      console.log(this.allResults.dotOutput);
-
-      const filename = 'graph.dot';
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(this.allResults.dotOutput));
-      element.setAttribute('download', filename);
-
-      element.style.display = 'none';
-      document.body.appendChild(element);
-
-      element.click();
-      document.body.removeChild(element);
+      downloadTextFile(this.allResults.dotOutput, "graph.dot", "text/vnd.graphviz");
     },
-
     downloadGFA(): void {
-      console.log(this.allResults.gfaOutput);
-
-      const filename = 'graph.gfa';
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(this.allResults.gfaOutput));
-      element.setAttribute('download', filename);
-
-      element.style.display = 'none';
-      document.body.appendChild(element);
-
-      element.click();
-      document.body.removeChild(element);
+      downloadTextFile(this.allResults.gfaOutput, "graph.gfa");
     },
-
     downloadGFAv2(): void {
-      console.log(this.allResults.gfav2Output);
-
-      const filename = 'graph.gfa2';
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(this.allResults.gfav2Output));
-      element.setAttribute('download', filename);
-
-      element.style.display = 'none';
-      document.body.appendChild(element);
-
-      element.click();
-      document.body.removeChild(element);
+      downloadTextFile(this.allResults.gfav2Output, "graph.gfa2");
     },
   }
 });
