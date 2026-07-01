@@ -16,3 +16,4 @@
 [submodule "rust/sparrowhawk-amr"]
 	path = rust/sparrowhawk-amr
 	url = https://github.com/bacpop/sparrowhawk-amr.git
+    branch = master
