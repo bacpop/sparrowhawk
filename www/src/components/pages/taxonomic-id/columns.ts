@@ -28,8 +28,8 @@ function sortableHeader(label: string, align?: 'right') {
 
 export function aniTextClass(ani: number): string {
     const percent = ani * 100
-    if (percent < 75) return 'text-red-600'
-    if (percent <= 85) return 'text-yellow-600'
+    if (percent <= 80.95) return 'text-red-600'
+    if (percent <= 87.19) return 'text-yellow-600'
     return ''
 }
 

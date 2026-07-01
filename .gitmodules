@@ -12,3 +12,7 @@
 	path = rust/sketchlib.rust
 	url  = https://github.com/bacpop/sketchlib.rust.git
 	branch = sparrowhawk-dev
+
+[submodule "rust/sparrowhawk-amr"]
+	path = rust/sparrowhawk-amr
+	url = https://github.com/bacpop/sparrowhawk-amr.git

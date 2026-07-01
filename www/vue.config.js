@@ -129,7 +129,7 @@ module.exports = defineConfig({
             .init(
                 (Plugin) =>
                     new Plugin({
-                        crateDirectory: path.resolve(__dirname, "../../sparrowhawk-amr"),
+                        crateDirectory: path.resolve(__dirname, "../rust/sparrowhawk-amr"),
                         outDir: path.resolve(__dirname, "./src/pkg_amr"),
                         forceMode: "production",
                     })
