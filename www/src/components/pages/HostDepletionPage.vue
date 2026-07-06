@@ -221,6 +221,7 @@ import HostDepletionHelpCollapsible from "@/components/help/HostDepletionHelpCol
 import { Button } from "@/components/ui/button";
 import { fastqExtensionsWithDotAndCompressList, getFilesToProcess, regExpWithTwoNumbers, regExpForAnyFastx } from "@/utils";
 import { buildZipBinary, buildTarGzBinary } from "@/archiveUtils";
+import { saveBinaryFile } from "@/platform/files";
 import { DepletionResult } from "@/types";
 
 export default defineComponent({
@@ -297,26 +298,18 @@ export default defineComponent({
       });
     }
 
-    function downloadR1(result: DepletionResult): void {
+    async function downloadR1(result: DepletionResult): Promise<void> {
       const name = result.sampleName + (result.outputGzip2 ? '_R1' : '') + '_filtered.fastq.gz';
-      const blob = new Blob([result.outputGzip.buffer as ArrayBuffer], { type: 'application/gzip' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = name; a.click();
-      URL.revokeObjectURL(url);
+      await saveBinaryFile(result.outputGzip, name, 'application/gzip');
     }
 
-    function downloadR2(result: DepletionResult): void {
+    async function downloadR2(result: DepletionResult): Promise<void> {
       if (!result.outputGzip2) return;
       const name = result.sampleName + '_R2_filtered.fastq.gz';
-      const blob = new Blob([result.outputGzip2.buffer as ArrayBuffer], { type: 'application/gzip' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = name; a.click();
-      URL.revokeObjectURL(url);
+      await saveBinaryFile(result.outputGzip2, name, 'application/gzip');
     }
 
-    function downloadZip(): void {
+    async function downloadZip(): Promise<void> {
       const files: Record<string, Uint8Array> = {};
       for (const result of Object.values(deaconResults.value)) {
         files[result.sampleName + (result.outputGzip2 ? '_R1' : '') + '_filtered.fastq.gz'] = result.outputGzip;
@@ -325,14 +318,10 @@ export default defineComponent({
         }
       }
       const bytes = buildZipBinary(files);
-      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/zip' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'depleted.zip'; a.click();
-      URL.revokeObjectURL(url);
+      await saveBinaryFile(bytes, 'depleted.zip', 'application/zip');
     }
 
-    function downloadTarGz(): void {
+    async function downloadTarGz(): Promise<void> {
       const files: Record<string, Uint8Array> = {};
       for (const result of Object.values(deaconResults.value)) {
         files[result.sampleName + (result.outputGzip2 ? '_R1' : '') + '_filtered.fastq.gz'] = result.outputGzip;
@@ -341,11 +330,7 @@ export default defineComponent({
         }
       }
       const bytes = buildTarGzBinary(files);
-      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/gzip' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'depleted.tar.gz'; a.click();
-      URL.revokeObjectURL(url);
+      await saveBinaryFile(bytes, 'depleted.tar.gz', 'application/gzip');
     }
 
     const {

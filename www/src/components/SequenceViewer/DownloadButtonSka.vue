@@ -11,7 +11,7 @@
 import {defineComponent} from "vue";
 import {useState} from "vuex-composition-helpers";
 import {Button} from "@/components/ui/button";
-import {downloadTextFile} from "@/downloadUtils";
+import {saveTextFile} from "@/platform/files";
 
 export default defineComponent({
   name: 'DownloadButtonSka',
@@ -27,7 +27,7 @@ export default defineComponent({
     }
   },
   methods: {
-    downloadALN(): void {
+    async downloadALN(): Promise<void> {
       let text = "";
       let mapping_alignment = "";
 
@@ -43,7 +43,7 @@ export default defineComponent({
         text += mapping_alignment + "\n";
       }
 
-      downloadTextFile(text, "alignment.aln", "text/x-fasta");
+      await saveTextFile(text, "alignment.aln", "text/x-fasta");
     }
   }
 });

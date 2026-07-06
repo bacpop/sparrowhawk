@@ -29,7 +29,7 @@
 import {defineComponent} from "vue";
 import {useState} from "vuex-composition-helpers";
 import {Button} from "@/components/ui/button";
-import {downloadTextFile} from "@/downloadUtils";
+import {saveTextFile} from "@/platform/files";
 
 export default defineComponent({
   name: 'DownloadButtonSkaAlignment',
@@ -45,16 +45,16 @@ export default defineComponent({
     }
   },
   methods: {
-    downloadALN(): void {
-      downloadTextFile(this.allResults_ska.alignResults[0].alignment, "alignment.aln", "text/x-fasta");
+    async downloadALN(): Promise<void> {
+      await saveTextFile(this.allResults_ska.alignResults[0].alignment, "alignment.aln", "text/x-fasta");
     },
-    downloadTREE(): void {
-      downloadTextFile(this.allResults_ska.alignResults[0].newick, "alignmenttree.tree", "text/x-newick");
+    async downloadTREE(): Promise<void> {
+      await saveTextFile(this.allResults_ska.alignResults[0].newick, "alignmenttree.tree", "text/x-newick");
     },
-    downloadCSV(): void {
+    async downloadCSV(): Promise<void> {
       const csv = this.allResults_ska.alignResults[0]?.distances_csv;
       if (!csv) return;
-      downloadTextFile(csv, "distances.csv", "text/csv");
+      await saveTextFile(csv, "distances.csv", "text/csv");
     }
   }
 });

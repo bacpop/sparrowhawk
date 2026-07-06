@@ -483,6 +483,7 @@ import { MSAViewer } from "@/components/MSAViewer";
 import TransmissionGraph from "@/components/TransmissionGraph.vue";
 import TransmissionClusterTimeline from "@/components/TransmissionClusterTimeline.vue";
 import { fastxExtensionsWithDotAndCompressList } from "@/utils";
+import {saveTextFile} from "@/platform/files";
 
 interface UploadedFile {
   name: string;
@@ -828,16 +829,10 @@ export default defineComponent({
     runClustering(): void {
       this.processCluster({ snp_threshold: this.snp_threshold });
     },
-    downloadClustersTSV(): void {
+    async downloadClustersTSV(): Promise<void> {
       const rows = this.clusterTableRows;
       const tsv = "Sample\tCluster\n" + rows.map(r => `${r.name}\t${r.cluster}`).join("\n");
-      const blob = new Blob([tsv], { type: "text/tab-separated-values" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "transmission_clusters.tsv";
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveTextFile(tsv, "transmission_clusters.tsv", "text/tab-separated-values;charset=utf-8");
     },
     getFileStatus(file: UploadedFile): 'indexing' | 'mapping' | 'done' {
       if (file.type === 'reference') {
