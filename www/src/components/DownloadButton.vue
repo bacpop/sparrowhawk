@@ -28,7 +28,7 @@ import {defineComponent, Ref} from "vue";
 import {useState} from "vuex-composition-helpers";
 import type {AllResults} from "@/types";
 import {Button} from "@/components/ui/button";
-import {downloadTextFile} from "@/downloadUtils";
+import {saveTextFile} from "@/platform/files";
 
 export default defineComponent({
   name: 'DownloadButton',
@@ -43,17 +43,17 @@ export default defineComponent({
     Button
   },
   methods: {
-    downloadFASTA(): void {
-      downloadTextFile(this.allResults.fastaOutput, "assembly.fasta", "text/x-fasta");
+    async downloadFASTA(): Promise<void> {
+      await saveTextFile(this.allResults.fastaOutput, "assembly.fasta", "text/x-fasta");
     },
-    downloadDOT(): void {
-      downloadTextFile(this.allResults.dotOutput, "graph.dot", "text/vnd.graphviz");
+    async downloadDOT(): Promise<void> {
+      await saveTextFile(this.allResults.dotOutput, "graph.dot", "text/vnd.graphviz");
     },
-    downloadGFA(): void {
-      downloadTextFile(this.allResults.gfaOutput, "graph.gfa");
+    async downloadGFA(): Promise<void> {
+      await saveTextFile(this.allResults.gfaOutput, "graph.gfa");
     },
-    downloadGFAv2(): void {
-      downloadTextFile(this.allResults.gfav2Output, "graph.gfa2");
+    async downloadGFAv2(): Promise<void> {
+      await saveTextFile(this.allResults.gfav2Output, "graph.gfa2");
     },
   }
 });

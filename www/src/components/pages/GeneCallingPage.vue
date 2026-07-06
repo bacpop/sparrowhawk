@@ -341,6 +341,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GeneCallingHelpCollapsible from "@/components/help/GeneCallingHelpCollapsible.vue";
 import { fastaExtensionsWithDotAndCompressList } from "@/utils";
+import { saveBinaryFile, saveTextFile } from "@/platform/files";
 import { GeneCallResult } from "@/types";
 import { buildZip, buildTarGz } from "@/archiveUtils";
 import * as ReactDOM from 'react-dom/client';
@@ -534,29 +535,17 @@ export default defineComponent({
     const geneCallingStep = computed<string>(() => store.getters.geneCallingStep);
     const geneCallingStepLabel = computed<string>(() => STEP_LABELS[geneCallingStep.value] ?? geneCallingStep.value);
 
-    function downloadGff(result: GeneCallResult): void {
-      const blob = new Blob([result.outputFile], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = result.fileName.replace(/\.[^.]+$/, '') + '.gff';
-      a.click();
-      URL.revokeObjectURL(url);
+    async function downloadGff(result: GeneCallResult): Promise<void> {
+      await saveTextFile(result.outputFile, result.fileName.replace(/\.[^.]+$/, '') + '.gff');
     }
 
 
-    function downloadAmrTsv(result: GeneCallResult): void {
+    async function downloadAmrTsv(result: GeneCallResult): Promise<void> {
       if (!result.amrAnnotationTsv) return;
-      const blob = new Blob([result.amrAnnotationTsv], { type: 'text/tab-separated-values' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = result.fileName.replace(/\.[^.]+$/, '') + '.amr.tsv';
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveTextFile(result.amrAnnotationTsv, result.fileName.replace(/\.[^.]+$/, '') + '.amr.tsv', 'text/tab-separated-values;charset=utf-8');
     }
 
-    function downloadZip(): void {
+    async function downloadZip(): Promise<void> {
       const files: Record<string, string> = {};
       for (const result of Object.values(orphosResults.value)) {
         const stem = result.fileName.replace(/\.[^.]+$/, '');
@@ -564,16 +553,10 @@ export default defineComponent({
         if (result.amrAnnotationTsv) files[stem + '.amr.tsv'] = result.amrAnnotationTsv;
       }
       const bytes = buildZip(files);
-      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/zip' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'genecalls.zip';
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveBinaryFile(bytes, 'genecalls.zip', 'application/zip');
     }
 
-    function downloadTarGz(): void {
+    async function downloadTarGz(): Promise<void> {
       const files: Record<string, string> = {};
       for (const result of Object.values(orphosResults.value)) {
         const stem = result.fileName.replace(/\.[^.]+$/, '');
@@ -581,13 +564,7 @@ export default defineComponent({
         if (result.amrAnnotationTsv) files[stem + '.amr.tsv'] = result.amrAnnotationTsv;
       }
       const bytes = buildTarGz(files);
-      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/gzip' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'genecalls.tar.gz';
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveBinaryFile(bytes, 'genecalls.tar.gz', 'application/gzip');
     }
 
     const {

@@ -5,6 +5,7 @@
   "scripts": {
     "serve": "node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js serve",
     "build": "node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js build",
+    "build:electron": "SPARROWHAWK_TARGET=electron node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js build",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {

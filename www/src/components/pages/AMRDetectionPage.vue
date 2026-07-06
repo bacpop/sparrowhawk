@@ -167,6 +167,7 @@ import { columns, AmrDetectionRow } from "@/components/pages/amr-detection/colum
 import { AmrDetectionResult } from "@/types";
 import { buildAmrTsv } from "@/amrTsv";
 import { fastaExtensionsWithDotAndCompressList, regExpForAnyFasta } from "@/utils";
+import {saveTextFile} from "@/platform/files";
 
 export default defineComponent({
   name: "AMRDetectionPage",
@@ -244,17 +245,11 @@ export default defineComponent({
       }));
     });
 
-    function downloadTsv(): void {
+    async function downloadTsv(): Promise<void> {
       const result = amrResult.value;
       if (!result) return;
       const tsv = buildAmrTsv(result);
-      const blob = new Blob([tsv], { type: "text/tab-separated-values" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "sparrowhawk_amr_results.tsv";
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveTextFile(tsv, "sparrowhawk_amr_results.tsv", "text/tab-separated-values;charset=utf-8");
     }
 
     const {

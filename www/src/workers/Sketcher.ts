@@ -1,3 +1,5 @@
+import {loadAssetBlob} from "@/platform/files";
+
 interface IdentifyResult {
     ani: number[];
     ranks: number[];
@@ -45,8 +47,14 @@ export class Sketcher {
 
         try {
             if (this.SketchlibData === null) {
-                const response = await fetch('/inverted_k_17_ss_50.ski');
-                const invertedindex = await response.blob();
+                let invertedindex: Blob;
+                try {
+                    invertedindex = await loadAssetBlob("inverted_k_17_ss_50.ski");
+                } catch (error) {
+                    console.error("Failed to load sketchlib asset", error);
+                    this.worker.postMessage({error: true, sampleName, message: "asset"});
+                    return;
+                }
 
                 this.SketchlibData = await this.wasm.SketchlibData.new(invertedindex);
             }

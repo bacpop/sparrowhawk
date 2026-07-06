@@ -129,6 +129,9 @@
         <template v-if="sketchlibError === 'memory'">
           Error during processing — most likely a memory issue. Try with fewer or smaller files.
         </template>
+        <template v-else-if="sketchlibError === 'asset'">
+          Failed to load the bundled taxonomic reference asset. Restart the Electron app, and check that the packaged build includes `inverted_k_17_ss_50.ski`.
+        </template>
         <template v-else>
           {{ sketchlibError }}
         </template>
@@ -210,6 +213,7 @@ import DataTable from "@/components/pages/taxonomic-id/DataTable.vue";
 import { columns, TaxonomicIDRow } from "@/components/pages/taxonomic-id/columns";
 import { SampleIdentifyResult } from "@/types";
 import { fastxExtensionsWithDotAndCompressList } from "@/utils";
+import {saveTextFile} from "@/platform/files";
 
 export default defineComponent({
   name: "TaxonomicIDPage",
@@ -358,7 +362,7 @@ export default defineComponent({
       return topLevelRows;
     });
 
-    function downloadTsv(): void {
+    async function downloadTsv(): Promise<void> {
       const headers = [
         "Sample", "Rank", "Species", "ANI (%)",
         "Species (metadata)", "Gemsparcl ID", "GTDB species composition",
@@ -380,13 +384,7 @@ export default defineComponent({
       }
 
       const tsv = [headers, ...rows].map(r => r.join("\t")).join("\n");
-      const blob = new Blob([tsv], { type: "text/tab-separated-values" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "sparrowhawk_id_results.tsv";
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveTextFile(tsv, "sparrowhawk_id_results.tsv", "text/tab-separated-values;charset=utf-8");
     }
 
     const {

@@ -15,6 +15,7 @@ import { defineComponent, computed } from "vue";
 import { useStore } from "vuex";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-vue-next";
+import {saveBinaryFile} from "@/platform/files";
 export default defineComponent({
   name: "DownloadButtonHostDepletion",
   components: { Button, Download },
@@ -23,28 +24,24 @@ export default defineComponent({
 
     const isPaired = computed(() => store.state.allResults_deacon.outputGzip2 !== null);
 
-    function downloadFile(content: Uint8Array<ArrayBuffer>, baseName: string) {
-      const blob = new Blob([content], { type: "application/gzip" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = baseName; a.click();
-      URL.revokeObjectURL(url);
+    async function downloadFile(content: Uint8Array<ArrayBuffer>, baseName: string): Promise<void> {
+      await saveBinaryFile(content, baseName, "application/gzip");
     }
 
-    function downloadR1() {
+    async function downloadR1(): Promise<void> {
       const content: Uint8Array | null = store.state.allResults_deacon.outputGzip;
       if (!content) return;
       const base = (store.state.allResults_deacon.readsFileName ?? "filtered")
                      .replace(/\.(fastq|fq)(\.gz)?$/, '');
-      downloadFile(new Uint8Array(content), base + "_filtered.fastq.gz");
+      await downloadFile(new Uint8Array(content), base + "_filtered.fastq.gz");
     }
 
-    function downloadR2() {
+    async function downloadR2(): Promise<void> {
       const content: Uint8Array | null = store.state.allResults_deacon.outputGzip2;
       if (!content) return;
       const base = (store.state.allResults_deacon.readsFileName2 ?? "filtered_R2")
                      .replace(/\.(fastq|fq)(\.gz)?$/, '');
-      downloadFile(new Uint8Array(content), base + "_filtered.fastq.gz");
+      await downloadFile(new Uint8Array(content), base + "_filtered.fastq.gz");
     }
 
     return { isPaired, downloadR1, downloadR2 };
