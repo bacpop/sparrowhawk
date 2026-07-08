@@ -57,6 +57,12 @@ export const emptyState = (): RootState => ({
         error: null,
     },
 
+    transmissionStandalone: {
+        clusterResults: null,
+        transmissionGraph: null,
+        error: null,
+    },
+
     workerState: {
         worker: null,
         worker_ska: null,
@@ -85,6 +91,7 @@ export const emptyState = (): RootState => ({
         isDetectingAmr: false,
         isDetectingAmrFiles: new Set<string>(),
         isClustering: false,
+        isTransmissionStandaloneClustering: false,
     },
 });
 

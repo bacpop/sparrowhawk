@@ -39,6 +39,18 @@ export interface TransmissionGraphData {
     links: TransmissionGraphLink[];
 }
 
+export interface MetadataRow {
+    id: string;
+    date: string;
+    location: string;
+}
+
+export interface TransmissionStandaloneResults {
+    clusterResults: Dict<number> | null
+    transmissionGraph: TransmissionGraphData | null
+    error: string | null
+}
+
 export interface AllResultsSka {
     alignResults: Dict<Alignment>
     mapResults: Dict<IsolateMapping>
@@ -187,4 +199,5 @@ export interface ProcessingState {
     isDetectingAmr: boolean;
     isDetectingAmrFiles: Set<string>;
     isClustering: boolean;
+    isTransmissionStandaloneClustering: boolean;
 }

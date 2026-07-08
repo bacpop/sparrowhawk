@@ -117,6 +117,22 @@ export class Mapper {
         }
     }
 
+    async clusterUploadedAlignment(file: File, snp_threshold: number): Promise<void> {
+        console.log("Running standalone transmission clustering with SNP threshold: " + snp_threshold);
+
+        try {
+            await this.waitForWasm();
+            const alignmentText = await file.text();
+            const alignData = this.wasm.AlignData.from_alignment_text(alignmentText);
+            const clusters: ClusterLabels = JSON.parse(this.wasm.ska_cluster(alignData, snp_threshold));
+            const graph: TransmissionGraphData = JSON.parse(alignData.get_graph_json(snp_threshold));
+            this.worker.postMessage({ clustered: true, clusters, graph });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.worker.postMessage({ error: true, message });
+        }
+    }
+
     cluster(snp_threshold: number): void {
         console.log("Running transmission clustering with SNP threshold: " + snp_threshold);
         if (this.AlignData === null) {

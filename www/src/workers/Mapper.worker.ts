@@ -35,11 +35,17 @@ interface ClusterMessage {
     snp_threshold: number;
 }
 
+interface TransmissionClusterMessage {
+    transmission_cluster: boolean;
+    file: File;
+    snp_threshold: number;
+}
+
 interface ResetMessage {
     reset: boolean;
 }
 
-type WorkerMessage = RefMessage | MapMessage | AlignMessage | ClusterMessage | ResetMessage;
+type WorkerMessage = RefMessage | MapMessage | AlignMessage | ClusterMessage | TransmissionClusterMessage | ResetMessage;
 
 const ctx: Worker = self as unknown as Worker;
 const mapper = new Mapper(ctx);
@@ -58,6 +64,9 @@ ctx.onmessage = (evt: MessageEvent<WorkerMessage>) => {
         } else if ('cluster' in evt.data && evt.data.cluster) {
             const data = evt.data as ClusterMessage;
             mapper.cluster(data.snp_threshold);
+        } else if ('transmission_cluster' in evt.data && evt.data.transmission_cluster) {
+            const data = evt.data as TransmissionClusterMessage;
+            mapper.clusterUploadedAlignment(data.file, data.snp_threshold);
         } else if ('reset' in evt.data && evt.data.reset) {
             mapper.resetAll();
         } else {

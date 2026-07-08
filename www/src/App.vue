@@ -67,6 +67,10 @@
         </MappingAlignmentPage>
       </div>
 
+      <div v-else-if="tabName === 'Transmission'">
+        <TransmissionPage :tabName="tabName"/>
+      </div>
+
       <div v-else-if="tabName === 'GeneCalling'">
         <GeneCallingPage :tabName="tabName"/>
       </div>
@@ -90,7 +94,7 @@
 import {defineComponent} from 'vue';
 import {useStore} from 'vuex';
 // eslint-disable-next-line
-import {Codesandbox, ScanFace, TextAlignCenter, TreePine, Dna, Funnel, Pill} from "lucide-vue-next";
+import {Codesandbox, ScanFace, TextAlignCenter, TreePine, Dna, Funnel, Pill, ChartNetwork} from "lucide-vue-next";
 
 import AssemblyPage from './components/pages/AssemblyPage.vue';
 import MappingAlignmentPage from './components/pages/MappingAlignmentPage.vue';
@@ -98,6 +102,7 @@ import TaxonomicIDPage from './components/pages/TaxonomicIDPage.vue';
 import GeneCallingPage from "./components/pages/GeneCallingPage.vue";
 import HostDepletionPage from "./components/pages/HostDepletionPage.vue";
 import AMRDetectionPage from "./components/pages/AMRDetectionPage.vue";
+import TransmissionPage from "./components/pages/TransmissionPage.vue";
 import ResultsDisplayMapping from './components/ResultsDisplayMapping.vue';
 import ResultsDisplayAlignment from './components/ResultsDisplayAlignment.vue';
 import KmerHistogram from './components/KmerHistogram.vue';
@@ -152,12 +157,14 @@ export default defineComponent({
     TreePine,
     ScanFace,
     Pill,
+    ChartNetwork,
     AssemblyPage,
     MappingAlignmentPage,
     TaxonomicIDPage,
     GeneCallingPage,
     HostDepletionPage,
     AMRDetectionPage,
+    TransmissionPage,
     KmerHistogram,
     ResultsDisplayMapping,
     ResultsDisplayAlignment,
@@ -176,6 +183,7 @@ export default defineComponent({
         {id: 'Assembly', sidebar_label: "Assembly", label: 'Assembly', icon: 'Codesandbox'},
         {id: 'Mapping', sidebar_label: "Mapping", label: 'Mapping (within species)', icon: 'TextAlignCenter'},
         {id: 'Alignment', sidebar_label: "Alignment", label: 'Alignment (within species)', icon: 'TreePine'},
+        {id: 'Transmission', sidebar_label: "Transmission", label: 'Transmission', icon: 'ChartNetwork'},
         {id: 'TaxonomicID', sidebar_label: "Taxonomic ID", label: 'Taxonomic ID', icon: 'ScanFace'},
         {id: 'GeneCalling', sidebar_label: "Gene calling", label: 'Gene calling', icon: 'Dna'},
         {id: 'HostDepletion', sidebar_label: "Host depletion", label: 'Host depletion', icon: 'Funnel'},

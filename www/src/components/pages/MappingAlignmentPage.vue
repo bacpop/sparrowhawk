@@ -414,49 +414,14 @@
           Clear results
         </Button>
 
-        <!-- Transmission cluster results -->
-        <div v-if="hasClusterResults" class="mx-6 mt-6">
-          <div class="flex items-center justify-between mb-2">
-            <h2 class="text-base font-medium">Transmission Clusters</h2>
-            <Button @click="downloadClustersTSV" variant="outline" size="sm">
-              <FileDown class="mr-1 h-3 w-3" />
-              Download TSV
-            </Button>
-          </div>
-
-          <div class="max-h-48 overflow-y-auto border border-gray-200 rounded-md text-sm">
-            <table class="w-full">
-              <thead class="bg-gray-50 sticky top-0">
-                <tr>
-                  <th class="text-left px-3 py-2 font-medium text-gray-600">Sample</th>
-                  <th class="text-left px-3 py-2 font-medium text-gray-600">Cluster</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in clusterTableRows" :key="row.name"
-                    class="border-t border-gray-100 hover:bg-gray-50">
-                  <td class="px-3 py-2 font-mono truncate max-w-xs">{{ row.name }}</td>
-                  <td class="px-3 py-2">{{ row.cluster }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="mt-4 h-[500px]">
-            <TransmissionGraph
-              :nodes="transmissionGraphNodes"
-              :links="transmissionGraphLinks"
-            />
-          </div>
-
-          <div v-if="metadataRows.length > 0" class="mt-6">
-            <h3 class="text-sm font-medium text-gray-600 mb-2">Cluster timeline</h3>
-            <TransmissionClusterTimeline
-              :clusterRows="clusterTableRows"
-              :metadataRows="metadataRows"
-            />
-          </div>
-        </div>
+        <TransmissionClusterResults
+          v-if="hasClusterResults"
+          class="mx-6 mt-6"
+          :clusterResults="allResults_ska.clusterResults"
+          :transmissionGraph="allResults_ska.transmissionGraph"
+          :metadataRows="metadataRows"
+          :enableLocationMatching="enableLocationMatching"
+        />
 
         <slot name="alignment"/>
       </div>
@@ -472,7 +437,7 @@ import { useStore } from "vuex";
 import VueSlider from 'vue-3-slider-component';
 import VueSelect from "vue3-select-component";
 import "vue3-select-component/styles";
-import { Check, FileUp, FileDown, Loader2, Info, Network, TextAlignCenter, TreePine, Trash2 } from "lucide-vue-next";
+import { Check, FileUp, Loader2, Info, Network, TextAlignCenter, TreePine, Trash2 } from "lucide-vue-next";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import MappingHelpCollapsible from "@/components/help/MappingHelpCollapsible.vue";
@@ -480,10 +445,9 @@ import AlignmentHelpCollapsible from "@/components/help/AlignmentHelpCollapsible
 import DownloadButtonSka from "@/components/SequenceViewer/DownloadButtonSka.vue";
 import DownloadButtonSkaAlignment from "@/components/SequenceViewer/DownloadButtonSkaAlignment.vue";
 import { MSAViewer } from "@/components/MSAViewer";
-import TransmissionGraph from "@/components/TransmissionGraph.vue";
-import TransmissionClusterTimeline from "@/components/TransmissionClusterTimeline.vue";
+import TransmissionClusterResults from "@/components/TransmissionClusterResults.vue";
 import { fastxExtensionsWithDotAndCompressList } from "@/utils";
-import {saveTextFile} from "@/platform/files";
+import { parseTransmissionMetadataCsv } from "@/utils/transmissionMetadata";
 
 interface UploadedFile {
   name: string;
@@ -502,7 +466,6 @@ export default defineComponent({
     VueSlider,
     VueSelect,
     FileUp,
-    FileDown,
     Loader2,
     Check,
     Info,
@@ -520,8 +483,7 @@ export default defineComponent({
     DownloadButtonSka,
     DownloadButtonSkaAlignment,
     MSAViewer,
-    TransmissionGraph,
-    TransmissionClusterTimeline,
+    TransmissionClusterResults,
   },
   setup() {
     const store = useStore();
@@ -606,36 +568,12 @@ export default defineComponent({
       metadataFileName.value = file.name;
       const reader = new FileReader();
       reader.onload = (e) => {
-        const text = e.target?.result as string;
-        const lines = text.split('\n').filter(l => l.trim());
-        if (lines.length < 2) { metadataError.value = "Metadata file is empty or has no data rows."; return; }
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const idIdx = headers.indexOf('id');
-        const dateIdx = headers.indexOf('date');
-        const locIdx = headers.indexOf('location');
-        if (idIdx === -1 || dateIdx === -1 || locIdx === -1) {
-          metadataError.value = "Metadata CSV must have columns: ID, date, location.";
-          return;
+        try {
+          metadataRows.value = parseTransmissionMetadataCsv(String(e.target?.result ?? ""));
+        } catch (error) {
+          metadataRows.value = [];
+          metadataError.value = error instanceof Error ? error.message : String(error);
         }
-        const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-        const rows: { id: string; date: string; location: string }[] = [];
-        const errors: string[] = [];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',');
-          const id = cols[idIdx]?.trim();
-          const date = cols[dateIdx]?.trim() ?? '';
-          const location = cols[locIdx]?.trim() ?? '';
-          if (!id) continue;
-          if (date && !datePattern.test(date)) {
-            errors.push(`Row ${i + 1}: invalid date "${date}" (expected yyyy-mm-dd)`);
-          }
-          rows.push({ id, date, location });
-        }
-        if (errors.length > 0) {
-          metadataError.value = errors.join('; ');
-          return;
-        }
-        metadataRows.value = rows;
       };
       reader.readAsText(file);
     }
@@ -739,39 +677,6 @@ export default defineComponent({
     hasClusterResults(): boolean {
       return this.store.getters.hasClusterResults;
     },
-    adjustedClusterResults(): Record<string, number> | null {
-      const original = this.allResults_ska.clusterResults;
-      if (!original || !this.enableLocationMatching || !this.metadataRows.length) return original;
-      const keyToId = new Map<string, number>();
-      let nextId = 1;
-      const result: Record<string, number> = {};
-      for (const [name, cluster] of Object.entries(original)) {
-        const loc = this.sampleLocation(name) ?? '';
-        const key = `${cluster}:${loc}`;
-        if (!keyToId.has(key)) keyToId.set(key, nextId++);
-        result[name] = keyToId.get(key)!;
-      }
-      return result;
-    },
-    clusterTableRows(): { name: string; cluster: number }[] {
-      const results = this.adjustedClusterResults;
-      if (!results) return [];
-      return Object.entries(results)
-        .map(([name, cluster]) => ({ name, cluster: cluster as number }))
-        .sort((a, b) => a.cluster - b.cluster || a.name.localeCompare(b.name));
-    },
-    transmissionGraphNodes() {
-      const nodes = this.allResults_ska.transmissionGraph?.nodes ?? [];
-      const adjusted = this.adjustedClusterResults;
-      if (!adjusted) return nodes;
-      return nodes.map((n: { id: string; cluster: number }) => ({
-        ...n,
-        cluster: adjusted[n.id] ?? n.cluster,
-      }));
-    },
-    transmissionGraphLinks() {
-      return this.allResults_ska.transmissionGraph?.links ?? [];
-    },
     hasAlignmentResults(): boolean {
       return this.allResults_ska.alignResults[0] && this.allResults_ska.alignResults[0].aligned;
     },
@@ -820,19 +725,8 @@ export default defineComponent({
     clear(): void {
       this.resetAll();
     },
-    sampleLocation(name: string): string | null {
-      const prefix = name.replace(/(?:\.[^.]+)+$/, '');
-      const row = (this.metadataRows as { id: string; date: string; location: string }[])
-        .find(r => r.id === prefix || r.id === name);
-      return row?.location ?? null;
-    },
     runClustering(): void {
       this.processCluster({ snp_threshold: this.snp_threshold });
-    },
-    async downloadClustersTSV(): Promise<void> {
-      const rows = this.clusterTableRows;
-      const tsv = "Sample\tCluster\n" + rows.map(r => `${r.name}\t${r.cluster}`).join("\n");
-      await saveTextFile(tsv, "transmission_clusters.tsv", "text/tab-separated-values;charset=utf-8");
     },
     getFileStatus(file: UploadedFile): 'indexing' | 'mapping' | 'done' {
       if (file.type === 'reference') {

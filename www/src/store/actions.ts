@@ -292,6 +292,38 @@ export default {
         }
     },
 
+    async processTransmissionStandaloneCluster(context: ActionContext<RootState, RootState>, payload: { file: File, snp_threshold: number }) {
+        const {commit, state} = context;
+        console.log("Running standalone transmission clustering with SNP threshold: " + payload.snp_threshold);
+
+        commit("setTransmissionStandaloneClusteringState", true);
+        commit("resetTransmissionStandaloneResults");
+
+        if (state.workerState.worker_ska) {
+            state.workerState.worker_ska.postMessage({
+                transmission_cluster: true,
+                file: payload.file,
+                snp_threshold: payload.snp_threshold,
+            });
+            state.workerState.worker_ska.onmessage = (message) => {
+                commit("setTransmissionStandaloneClusteringState", false);
+                if (message.data.error) {
+                    commit("setTransmissionStandaloneError", message.data.message ?? "generic");
+                    return;
+                }
+                commit("setTransmissionStandaloneClusterResults", { clusters: message.data.clusters, graph: message.data.graph });
+            };
+        } else {
+            commit("setTransmissionStandaloneClusteringState", false);
+            commit("setTransmissionStandaloneError", "worker_unavailable");
+        }
+    },
+
+    async resetTransmissionStandaloneResults(context: ActionContext<RootState, RootState>) {
+        const {commit} = context;
+        commit("resetTransmissionStandaloneResults");
+    },
+
     async resetAllResults_ska(context: ActionContext<RootState, RootState>) {
         const {commit} = context;
         commit("resetAllResults_ska");

@@ -109,6 +109,9 @@ export const getters: GetterTree<RootState, RootState> = {
     // SKA clustering
     hasClusterResults(state: RootState): boolean { return state.allResults_ska.clusterResults !== null; },
     isClustering(state: RootState): boolean      { return state.processingState.isClustering; },
+    hasTransmissionStandaloneClusterResults(state: RootState): boolean { return state.transmissionStandalone.clusterResults !== null; },
+    isTransmissionStandaloneClustering(state: RootState): boolean { return state.processingState.isTransmissionStandaloneClustering; },
+    transmissionStandaloneError(state: RootState) { return state.transmissionStandalone.error; },
 
     // SKA errors
     skaError(state: RootState)       { return state.allResults_ska.error; },

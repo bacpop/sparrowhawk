@@ -86,7 +86,12 @@ export default defineComponent({
   methods: {
     renderChart(): void {
       const data = this.preparedData;
-      if (!data.length || !this.$refs.plotEl) return;
+      if (!this.$refs.plotEl) return;
+
+      if (!data.length) {
+        Plotly.purge(this.$refs.plotEl as HTMLElement);
+        return;
+      }
 
       const clusters = [...new Set(data.map(d => d.cluster))].sort((a, b) => a - b);
       const traces: object[] = [];
@@ -136,8 +141,12 @@ export default defineComponent({
         margin: { t: 30, r: 20 },
       };
 
-      Plotly.newPlot(this.$refs.plotEl as HTMLElement, traces, layout as Partial<Plotly.Layout>);
+      Plotly.react(this.$refs.plotEl as HTMLElement, traces, layout as Partial<Plotly.Layout>);
     },
+  },
+
+  mounted(): void {
+    this.$nextTick(() => this.renderChart());
   },
 
   watch: {

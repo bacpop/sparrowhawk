@@ -54,6 +54,7 @@ export default {
             isDetectingAmr: false,
             isDetectingAmrFiles: new Set<string>(),
             isClustering: false,
+            isTransmissionStandaloneClustering: false,
         };
     },
 
@@ -205,6 +206,23 @@ export default {
         state.allResults_ska.transmissionGraph = input.graph;
     },
     setSkaClusterError(state: RootState, msg: string) { state.allResults_ska.error = msg; },
+
+    setTransmissionStandaloneClusteringState(state: RootState, isClustering: boolean) {
+        state.processingState.isTransmissionStandaloneClustering = isClustering;
+    },
+    setTransmissionStandaloneClusterResults(state: RootState, input: { clusters: Dict<number>, graph: TransmissionGraphData }) {
+        state.transmissionStandalone.clusterResults = input.clusters;
+        state.transmissionStandalone.transmissionGraph = input.graph;
+        state.transmissionStandalone.error = null;
+    },
+    setTransmissionStandaloneError(state: RootState, msg: string) { state.transmissionStandalone.error = msg; },
+    resetTransmissionStandaloneResults(state: RootState) {
+        state.transmissionStandalone = {
+            clusterResults: null,
+            transmissionGraph: null,
+            error: null,
+        };
+    },
 
     resetAllResults_ska(state: RootState) {
         state.refSet = null;
