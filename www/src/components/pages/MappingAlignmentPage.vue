@@ -681,7 +681,9 @@ export default defineComponent({
       return this.allResults_ska.alignResults[0] && this.allResults_ska.alignResults[0].aligned;
     },
     hasMappingResults(): boolean {
-      return Object.keys(this.allResults_ska.mapResults).length > 0;
+      return Object.values(this.allResults_ska.mapResults).some((mapping: any) =>
+        (mapping?.mapped_sequences?.length ?? 0) > 0
+      );
     },
     // Convert mapping results to MSA format for the viewer
     mappingMSAData(): { id: string; sequence: string }[] {

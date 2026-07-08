@@ -1,9 +1,21 @@
 <template>
   <div class="flex flex-col gap-2">
-    Download alignment
+    <div>Download mapping</div>
     <Button class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadALN">
       .aln
     </Button>
+
+    <template v-if="allResults_ska.mapping_vcf">
+      <div>Download variants</div>
+      <Button
+        class="max-w-fit cursor-pointer"
+        variant="outline"
+        size="sm"
+        @click="downloadVCF"
+      >
+        .vcf
+      </Button>
+    </template>
   </div>
 </template>
 
@@ -44,6 +56,9 @@ export default defineComponent({
       }
 
       await saveTextFile(text, "alignment.aln", "text/x-fasta");
+    },
+    async downloadVCF(): Promise<void> {
+      await saveTextFile(this.allResults_ska.mapping_vcf, "mapping.vcf", "text/vcf");
     }
   }
 });

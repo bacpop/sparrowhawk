@@ -22,6 +22,7 @@ export const emptyState = (): RootState => ({
 
     allResults_ska: {
         mapResults: {},
+        mapping_vcf: "",
         alignResults: {},
         ref: [],
         error: null,

@@ -169,6 +169,7 @@ export default {
                 nb_variants: null,
                 coverage: null,
                 mapped_sequences: [],
+                mapping_vcf: "",
             };
         }
     },
@@ -179,10 +180,13 @@ export default {
                   nb_variants: number | null,
                   coverage: number | null,
                   mapped_sequences: string[]
+                  mapping_vcf: string
               }) {
         state.allResults_ska.mapResults[input.name].nb_variants = input.nb_variants
         state.allResults_ska.mapResults[input.name].coverage = input.coverage
         state.allResults_ska.mapResults[input.name].mapped_sequences = input.mapped_sequences
+        state.allResults_ska.mapResults[input.name].mapping_vcf = input.mapping_vcf
+        state.allResults_ska.mapping_vcf = input.mapping_vcf
     },
 
     setAligned(state: RootState, input: { aligned: boolean, names: string[], newick: string, alignment: string, distances_csv?: string }) {
@@ -228,6 +232,7 @@ export default {
         state.refSet = null;
         state.allResults_ska = {
             mapResults: {},
+            mapping_vcf: "",
             alignResults: {},
             ref: [],
             error: null,

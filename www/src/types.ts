@@ -22,6 +22,7 @@ export interface IsolateMapping {
     nb_variants?: number | null
     coverage?: number | null
     mapped_sequences?: string[]
+    mapping_vcf?: string
 }
 
 export interface Alignment {
@@ -54,6 +55,7 @@ export interface TransmissionStandaloneResults {
 export interface AllResultsSka {
     alignResults: Dict<Alignment>
     mapResults: Dict<IsolateMapping>
+    mapping_vcf: string
     ref: string[]
     error: string | null
     clusterResults: Dict<number> | null

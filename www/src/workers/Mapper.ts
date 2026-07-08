@@ -2,6 +2,7 @@ interface MapResult {
     "Number of variants": number;
     "Coverage": number;
     "Mapped sequences": string[];
+    "VCF": string;
 }
 
 interface AlignResult {
@@ -23,7 +24,7 @@ interface TransmissionGraphData {
 
 interface SkaData {
     get_reference(): string;
-    map(file: File, revReadFile: File | null, proportion_reads: number, min_count: number, min_qual: number, qual_filter: number): string;
+    map(file: File, revReadFile: File | null, proportion_reads: number, min_count: number, min_qual: number, qual_filter: number, sampleName: string): string;
 }
 
 interface AlignData {
@@ -79,15 +80,15 @@ export class Mapper {
         }
 
         try {
-            const results: MapResult = JSON.parse(this.SkaData.map(file, revReadFile, proportion_reads, min_count, min_qual, qual_filter));
-
-            const outname = (revReadFile != null) ? file.name.replace(/(?:_1)?\.(?:fa|fna|fasta|fq|fnq|fastq)(?:\.gz)?$/, "") : file.name;
+            const outname = (revReadFile != null) ? file.name.replace(new RegExp("(?:_1)?\\.(?:fa|fna|fasta|fq|fnq|fastq)(?:\\.gz)?" + String.fromCharCode(36)), "") : file.name;
+            const results: MapResult = JSON.parse(this.SkaData.map(file, revReadFile, proportion_reads, min_count, min_qual, qual_filter, outname));
 
             this.worker.postMessage({
                 nb_variants: results["Number of variants"],
                 coverage: results["Coverage"],
                 name: outname,
                 mapped_sequences: results["Mapped sequences"],
+                mapping_vcf: results["VCF"],
             });
         } catch {
             this.worker.postMessage({ error: true, message: 'memory' });
