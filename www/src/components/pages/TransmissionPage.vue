@@ -1,15 +1,15 @@
 <template>
-  <div class="flex flex-col md:flex-row items-start md:items-stretch w-full min-h-full gap-4 overflow-visible md:overflow-hidden">
-    <div class="flex-shrink-0 w-full md:w-[350px] md:h-full md:overflow-y-auto md:pr-2">
-      <div class="flex items-center gap-2 mb-4">
+  <div class="flex flex-col gap-6 md:flex-row md:gap-0">
+    <div class="w-full md:w-[350px] md:shrink-0">
+      <h1 class="text-2xl font-medium mb-4 flex items-center gap-2">
         <ChartNetwork class="w-6 h-6" />
-        <h1 class="text-lg font-semibold">Transmission</h1>
-      </div>
+        Transmission
+      </h1>
 
       <TransmissionHelpCollapsible />
 
       <TooltipProvider>
-        <div class="flex flex-col gap-4 text-sm">
+        <div class="flex flex-col gap-4">
           <div>
             <p class="flex items-center gap-1 mb-1">
               <Tooltip>
@@ -104,10 +104,12 @@
         </div>
       </div>
 
-      <Button v-if="alignmentFile" @click="clear" class="mx-6 mt-4" variant="outline" size="sm">
-        <Trash2 class="mr-1 h-3 w-3" />
-        Clear results
-      </Button>
+      <div v-if="alignmentFile" class="mx-6 mr-0 mt-4 flex items-center gap-2">
+        <Button @click="clear" variant="outline" size="sm">
+          <Trash2 class="mr-1 h-3 w-3" />
+          Clear results
+        </Button>
+      </div>
 
       <TransmissionClusterResults
         v-if="hasTransmissionStandaloneClusterResults"
