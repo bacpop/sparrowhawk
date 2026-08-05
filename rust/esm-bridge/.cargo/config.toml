@@ -1,0 +1,9 @@
+# Scoped to wasm32 — unlike rust/orphos-bridge/.cargo/config.toml, which sets [build]
+# rustflags globally — so native smoke tests and `cargo test` are unaffected.
+[target.wasm32-unknown-unknown]
+rustflags = [
+    # burn-onnx generates deeply nested forward() bodies; the 1 MB default is not enough.
+    "-C", "link-args=-zstack-size=8000000",
+    # Meaningful speed-up on the NdArray CPU fallback; baseline in all target browsers.
+    "-C", "target-feature=+simd128",
+]

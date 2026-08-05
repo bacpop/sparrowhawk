@@ -27,3 +27,5 @@ www/*.sw?
 rust/orphos-bridge/target/*
 rust/deacon-bridge/target/*
 rust/esm-bridge/target/*
+rust/esm-bridge/model/*
+rust/esm-bridge/scripts/__pycache__

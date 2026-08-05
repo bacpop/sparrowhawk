@@ -11,7 +11,7 @@
       <TooltipProvider>
         <div class="flex flex-col gap-4">
           <div class="flex flex-row items-center w-full gap-2">
-            <input id="use_gpu" type="checkbox" v-model="use_gpu" :disabled="isEmbedding || !gpuSupported"/>
+            <input id="use_gpu" type="checkbox" v-model="use_gpu" :disabled="isEmbedding"/>
             <Tooltip>
               <TooltipTrigger as-child>
                 <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
@@ -123,6 +123,14 @@
           The embedding engine stopped unexpectedly. The tab has recovered, so you can try
           again; running without <b>GPU acceleration</b> makes it less likely to recur.
         </template>
+        <template v-else-if="esmError === 'no_webgpu'">
+          <b>GPU acceleration</b> is not available: this browser does not expose WebGPU, or the
+          page is not being served over a secure connection. Embedding will run on the CPU.
+        </template>
+        <template v-else-if="esmError === 'no_gpu_device'">
+          <b>GPU acceleration</b> is not available: the browser exposes WebGPU but reported no
+          usable device. Embedding will run on the CPU.
+        </template>
         <template v-else>
           {{ esmError }}
         </template>
@@ -151,8 +159,16 @@
           </template>
         </div>
 
+        <!-- No upload until we know which device the run would use -->
+        <div v-if="gpuProbing" class="p-6 mx-6 bg-blue-50 border border-blue-200 rounded-md flex flex-col justify-center items-center gap-2 text-gray-600">
+          <Loader2 class="w-6 h-6 text-blue-500 animate-spin"/>
+          <p class="text-sm text-gray-500">
+            Detecting GPU devices...
+          </p>
+        </div>
+
         <!-- Upload dropbox - always visible when not embedding -->
-        <div v-if="!isEmbedding"
+        <div v-else-if="!isEmbedding"
              v-bind='getRootPropsSample()'
              :class="[
                'p-6 mx-6 mr-0 bg-white border border-gray-200 rounded-md flex flex-col justify-center items-center gap-2 text-gray-600',
@@ -317,6 +333,20 @@ export default defineComponent({
       gpuQueryDone.value = true;
     });
 
+    const gpuProbing = computed(() => use_gpu.value && gpuSupported.value && !gpuQueryDone.value);
+
+    // Nothing to accelerate with: say which of the two reasons it is, and turn it back off.
+    watch([use_gpu, gpuQueryDone], () => {
+      if (!use_gpu.value) return;
+      if (!gpuSupported.value) {
+        use_gpu.value = false;
+        store.commit("setEsmError", "no_webgpu");
+      } else if (gpuQueryDone.value && !availableAdapters.value.length) {
+        use_gpu.value = false;
+        store.commit("setEsmError", "no_gpu_device");
+      }
+    });
+
     // Only meaningful with more than one adapter: with one, its name already is the renderer.
     const rendererHint = computed<string>(() =>
       availableAdapters.value.length > 1 && availableAdapters.value.some(a => !a.identified)
@@ -465,6 +495,7 @@ export default defineComponent({
       availableAdapters,
       gpuQueryDone,
       gpuSupported,
+      gpuProbing,
       activeAdapterName,
       adapterOptions,
       uploadedFileNames,
