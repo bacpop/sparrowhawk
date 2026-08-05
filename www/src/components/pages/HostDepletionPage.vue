@@ -214,7 +214,7 @@ import { defineComponent, ref, Ref, computed } from "vue";
 import { useStore } from "vuex";
 import { useDropzone } from "vue3-dropzone";
 import { useActions, useState } from "vuex-composition-helpers";
-import { Check, FileUp, Loader2, Funnel, Info, Download, Trash2 } from "lucide-vue-next";
+import { Check, FileUp, Loader2, Funnel, Info, Download, Trash2 } from "@lucide/vue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import VueSlider from 'vue-3-slider-component';
 import HostDepletionHelpCollapsible from "@/components/help/HostDepletionHelpCollapsible.vue";

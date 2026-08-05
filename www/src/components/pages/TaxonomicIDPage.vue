@@ -205,7 +205,7 @@ import { useStore } from "vuex";
 import { useDropzone } from "vue3-dropzone";
 import { useActions, useState } from "vuex-composition-helpers";
 import VueSlider from 'vue-3-slider-component';
-import { Check, FileUp, Loader2, Info, ScanFace, Download, Trash2 } from "lucide-vue-next";
+import { Check, FileUp, Loader2, Info, ScanFace, Download, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import TaxonomicIDHelpCollapsible from "@/components/help/TaxonomicIDHelpCollapsible.vue";

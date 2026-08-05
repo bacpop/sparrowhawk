@@ -83,6 +83,10 @@
         <AMRDetectionPage :tabName="tabName"/>
       </div>
 
+      <div v-else-if="tabName === 'ProteinEmbeddings'">
+        <ProteinEmbeddingsPage :tabName="tabName"/>
+      </div>
+
       <div v-else-if="tabName === 'faq'">
         <FaqPage/>
       </div>
@@ -94,7 +98,7 @@
 import {defineComponent} from 'vue';
 import {useStore} from 'vuex';
 // eslint-disable-next-line
-import {Codesandbox, ScanFace, TextAlignCenter, TreePine, Dna, Funnel, Pill, ChartNetwork} from "lucide-vue-next";
+import {Box, ScanFace, TextAlignCenter, TreePine, Dna, Funnel, Pill, ChartNetwork, ScanBox} from "@lucide/vue";
 
 import AssemblyPage from './components/pages/AssemblyPage.vue';
 import MappingAlignmentPage from './components/pages/MappingAlignmentPage.vue';
@@ -102,6 +106,7 @@ import TaxonomicIDPage from './components/pages/TaxonomicIDPage.vue';
 import GeneCallingPage from "./components/pages/GeneCallingPage.vue";
 import HostDepletionPage from "./components/pages/HostDepletionPage.vue";
 import AMRDetectionPage from "./components/pages/AMRDetectionPage.vue";
+import ProteinEmbeddingsPage from "./components/pages/ProteinEmbeddingsPage.vue";
 import TransmissionPage from "./components/pages/TransmissionPage.vue";
 import ResultsDisplayMapping from './components/ResultsDisplayMapping.vue';
 import ResultsDisplayAlignment from './components/ResultsDisplayAlignment.vue';
@@ -150,7 +155,7 @@ export default defineComponent({
     SidebarContent,
     SidebarProvider,
     SidebarTrigger,
-    Codesandbox,
+    Box,
     Dna,
     Funnel,
     TextAlignCenter,
@@ -158,12 +163,14 @@ export default defineComponent({
     ScanFace,
     Pill,
     ChartNetwork,
+    ScanBox,
     AssemblyPage,
     MappingAlignmentPage,
     TaxonomicIDPage,
     GeneCallingPage,
     HostDepletionPage,
     AMRDetectionPage,
+    ProteinEmbeddingsPage,
     TransmissionPage,
     KmerHistogram,
     ResultsDisplayMapping,
@@ -180,7 +187,7 @@ export default defineComponent({
     return {
       tabName: 'Assembly' as string,
       tabs: [
-        {id: 'Assembly', sidebar_label: "Assembly", label: 'Assembly', icon: 'Codesandbox'},
+        {id: 'Assembly', sidebar_label: "Assembly", label: 'Assembly', icon: 'Box'},
         {id: 'Mapping', sidebar_label: "Mapping", label: 'Mapping (within species)', icon: 'TextAlignCenter'},
         {id: 'Alignment', sidebar_label: "Alignment", label: 'Alignment (within species)', icon: 'TreePine'},
         {id: 'Transmission', sidebar_label: "Transmission", label: 'Transmission', icon: 'ChartNetwork'},
@@ -188,6 +195,7 @@ export default defineComponent({
         {id: 'GeneCalling', sidebar_label: "Gene calling", label: 'Gene calling', icon: 'Dna'},
         {id: 'HostDepletion', sidebar_label: "Host depletion", label: 'Host depletion', icon: 'Funnel'},
         {id: 'AMRDetection', sidebar_label: "AMR detection", label: 'AMR detection', icon: 'Pill'},
+        {id: 'ProteinEmbeddings', sidebar_label: "Embed proteins", label: 'Embed proteins', icon: 'ScanBox'},
       ] as Tab[]
     }
   },

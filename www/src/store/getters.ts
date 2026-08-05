@@ -31,7 +31,8 @@ export const getters: GetterTree<RootState, RootState> = {
             state.processingState.isMapping ||
             state.processingState.isAligning ||
             state.processingState.isIdentifying ||
-            state.processingState.isDetectingAmr;
+            state.processingState.isDetectingAmr ||
+            state.processingState.isEmbedding;
     },
     assemblyState(state: RootState): string {
         return state.processingState.assemblyState;
@@ -139,4 +140,25 @@ export const getters: GetterTree<RootState, RootState> = {
     detectingAmrFiles(state: RootState): Set<string> { return state.processingState.isDetectingAmrFiles; },
     amrDetected(state: RootState)       { return state.allResults_amr.result !== null; },
     amrResult(state: RootState)         { return state.allResults_amr.result; },
+
+    // ESM / PROTEIN EMBEDDINGS
+    esmError(state: RootState)          { return state.allResults_esm.error; },
+    esmModelLoaded(state: RootState)    { return state.allResults_esm.modelLoaded; },
+    isLoadingEsmModel(state: RootState) { return state.allResults_esm.isLoadingModel; },
+    esmModelLoadStage(state: RootState) { return state.allResults_esm.modelLoadStage; },
+    esmBackend(state: RootState)        { return state.allResults_esm.backend; },
+    esmBackendFallbackReason(state: RootState) { return state.allResults_esm.backendFallbackReason; },
+    esmGpuEvent(state: RootState)       { return state.allResults_esm.gpuEvent; },
+    isEmbedding(state: RootState)       { return state.processingState.isEmbedding; },
+    embeddingFiles(state: RootState): Set<string> { return state.processingState.isEmbeddingFiles; },
+    embeddingProgress(state: RootState) {
+        return {
+            done: state.processingState.embeddingDone,
+            total: state.processingState.embeddingTotal,
+        };
+    },
+    embeddingsComputed(state: RootState) { return state.allResults_esm.result !== null; },
+    esmResult(state: RootState)          { return state.allResults_esm.result; },
+
+    gpuAdapters(state: RootState)        { return state.gpuAdapters; },
 }

@@ -437,7 +437,7 @@ import { useStore } from "vuex";
 import VueSlider from 'vue-3-slider-component';
 import VueSelect from "vue3-select-component";
 import "vue3-select-component/styles";
-import { Check, FileUp, Loader2, Info, Network, TextAlignCenter, TreePine, Trash2 } from "lucide-vue-next";
+import { Check, FileUp, Loader2, Info, Network, TextAlignCenter, TreePine, Trash2 } from "@lucide/vue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import MappingHelpCollapsible from "@/components/help/MappingHelpCollapsible.vue";

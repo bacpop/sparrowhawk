@@ -26,3 +26,4 @@ www/*.sw?
 # Other
 rust/orphos-bridge/target/*
 rust/deacon-bridge/target/*
+rust/esm-bridge/target/*

@@ -137,6 +137,18 @@ module.exports = defineConfig({
             )
             .end()
 
+            .plugin("wasm-pack_esm")
+            .use(WasmPackPlugin)
+            .init(
+                (Plugin) =>
+                    new Plugin({
+                        crateDirectory: path.resolve(__dirname, "../rust/esm-bridge"),
+                        outDir: path.resolve(__dirname, "./src/pkg_esm"),
+                        forceMode: "production",
+                    })
+            )
+            .end()
+
         config.module
             .rule("js")
             .exclude

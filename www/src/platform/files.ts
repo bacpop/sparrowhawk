@@ -37,6 +37,11 @@ function getAssetUrl(name: string): string {
         return new URL(relativePath, location.href).toString();
     }
 
+    // Against the origin, not the href: a worker's href can be an opaque `blob:` URL: for the embeddings
+    if (location.origin && location.origin !== "null") {
+        return new URL("/" + name, location.origin).toString();
+    }
+
     return new URL("/" + name, location.href).toString();
 }
 
@@ -73,6 +78,50 @@ export async function saveBinaryFile(
     triggerDownload(new Blob([toArrayBuffer(data)], {type: mimeType}), filename);
 }
 
+function describeCause(cause: unknown): string {
+    return cause instanceof Error ? cause.message : String(cause);
+}
+
+/** Resolve, fetch, and check the status. Shared by both asset loaders below. */
+async function fetchAsset(name: string): Promise<Response> {
+    const url = getAssetUrl(name);
+
+    // Proper logging with the reason why we cannot load something
+    let response: Response;
+    try {
+        response = await fetch(url);
+    } catch (cause) {
+        throw new Error(`Could not fetch asset ${name} from ${url}: ${describeCause(cause)}`);
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            `Failed to load asset ${name} from ${url}: ${response.status} ${response.statusText}`,
+        );
+    }
+
+    return response;
+}
+
+// A helper to catch errors while reading a file that is being loaded
+async function readAssetBody<T>(
+    name: string,
+    response: Response,
+    read: (response: Response) => Promise<T>,
+): Promise<T> {
+    try {
+        return await read(response);
+    } catch (cause) {
+        const expected = response.headers.get("content-length");
+        throw new Error(
+            `Asset ${name} failed while reading its body` +
+            (expected ? ` (expected ${expected} bytes)` : "") +
+            `: ${describeCause(cause)}`,
+        );
+    }
+}
+
+// The inverted index is loaded in a particular way on the Electron version to avoid issues
 export async function loadAssetBlob(name: string): Promise<Blob> {
     if (
         typeof window !== "undefined" &&
@@ -83,10 +132,12 @@ export async function loadAssetBlob(name: string): Promise<Blob> {
         return new Blob([data]);
     }
 
-    const response = await fetch(getAssetUrl(name));
-    if (!response.ok) {
-        throw new Error(`Failed to load asset ${name}: ${response.status}`);
-    }
+    const response = await fetchAsset(name);
+    return readAssetBody(name, response, (r) => r.blob());
+}
 
-    return response.blob();
+// This fixes loading large files in Chromium, directly as bytes instead of as a blob
+export async function loadAssetBytes(name: string): Promise<Uint8Array> {
+    const response = await fetchAsset(name);
+    return new Uint8Array(await readAssetBody(name, response, (r) => r.arrayBuffer()));
 }

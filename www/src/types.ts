@@ -7,6 +7,7 @@ export interface WorkerState {
     workers_sketchlib: Worker[];
     workers_orphos: Worker[];
     workers_amr: Worker[];
+    workers_esm: Worker[];
 }
 
 export interface AllResults {
@@ -176,6 +177,51 @@ export interface AllResultsAmr {
     error: string | null
 }
 
+// Minimum info needed for retry embedding, if GPU fails
+export interface EsmRetry {
+    file: File | null;
+    sampleName: string;
+}
+
+/** One WebGPU adapter as reported by `@/platform/gpu`. */
+export interface GpuAdapterInfo {
+    index: number;
+    name: string;
+    identified: boolean; // If we managed to identify fully it (might not be the case in Firefox)
+}
+
+/** ESM-2 embeddings for one protein FASTA. */
+export interface ProteinEmbeddingResult {
+    sampleName: string;
+    ids: string[];
+    lengths: number[]; // maximum of 1022 residues, these are truncated already
+    truncated: boolean[];
+    dim: number;
+    nSequences: number;
+    backend: string;
+    elapsedMs: number;
+    // For setting the batches for processing with GPU
+    batchMin: number;
+    batchMax: number;
+    // Embeddings transferred
+    vectors: Float32Array;
+    // Coordinates
+    coords: Float32Array;
+}
+
+export interface AllResultsEsm {
+    modelFileName: string | null;
+    modelInfo: string | null;
+    modelLoaded: boolean;
+    isLoadingModel: boolean;
+    modelLoadStage: string; // For reference, to see status of model loading
+    backend: string | null; // Either cpu/gpu
+    backendFallbackReason: string | null;
+    gpuEvent: string | null; // For debugging GPU issues
+    result: ProteinEmbeddingResult | null;
+    error: string | null;
+}
+
 export interface ReadsPreprocessing {
     nKmers: number | null;
     histo: [];
@@ -202,4 +248,8 @@ export interface ProcessingState {
     isDetectingAmrFiles: Set<string>;
     isClustering: boolean;
     isTransmissionStandaloneClustering: boolean;
+    isEmbedding: boolean;
+    isEmbeddingFiles: Set<string>;
+    embeddingDone: number;
+    embeddingTotal: number; 
 }

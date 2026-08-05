@@ -28,3 +28,8 @@ declare module '@/workers/AmrDetector.worker' {
     const WorkerFactory: new () => Worker;
     export default WorkerFactory;
 }
+
+declare module '@/workers/Embedder.worker' {
+    const WorkerFactory: new () => Worker;
+    export default WorkerFactory;
+}

@@ -48,7 +48,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType } from "vue";
-import { FileDown } from "lucide-vue-next";
+import { FileDown } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import TransmissionGraph from "@/components/TransmissionGraph.vue";
 import TransmissionClusterTimeline from "@/components/TransmissionClusterTimeline.vue";

@@ -1,6 +1,6 @@
 import { h } from 'vue'
 import type { ColumnDef, Row } from '@tanstack/vue-table'
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight } from 'lucide-vue-next'
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight } from "@lucide/vue"
 import { Button } from '@/components/ui/button'
 
 export interface TaxonomicIDRow {

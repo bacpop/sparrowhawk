@@ -129,7 +129,7 @@ import { useDropzone } from "vue3-dropzone";
 import { useActions, useState } from "vuex-composition-helpers";
 import { useStore } from "vuex";
 import VueSlider from "vue-3-slider-component";
-import { ChartNetwork, Check, FileUp, Info, Loader2, Network, Trash2 } from "lucide-vue-next";
+import { ChartNetwork, Check, FileUp, Info, Loader2, Network, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import TransmissionClusterResults from "@/components/TransmissionClusterResults.vue";

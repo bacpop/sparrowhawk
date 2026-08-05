@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-6 md:flex-row md:gap-0">
     <div class="w-full md:w-[350px] md:shrink-0">
       <h1 class="text-2xl font-medium flex items-center gap-2 mb-4">
-        <Codesandbox class="w-6 h-6" />
+        <Box class="w-6 h-6" />
         {{ tabName }}
       </h1>
 
@@ -272,7 +272,7 @@ import {useActions, useState} from "vuex-composition-helpers";
 import {useStore} from "vuex";
 import VueSlider from 'vue-3-slider-component';
 import "@fontsource/ibm-plex-mono";
-import {Check, FileUp, Loader2, Info, Codesandbox, Trash2} from "lucide-vue-next";
+import {Check, FileUp, Loader2, Info, Box, Trash2} from "@lucide/vue";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
 import DownloadButton from "@/components/DownloadButton.vue";
 import AssemblyHelpCollapsible from "@/components/help/AssemblyHelpCollapsible.vue";
@@ -296,7 +296,7 @@ export default defineComponent({
     Loader2,
     Check,
     Info,
-    Codesandbox,
+    Box,
     Trash2,
     Tooltip,
     TooltipContent,

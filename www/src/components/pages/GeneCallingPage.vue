@@ -336,7 +336,7 @@ import "vue3-select-component/styles";
 import VueSlider from 'vue-3-slider-component';
 import { useDropzone } from "vue3-dropzone";
 import { useActions } from "vuex-composition-helpers";
-import { Check, FileUp, Loader2, Info, Dna, Download, Eye, Trash2 } from "lucide-vue-next";
+import { Check, FileUp, Loader2, Info, Dna, Download, Eye, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GeneCallingHelpCollapsible from "@/components/help/GeneCallingHelpCollapsible.vue";

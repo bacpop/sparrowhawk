@@ -1,5 +1,5 @@
 import {RootState} from "@/store/state";
-import {GeneCallResult, DepletionResult, AmrDetectionResult, Dict, TransmissionGraphData} from "@/types";
+import {GeneCallResult, DepletionResult, AmrDetectionResult, Dict, TransmissionGraphData, ProteinEmbeddingResult, EsmRetry, GpuAdapterInfo} from "@/types";
 
 export default {
     // Processing state mutations
@@ -55,6 +55,10 @@ export default {
             isDetectingAmrFiles: new Set<string>(),
             isClustering: false,
             isTransmissionStandaloneClustering: false,
+            isEmbedding: false,
+            isEmbeddingFiles: new Set<string>(),
+            embeddingDone: 0,
+            embeddingTotal: 0,
         };
     },
 
@@ -75,6 +79,9 @@ export default {
     },
     SET_WORKERS_AMR(state: RootState, workers: Worker[]) {
         state.workerState.workers_amr = workers;
+    },
+    SET_WORKERS_ESM(state: RootState, workers: Worker[]) {
+        state.workerState.workers_esm = workers;
     },
 
     setPreprocessing(state: RootState, input: { nKmers: number, histo: [], used_min_count: number }) {
@@ -388,5 +395,81 @@ export default {
         state.allResults_amr.error = null;
         state.processingState.isDetectingAmr = false;
         state.processingState.isDetectingAmrFiles = new Set<string>();
+    },
+
+    // ESM / PROTEIN EMBEDDINGS
+    setLoadingEsmModel(state: RootState, stage: string) {
+        state.allResults_esm.isLoadingModel = true;
+        state.allResults_esm.modelLoadStage = stage;
+        state.allResults_esm.error = null;
+    },
+    setEsmModelLoaded(state: RootState, input: { fileName: string, info: string, backend: string }) {
+        state.allResults_esm.isLoadingModel = false;
+        state.allResults_esm.modelLoadStage = '';
+        state.allResults_esm.modelLoaded = true;
+        state.allResults_esm.modelFileName = input.fileName;
+        state.allResults_esm.modelInfo = input.info;
+        state.allResults_esm.backend = input.backend;
+    },
+   setEsmModelUnloaded(state: RootState) {
+        state.allResults_esm.isLoadingModel = false;
+        state.allResults_esm.modelLoadStage = '';
+        state.allResults_esm.modelLoaded = false;
+        state.allResults_esm.backend = null;
+    },
+    setEsmBackendFallback(state: RootState, reason: string) {
+        state.allResults_esm.backend = "cpu";
+        state.allResults_esm.backendFallbackReason = reason;
+    },
+    setEsmGpuEvent(state: RootState, message: string) {
+        state.allResults_esm.gpuEvent = message;
+    },
+    setEsmRetry(state: RootState, retry: EsmRetry) {
+        state.esmRetry = retry;
+    },
+    /** Consume the retry context, so a second abort errors instead of looping. */
+    clearEsmRetry(state: RootState) {
+        state.esmRetry = {file: null, sampleName: ''};
+    },
+    addEmbeddingFile(state: RootState, sampleName: string) {
+        state.processingState.isEmbeddingFiles.add(sampleName);
+        state.processingState.isEmbedding = true;
+        state.allResults_esm.error = null;
+    },
+    removeEmbeddingFile(state: RootState, sampleName: string) {
+        state.processingState.isEmbeddingFiles.delete(sampleName);
+        if (state.processingState.isEmbeddingFiles.size === 0) {
+            state.processingState.isEmbedding = false;
+            state.processingState.embeddingDone = 0;
+            state.processingState.embeddingTotal = 0;
+        }
+    },
+    setEmbeddingProgress(state: RootState, input: { done: number, total: number }) {
+        state.processingState.embeddingDone = input.done;
+        state.processingState.embeddingTotal = input.total;
+    },
+    saveEmbeddingResult(state: RootState, result: ProteinEmbeddingResult) {
+        state.allResults_esm.result = result;
+    },
+    setEsmError(state: RootState, msg: string) {
+        state.allResults_esm.isLoadingModel = false;
+        state.allResults_esm.modelLoadStage = '';
+        state.allResults_esm.error = msg;
+    },
+    resetAllResults_esm(state: RootState) {
+        state.allResults_esm.result = null;
+        state.allResults_esm.error = null;
+        state.processingState.isEmbedding = false;
+        state.processingState.isEmbeddingFiles = new Set<string>();
+        state.processingState.embeddingDone = 0;
+        state.processingState.embeddingTotal = 0;
+        // Note this does not remove the model loaded on the GPU, it doesn't force that for speed reasons
+        for (const worker of state.workerState.workers_esm) {
+            worker.postMessage({reset: true});
+        }
+    },
+
+    setGpuAdapters(state: RootState, adapters: GpuAdapterInfo[]) {
+        state.gpuAdapters = adapters;
     },
 };

@@ -72,6 +72,12 @@
       To use this, first upload an index. There is one example provided in the "How to use Host depletion" block that is a compact human read index. You can create your own using Deacon. Afterwards, you can upload your reads (in pairs or individual files) by drag and drop or selecting them manually. You can process multiple sequentially (this is not parallelised). At the end, all the results will be available for download individually or in bulk as .zip or .tar.gz files. You can check the documentation for more information on how this works.
     </p>
 
+    <h3 class="mt-2 mb-2 font-medium">What can I do in the "Embed proteins" tab?</h3>
+    <p class="text-sm">
+      Here you can turn protein sequences into embeddings: fixed-length numerical vectors produced by a protein language model, which capture something of a protein's biochemistry and likely structure. Proteins that are functionally or structurally related tend to have similar embeddings even when their sequences have diverged too far for alignment to help, which makes them a useful starting point for clustering, similarity search, or visualisation.
+      Just "upload" (load into memory) a protein FASTA file and each sequence is passed through ESM-2 (8M), the smallest ESM-2 model, running entirely in your browser. You get one 320-dimensional vector per protein, averaged over its residues, downloadable as a TSV. The first use downloads the model (about 14 MB), which your browser then caches. If your browser and hardware support WebGPU the model runs on your GPU, which is much faster than the CPU fallback. You can check the documentation for more information on how this works.
+    </p>
+
     <h3 class="mt-2 mb-2 font-medium">Where can I find information on what parameters to use?</h3>
     <p class="text-sm">
       You can hover over the parameters and get a small description of each one.
@@ -109,6 +115,12 @@
       </li>
       <li class="text-sm list-disc ml-5">
         Underlying gene calling code: Orphos, a Prodigal Rust port. <a target="_blank" href="https://github.com/FullHuman/orphos" class="text-blue-500 underline">Link to repository</a>. <a target="_blank" href="https://github.com/hyattpd/Prodigal" class="text-blue-500 underline">Link to Prodigal's repository</a>. <a target="_blank" href="https://doi.org/10.1186/1471-2105-11-119" class="text-blue-500 underline">Link to Prodigal's paper</a>.
+      </li>
+      <li class="text-sm list-disc ml-5">
+        Protein embedding model: ESM-2. <a target="_blank" href="https://huggingface.co/facebook/esm2_t6_8M_UR50D" class="text-blue-500 underline">Link to model</a>. <a target="_blank" href="https://github.com/facebookresearch/esm" class="text-blue-500 underline">Link to repository</a>. <a target="_blank" href="https://www.science.org/doi/10.1126/science.ade2574" class="text-blue-500 underline">Link to paper</a>.
+      </li>
+      <li class="text-sm list-disc ml-5">
+        Deep-learning framework running the embedding model in the browser: Burn. <a target="_blank" href="https://github.com/tracel-ai/burn" class="text-blue-500 underline">Link to repository</a>. <a target="_blank" href="https://github.com/tracel-ai/burn-onnx" class="text-blue-500 underline">Link to its ONNX importer</a>.
       </li>
       <li class="text-sm list-disc ml-5">
         Underlying host depletion code: Deacon. <a target="_blank" href="https://github.com/bede/deacon" class="text-blue-500 underline">Link to repository</a>. <a target="_blank" href="https://doi.org/10.1101/2025.06.09.658732" class="text-blue-500 underline">Link to preprint</a>.

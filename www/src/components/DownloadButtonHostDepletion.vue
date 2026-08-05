@@ -14,7 +14,7 @@
 import { defineComponent, computed } from "vue";
 import { useStore } from "vuex";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-vue-next";
+import { Download } from "@lucide/vue";
 import {saveBinaryFile} from "@/platform/files";
 export default defineComponent({
   name: "DownloadButtonHostDepletion",

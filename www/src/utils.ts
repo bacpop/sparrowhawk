@@ -58,6 +58,23 @@ export const emptyState = (): RootState => ({
         error: null,
     },
 
+    allResults_esm: {
+        modelFileName: null,
+        modelInfo: null,
+        modelLoaded: false,
+        isLoadingModel: false,
+        modelLoadStage: '',
+        backend: null,
+        backendFallbackReason: null,
+        gpuEvent: null,
+        result: null,
+        error: null,
+    },
+
+    esmRetry: {file: null, sampleName: ''},
+
+    gpuAdapters: [],
+
     transmissionStandalone: {
         clusterResults: null,
         transmissionGraph: null,
@@ -71,6 +88,7 @@ export const emptyState = (): RootState => ({
         workers_sketchlib: [],
         workers_orphos: [],
         workers_amr: [],
+        workers_esm: [],
     },
 
     processingState: {
@@ -93,6 +111,10 @@ export const emptyState = (): RootState => ({
         isDetectingAmrFiles: new Set<string>(),
         isClustering: false,
         isTransmissionStandaloneClustering: false,
+        isEmbedding: false,
+        isEmbeddingFiles: new Set<string>(),
+        embeddingDone: 0,
+        embeddingTotal: 0,
     },
 });
 
@@ -111,6 +133,13 @@ export const fastqExtensionsList = ["fq", "fnq", "fastq"];
 export const fastaExtensionsWithDotAndCompressList = fastaExtensionsList.map(x => "." + x).concat(fastaExtensionsList.map(x => "." + x + ".gz"));
 export const fastqExtensionsWithDotAndCompressList = fastqExtensionsList.map(x => "." + x).concat(fastqExtensionsList.map(x => "." + x + ".gz"));
 export const fastxExtensionsWithDotAndCompressList = fastaExtensionsWithDotAndCompressList.concat(fastqExtensionsWithDotAndCompressList);
+
+// Protein FASTA. `.faa` and `.pep` are protein-specific; `.fa`/`.fasta`/`.fas` are shared
+// with nucleotide FASTA, so they are accepted here too and validated by content instead.
+export const proteinFastaExtensionsList = ["faa", "fa", "fasta", "fas", "pep"];
+export const proteinFastaExtensionsWithDotAndCompressList = proteinFastaExtensionsList.map(x => "." + x).concat(proteinFastaExtensionsList.map(x => "." + x + ".gz"));
+export const proteinFastaExtensionsReg = "\\.(?:" + proteinFastaExtensionsList.join("|") + ")(?:\\.gz)?";
+export const regExpForAnyProteinFasta = new RegExp(proteinFastaExtensionsReg + "$");
 
 export const fastaExtensionsReg = "\\.(?:" + fastaExtensionsList.join("|") + ")(?:\\.gz)?";
 export const fastqExtensionsReg = "\\.(?:" + fastqExtensionsList.join("|") + ")(?:\\.gz)?";

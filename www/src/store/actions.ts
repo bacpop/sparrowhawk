@@ -3,7 +3,21 @@ import {RootState} from "@/store/state";
 import WorkerSketcher from '@/workers/Sketcher.worker';
 import WorkerCaller from '@/workers/Caller.worker';
 import WorkerAmrDetector from '@/workers/AmrDetector.worker';
-import {regExpWithTwoNumbers, regExpForAnyFastx, regExpForAnyFasta, getFilesToProcess} from "@/utils";
+import WorkerEmbedder from '@/workers/Embedder.worker';
+import {regExpWithTwoNumbers, regExpForAnyFastx, regExpForAnyFasta, regExpForAnyProteinFasta, getFilesToProcess} from "@/utils";
+import {listGpuAdapters as probeGpuAdapters} from "@/platform/gpu";
+
+// GPU stall watchdog. Progress arrives per batch, so silence means the device is wedged.
+const ESM_STALL_MS = 60_000;
+let esmStallTimer: ReturnType<typeof setInterval> | undefined;
+let esmLastProgressAt = 0;
+let esmLastGpuEventAt = 0;
+let esmGpuProven = false;
+
+function clearEsmWatchdog(): void {
+    clearInterval(esmStallTimer);
+    esmStallTimer = undefined;
+}
 
 export default {
     async processReads(context: ActionContext<RootState, RootState>, payload: {
@@ -626,5 +640,192 @@ export default {
 
     async resetAllResults_amr(context: ActionContext<RootState, RootState>) {
         context.commit("resetAllResults_amr");
+    },
+
+    // ESM / PROTEIN EMBEDDINGS
+    async initEmbedderWorkers(context: ActionContext<RootState, RootState>, numWorkers: number) {
+        const {commit, state, dispatch} = context;
+        for (const worker of state.workerState.workers_esm) {
+            worker.terminate();
+        }
+        // The new instance holds no model, and cubecl's one-shot GPU init is reset with it.
+        commit("setEsmModelUnloaded");
+        const pool: Worker[] = [];
+        for (let i = 0; i < numWorkers; i++) {
+            pool.push(new WorkerEmbedder());
+        }
+        
+        pool.forEach((worker) => {
+            worker.onmessage = (messageData) => {
+                if (!(messageData.data instanceof Object)) return;
+                const d = messageData.data;
+                if (d.error) {
+                    clearEsmWatchdog();
+                    if (d.sampleName) commit("removeEmbeddingFile", d.sampleName);
+                    if (d.wasmPanic) {
+                        // The wasm instance has aborted and cannot be reused, so the worker
+                        // must be replaced before anything else will work. If the GPU was in
+                        // use it is the likely culprit (a lost device makes every readback
+                        // fail), so retry the same file once on the CPU rather than losing
+                        // the run.
+                        dispatch("recoverFromEsmPanic", {
+                            sampleName: d.sampleName,
+                            wasGpu: d.wasGpu,
+                        });
+                    } else {
+                        commit("setEsmError", d.message ?? "generic");
+                    }
+                } else if (d.gpuEvent) {
+                    // Rust has no portable clock, so the gap is the time that batch took.
+                    const now = performance.now();
+                    const delta = esmLastGpuEventAt > 0
+                        ? ` [+${Math.round(now - esmLastGpuEventAt)} ms]`
+                        : "";
+                    esmLastGpuEventAt = now;
+                    console.warn(`[Sparrowhawk] GPU: ${d.message}${delta}`);
+                    commit("setEsmGpuEvent", d.message ?? "");
+                } else if (d.modelLoading) {
+                    // A fresh backend has proven nothing, so guard its first run again.
+                    esmGpuProven = false;
+                    commit("setLoadingEsmModel", d.stage ?? "");
+                } else if (d.backendFallback) {
+                    commit("setEsmBackendFallback", d.reason ?? "unknown");
+                } else if (d.modelLoaded) {
+                    commit("setEsmModelLoaded", {
+                        fileName: d.fileName,
+                        info: d.info,
+                        backend: d.backend,
+                    });
+                } else if (d.embedProgress) {
+                    esmLastProgressAt = performance.now();
+                    commit("setEmbeddingProgress", {done: d.done, total: d.total});
+                } else if (d.embedded) {
+                    clearEsmWatchdog();
+                    if (d.backend === "webgpu") esmGpuProven = true;
+                    commit("removeEmbeddingFile", d.sampleName);
+                    commit("saveEmbeddingResult", {
+                        sampleName: d.sampleName,
+                        ids: d.ids,
+                        lengths: d.lengths,
+                        truncated: d.truncated,
+                        dim: d.dim,
+                        nSequences: d.nSequences,
+                        backend: d.backend,
+                        elapsedMs: d.elapsedMs,
+                        batchMin: d.batchMin,
+                        batchMax: d.batchMax,
+                        vectors: d.vectors,
+                        coords: d.coords,
+                    });
+                }
+            };
+        });
+        console.log(`Spawned ${numWorkers} embedder worker(s)`);
+        commit("SET_WORKERS_ESM", pool);
+    },
+
+    
+    async embedFile(context: ActionContext<RootState, RootState>, payload: {
+        acceptFiles: Array<File>,
+        use_gpu: boolean,
+        gpu_power_pref: number,
+        gpu_tasks_max: number,
+    }) {
+        const {commit, dispatch, state} = context;
+        commit("resetAllResults_esm");
+
+        const pool = state.workerState.workers_esm;
+        if (!pool.length) {
+            console.log("No embedder worker available");
+            commit("setEsmError", "worker");
+            return;
+        }
+        if (payload.acceptFiles.length !== 1) {
+            commit("setEsmError", "file_count");
+            return;
+        }
+
+        const file = payload.acceptFiles[0];
+        if (!regExpForAnyProteinFasta.test(file.name)) {
+            commit("setEsmError", "fasta");
+            return;
+        }
+
+        const sampleName = file.name.replace(regExpForAnyProteinFasta, "");
+        console.log(`Queuing embedding for sample: ${sampleName}`);
+        // Kept so the run can be re-issued on the CPU if the wasm module aborts mid-flight.
+        commit("setEsmRetry", {file, sampleName});
+        commit("addEmbeddingFile", sampleName);
+        pool[0].postMessage({
+            embed: true,
+            file,
+            sampleName,
+            use_gpu: payload.use_gpu,
+            gpu_power_pref: payload.gpu_power_pref,
+            gpu_tasks_max: payload.gpu_tasks_max,
+        });
+
+        // Only the first GPU run: a broken pipeline never rejects, it just goes quiet.
+        if (payload.use_gpu && !esmGpuProven) {
+            esmLastProgressAt = performance.now();
+            esmStallTimer = setInterval(() => {
+                if (performance.now() - esmLastProgressAt < ESM_STALL_MS) return;
+                clearEsmWatchdog();
+                console.warn(`[Sparrowhawk] GPU made no progress for ${ESM_STALL_MS / 1000}s. Replacing the worker.`);
+                commit("removeEmbeddingFile", sampleName);
+                dispatch("recoverFromEsmPanic", {sampleName, wasGpu: true});
+            }, 2000);
+        }
+    },
+
+
+    async recoverFromEsmPanic(context: ActionContext<RootState, RootState>, payload: {
+        sampleName?: string,
+        wasGpu?: boolean,
+    }) {
+        const {commit, dispatch, state} = context;
+        clearEsmWatchdog();
+
+        // The event channel carries backend-agnostic progress too, so only blame the GPU
+        // when the run was actually on it.
+        const cause = state.allResults_esm.gpuEvent
+            ? `${payload.wasGpu ? "the GPU" : "the engine"} reported: ${state.allResults_esm.gpuEvent}`
+            : payload.wasGpu
+                ? "the GPU driver dropped the device"
+                : "the engine stopped without a reason";
+        console.warn(`[Sparrowhawk] embedder wasm aborted; ${cause}. Replacing the worker.`);
+
+        // Take the retry context before anything else, and clear it: whatever happens next
+        // must not be able to trigger a second retry.
+        const retry = {...state.esmRetry};
+        commit("clearEsmRetry");
+
+        // Fresh worker: the old module is poisoned and every call into it would fail.
+        await dispatch("initEmbedderWorkers", 1);
+
+        if (!payload.wasGpu || !retry.file) {
+            commit("setEsmError", payload.wasGpu ? "gpu_lost" : "wasm_panic");
+            return;
+        }
+
+        commit("setEsmBackendFallback", cause);
+        commit("addEmbeddingFile", retry.sampleName);
+        state.workerState.workers_esm[0].postMessage({
+            embed: true,
+            file: retry.file,
+            sampleName: retry.sampleName,
+            // The point of the retry: no GPU this time.
+            use_gpu: false,
+            gpu_power_pref: 0,
+            gpu_tasks_max: 0,
+        });
+    },
+
+    async listGpuAdapters(context: ActionContext<RootState, RootState>) {
+        context.commit("setGpuAdapters", await probeGpuAdapters());
+    },
+
+    async resetAllResults_esm(context: ActionContext<RootState, RootState>) {
+        context.commit("resetAllResults_esm");
     },
 };

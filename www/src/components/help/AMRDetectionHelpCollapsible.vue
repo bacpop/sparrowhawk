@@ -45,7 +45,7 @@
 
 <script lang="ts">
 import { defineComponent, ref } from "vue";
-import { HelpCircle, ChevronDown } from "lucide-vue-next";
+import { HelpCircle, ChevronDown } from "@lucide/vue";
 import {
   Collapsible,
   CollapsibleContent,

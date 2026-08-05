@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref} from 'vue';
-import {X} from 'lucide-vue-next';
+import {X} from "@lucide/vue";
 
 // Simple throttle implementation
 function throttle<T extends (...args: unknown[]) => void>(fn: T, wait: number): T {

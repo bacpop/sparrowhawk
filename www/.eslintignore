@@ -2,3 +2,6 @@ src/pkg
 src/pkg_ska
 src/pkg_sketchlib
 src/pkg_orphos-bridge
+src/pkg_deacon
+src/pkg_amr
+src/pkg_esm
