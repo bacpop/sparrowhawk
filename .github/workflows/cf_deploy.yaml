@@ -2,7 +2,7 @@ name: Deploy to Cloudflare Pages
 
 on:
   push:
-    branches: [deacon_integration]
+    branches: [main]
 
 jobs:
   deploy:
