@@ -1,8 +1,8 @@
-# Sparrowhawk-Web Repository Documentation
+# Sparrowhawk Repository Documentation
 
 ## Repository Overview
 
-**Sparrowhawk-Web** is a web-based bioinformatics platform that provides genome assembly, sequence analysis, and taxonomic identification capabilities directly in the browser using WebAssembly technology.
+**Sparrowhawk** is a web-based bioinformatics platform that provides genome assembly, sequence analysis, and taxonomic identification capabilities directly in the browser using WebAssembly technology.
 
 ### Purpose and Scope
 - Web interface for the Sparrowhawk genome assembler
@@ -28,12 +28,12 @@
 
 ```
 ┌───────────────────────────────────────────────────────┐
-│                 Sparrowhawk-Web Architecture            │
+│                 Sparrowhawk Architecture            │
 ├─────────────────┬─────────────────┬───────────────────┤
 │   Frontend     │   WebAssembly  │    Rust Crates    │
 │  (Vue.js)       │    Modules      │   (Compiled)      │
 ├─────────────────┼─────────────────┼───────────────────┤
-│ - Vue 3         │ - @/pkg         │ - sparrowhawk    │
+│ - Vue 3         │ - @/pkg         │ - sparrowhawk-asm│
 │ - Vuex          │ - @/pkg_ska     │ - ska.rust       │
 │ - Workers       │ - @/pkg_orphos │ - sketchlib.rust │
 │ - Components    │ - @/pkg_sketchlib│ - orphos-bridge │
@@ -131,7 +131,7 @@ Frontend → Worker → WASM Module → Results → Frontend
 
 ### Sparrowhawk Assembler
 
-**Location**: `rust/sparrowhawk/`
+**Location**: `rust/sparrowhawk-asm/`
 
 **Purpose**: Genome assembly using de Bruijn graphs
 
@@ -280,7 +280,7 @@ wasm-pack build --target web --out-dir ../www/pkg_crate_name
 ```
 
 The frontend imports these compiled modules:
-- `@/pkg` - sparrowhawk
+- `@/pkg` - sparrowhawk-asm
 - `@/pkg_ska` - ska.rust
 - `@/pkg_sketchlib` - sketchlib
 - `@/pkg_orphos-bridge` - orphos
@@ -585,8 +585,8 @@ try {
 
 3. **Project Setup**:
    ```bash
-   git clone --recurse-submodules https://github.com/bacpop/sparrowhawk-web.git
-   cd sparrowhawk-web/www
+   git clone --recurse-submodules https://github.com/bacpop/sparrowhawk.git
+   cd sparrowhawk/www
    npm install
    ```
 
@@ -619,10 +619,10 @@ Production build includes:
 ## Repository Structure
 
 ```
-sparrowhawk-web/
+sparrowhawk/
 ├── .vibe/                  # VIBE documentation
 ├── rust/                  # Rust crates
-│   ├── sparrowhawk/      # Genome assembler
+│   ├── sparrowhawk-asm/  # Genome assembler
 │   ├── ska.rust/          # Mapping/alignment
 │   ├── sketchlib.rust/    # Taxonomic ID
 │   ├── orphos-bridge/     # Gene calling
@@ -661,7 +661,7 @@ sparrowhawk-web/
 - `www/src/components/help/`: Help components
 
 ### Rust Crate Entry Points
-- `rust/sparrowhawk/src/lib.rs`: Sparrowhawk WASM interface
+- `rust/sparrowhawk-asm/src/lib.rs`: Sparrowhawk WASM interface
 - `rust/ska.rust/src/lib.rs`: ska.rust WASM interface
 - `rust/sketchlib.rust/src/lib.rs`: sketchlib WASM interface
 - `rust/orphos-bridge/src/lib.rs`: Orphos WASM interface

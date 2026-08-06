@@ -1,8 +1,8 @@
-[submodule "rust/sparrowhawk"]
-	path = rust/sparrowhawk
-	url  = https://github.com/bacpop/sparrowhawk.git
-    branch = master
-    
+[submodule "rust/sparrowhawk-asm"]
+	path = rust/sparrowhawk-asm
+	url  = https://github.com/bacpop/sparrowhawk-asm.git
+	branch = master
+
 [submodule "rust/ska.rust"]
 	path = rust/ska.rust
 	url  = https://github.com/bacpop/ska.rust.git

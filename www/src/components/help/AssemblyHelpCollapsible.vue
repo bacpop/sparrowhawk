@@ -23,7 +23,7 @@
             <p>
               Here you can perform genome assembly of short read sequencing data. You will need your sequencing read files (in
               FASTQ format, compressed or not), that can be single files or paired-end ones (keep in mind that these tools were
-              designed for bacterial genomes, so large reads files might not work!). This tab uses <a href="https://github.com/bacpop/sparrowhawk" target="_blank" class="text-blue-600 hover:underline">sparrowhawk</a> under the hood.
+              designed for bacterial genomes, so large reads files might not work!). This tab uses <a href="https://github.com/bacpop/sparrowhawk-asm" target="_blank" class="text-blue-600 hover:underline">sparrowhawk-asm</a> under the hood.
             </p>
 
             <p>

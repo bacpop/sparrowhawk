@@ -1,5 +1,5 @@
-# sparrowhawk-web <img src='sparrowhawk_logo.png' align="right" height="250" />
-Web interface for the [sparrowhawk](https://github.com/bacpop/sparrowhawk) genome assembler using WebAssembly and Rust.
+# sparrowhawk <img src='sparrowhawk_logo.png' align="right" height="250" />
+Web interface for the [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm) genome assembler using WebAssembly and Rust.
 
 
 <br>
@@ -29,11 +29,11 @@ Also, the [sparrowhawk](https://en.wikipedia.org/wiki/Eurasian_sparrowhawk) (*Ac
 
 # Description
 
-**Note:** this repository is for the web interface of the assembler. If you are looking for the assembler itself (that can be run locally) see [sparrowhawk](https://github.com/bacpop/sparrowhawk).
+**Note:** this repository is for the web interface of the assembler. If you are looking for the assembler itself (that can be run locally) see [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm).
 
-This web interface aims to offer a way of having a simple website that offers the WebAssembly compiled [sparrowhawk](https://github.com/bacpop/sparrowhawk) assembler. It has been developed taking advantage/inspiration from other WebAssembly projects from our group (such as [DATACIN](https://github.com/bacpop/DATACIN)).
+This web interface aims to offer a way of having a simple website that offers the WebAssembly compiled [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm) assembler. It has been developed taking advantage/inspiration from other WebAssembly projects from our group (such as [DATACIN](https://github.com/bacpop/DATACIN)).
 
-Current **main features** (see the [sparrowhawk](https://github.com/bacpop/sparrowhawk) repository for details on the assembler itself):
+Current **main features** (see the [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm) repository for details on the assembler itself):
 - Simple, working, web-interface.
 - Allows to drag-and-drop (or select from a file browser) the Illumina paired-end reads from your computer.
 - Download of the assembled contigs in FASTA format, as well as the de Bruijn graph before collapse as DOT, GFAv1.1, and GFAv2 formats.
@@ -52,15 +52,15 @@ Current **main features** (see the [sparrowhawk](https://github.com/bacpop/sparr
 Development has been done only on x86_64 GNU/Linux-based systems, and most surely will probably stay that way (i.e. no other systems have been tested). To use it you will need to have [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed, as well as a working Rust installation (check the [official Rust website](https://rust-lang.org/tools/install/) for information on how to get it) and then download and install the required packages as follows (for example, to get the v0.1.2 version)
 
 ```
-git clone --branch v0.1.2 --recurse-submodules https://github.com/bacpop/sparrowhawk-web.git
-cd sparrowhawk-web/www
+git clone --branch v0.1.2 --recurse-submodules https://github.com/bacpop/sparrowhawk.git
+cd sparrowhawk/www
 npm install
 ```
 ### Note for macOS enjoyers
 It has been found that there is an issue when compiling some crates to wasm32-unknown-unknown in macOS due to the weird clang packaging there. Following [this issue](https://github.com/gyscos/zstd-rs/issues/93), it seems that installing llvm fixes it.
 
 # Usage
-Once you have it installed, you can run the following, that will automatically compile to WebAssembly [sparrowhawk](https://github.com/bacpop/sparrowhawk) and run the development server locally (from the www folder!):
+Once you have it installed, you can run the following, that will automatically compile to WebAssembly [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm) and run the development server locally (from the www folder!):
 
 ```
 npm run serve

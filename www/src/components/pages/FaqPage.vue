@@ -89,7 +89,7 @@
     </p>
     <ul class="">
       <li class="text-sm list-disc ml-5">
-        Underlying assembly code: sparrowhawk. <a target="_blank" href="https://github.com/bacpop/sparrowhawk" class="text-blue-500 underline">Link to repository</a>.
+        Underlying assembly code: sparrowhawk-asm. <a target="_blank" href="https://github.com/bacpop/sparrowhawk-asm" class="text-blue-500 underline">Link to repository</a>.
       </li>
       <li class="text-sm list-disc ml-5">
         Underlying mapping and alignment code: ska.rust. <a target="_blank" href="https://github.com/bacpop/ska.rust" class="text-blue-500 underline">Link to repository</a>. 
@@ -126,7 +126,7 @@
         Underlying host depletion code: Deacon. <a target="_blank" href="https://github.com/bede/deacon" class="text-blue-500 underline">Link to repository</a>. <a target="_blank" href="https://doi.org/10.1101/2025.06.09.658732" class="text-blue-500 underline">Link to preprint</a>.
       </li>
       <li class="text-sm list-disc ml-5">
-        Website: <a target="_blank" href="https://github.com/bacpop/sparrowhawk-web" class="text-blue-500 underline">link to repository</a>.
+        Website: <a target="_blank" href="https://github.com/bacpop/sparrowhawk" class="text-blue-500 underline">link to repository</a>.
       </li>
     </ul>
   </div>

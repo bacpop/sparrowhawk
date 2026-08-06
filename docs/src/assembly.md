@@ -6,7 +6,7 @@ Genome assembly consists on recovering a genome (the DNA sequence) from organism
 - The assembler has been designed with bacterial genomes (\\( O(10^0-10^1)\\,\text{Mbp} \\)) on mind, so large read files might not be work properly with it.
 - The aim for its development was for it to be efficient and able to be loaded into a website (using WebAssembly), so it is not the most thorough and detailed genomic assembler. Its performance is overall similar/superior to Velvet, and similar to that of Minia (with single k-value).
 - Given a current technical limitation[^notememory64] in the amount of memory that can be used (4 GB), high coverage reads or those coming from large genome species might reach that limit.
-- If you want to run this assembler locally in the command line, you can find more information in [its GitHub repository](https://github.com/bacpop/sparrowhawk-web).
+- If you want to run this assembler locally in the command line, you can find more information in [its GitHub repository](https://github.com/bacpop/sparrowhawk-asm).
 
 ## Parameters
 The values in brackets are the default ones:

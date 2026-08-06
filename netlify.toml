@@ -3,7 +3,7 @@ base = "www/"
 publish = "dist/"
 command = "rustup default stable && rustup target add wasm32-unknown-unknown && npm run build"
 
-ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF ./ ../rust/sparrowhawk  ../rust/ska.rust  ../rust/sketchlib.rust ../rust/deacon"
+ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF ./ ../rust/sparrowhawk-asm  ../rust/ska.rust  ../rust/sketchlib.rust ../rust/deacon-bridge"
 
 # Production context: all deploys from the Production branch
 # set in your site’s Branches settings in the UI will inherit

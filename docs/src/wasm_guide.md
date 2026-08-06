@@ -216,7 +216,7 @@ This is also a way to have, in the same crate/repository, code that compiles to 
 
 ## Building and bundling, automatically
 
-In sparrowhawk-web, we use the `@wasm-tool/wasm-pack-plugin` to integrate WASM compilation directly into the Vue build process. This approach automatically handles compilation, binding generation, and module integration.
+In sparrowhawk, we use the `@wasm-tool/wasm-pack-plugin` to integrate WASM compilation directly into the Vue build process. This approach automatically handles compilation, binding generation, and module integration.
 
 ### Vue Configuration with wasm-pack-plugin
 
@@ -292,7 +292,7 @@ cp -r pkg ../web/www/src/pkg
 
 <a name="calling-from-javascripttypescript"></a>
 
-In sparrowhawk-web, we use a worker pattern to handle WASM operations, which provides better performance and avoids blocking the main thread. Here's how to integrate WASM with Vue and TypeScript:
+In sparrowhawk, we use a worker pattern to handle WASM operations, which provides better performance and avoids blocking the main thread. Here's how to integrate WASM with Vue and TypeScript:
 
 ### Vue Component with Worker Pattern
 
