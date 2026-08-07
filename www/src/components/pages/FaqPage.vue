@@ -6,6 +6,12 @@
   </div>
   <div class="max-w-3/4">
     <h3 class="mt-2 mb-2 font-medium">
+      Where is the full documentation?
+    </h3>
+    <p class="text-sm">
+        <a href="https://sparrowhawk-docs.bacpop.org/">https://sparrowhawk-docs.bacpop.org/</a>
+    </p>
+    <h3 class="mt-2 mb-2 font-medium">
       Who is this website for?
     </h3>
     <p class="text-sm">
@@ -83,9 +89,16 @@
       You can hover over the parameters and get a small description of each one.
     </p>
 
-    <h3 class="mt-2 mb-2 font-medium">Where can I find the code of each method and the website's?</h3>
+    <h3 class="mt-2 mb-2 font-medium">
+      How do I add tools or develop my own WASM applications with Sparrowhawk?
+    </h3>
     <p class="text-sm">
-      All the code is fully open-source and you can access it on the following public repositories.
+        More information is at <a href="https://sparrowhawk-docs.bacpop.org/wasm_guide/">https://sparrowhawk-docs.bacpop.org/wasm_guide</a>
+    </p>
+
+    <h3 class="mt-2 mb-2 font-medium">Where can I find the code and references for each method?</h3>
+    <p class="text-sm">
+      All the code is fully open-source and you can access it on the following public repositories:
     </p>
     <ul class="">
       <li class="text-sm list-disc ml-5">
