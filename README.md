@@ -1,12 +1,56 @@
 # sparrowhawk <img src='sparrowhawk_logo.png' align="right" height="250" />
-Web interface for the [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm) genome assembler using WebAssembly and Rust.
+Access Sparrowhawk at https://sparrowhawk.bacpop.org
+
+Sparrowhawk is a WebAssembly toolkit for analysis of bacterial genomes including:
+
+- Genome assembly with [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm).
+- Mapping with [ska.rust](https://github.com/bacpop/ska.rust) and
+  visualisation with [MSEABOARD](https://github.com/lucanest/mseaboard).
+- Reference-free alignment with [ska.rust](https://github.com/bacpop/ska.rust) and phylogeny with [taxonium](https://github.com/theosanderson/taxonium).
+- Single-linkage transmission networks with [ska.rust](https://github.com/bacpop/ska.rust) and [transmission_estimator](https://github.com/klebgenomics/transmission_estimator).
+- Taxonomic identification (species-identification) with [sketchlib.rust](https://github.com/bacpop/sketchlib.rust) and [gemsparcl](https://github.com/johannahelene/gemsparcl).
+- Annotation of genes with [prodigal](https://github.com/hyattpd/Prodigal) via [orphos](https://github.com/FullHuman/orphos).
+- Host read depletion with [deacon](https://github.com/bede/deacon).
+- AMR gene detection with a k-mer-ized [AMRFinderPlus](https://github.com/ncbi/amr) database.
+- Protein embedding with [ESM-2 (8M)](https://biolm.ai/models/esm2-8m/).
+
+## Documentation
+
+Docs are here: https://sparrowhawk-docs.bacpop.org/
+
+<br>
+<br>
+<br>
+<br>
 
 
-<br>
-<br>
-<br>
-<br>
+## WebAssembly?
 
+- Easy: WebAssembly (WASM) runs directly in your browser, so no installation is
+  needed.
+- Private: Everything is processed locally, on your own machine, so no data is
+  transferred to external servers.
+- Fast: All code is optimised for rapid analysis, and some modules even
+  support using your local GPU for increased speed.
+- Up-to-date: Our packages build both native and WASM code, so the
+  latest features and updates continue to be included.
+
+For larger analyses, some browsers (Chrome, Safari, Edge) are faster than others.
+
+## sparrowhawk?
+Sparrowhawk was at one time the Archmage of [Earthsea](https://en.wikipedia.org/wiki/Earthsea).
+Also, the [sparrowhawk](https://en.wikipedia.org/wiki/Eurasian_sparrowhawk) (*Accipiter nisus*) is a bird of prey native to Europe (and the island of Gont).
+
+For fans and haters of backronyms: **S**peedy **P**rivate **AR**chitecture **R**unning **O**n-device **WH**ich **A**nalyses **W**ith **K**-mers
+
+## Contributors
+
+- [Victor Bouza Rodriguez](https://github.com/vrbouza)
+- [John Lees](https://github.com/johnlees)
+- [Bede Constantinides](https://github.com/bede/)
+- [Luca Nesterenko](https://github.com/lucanest/)
+- [Erikson Odih](https://github.com/Erkison)
+- [Andrea Epifani](https://github.com/andyepx)
 
 ---
 ## Disclaimer :warning: :construction:
@@ -23,11 +67,7 @@ These (and potentially other) items will be progressively fixed before version 1
 ---
 
 
-## sparrowhawk?
-Sparrowhawk was at one time the Archmage of [Earthsea](https://en.wikipedia.org/wiki/Earthsea).
-Also, the [sparrowhawk](https://en.wikipedia.org/wiki/Eurasian_sparrowhawk) (*Accipiter nisus*) is a bird of prey native to Europe (and the island of Gont).
-
-# Description
+# Technical description
 
 **Note:** this repository is for the web interface of the assembler. If you are looking for the assembler itself (that can be run locally) see [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm).
 
@@ -45,7 +85,6 @@ Current **main features** (see the [sparrowhawk-asm](https://github.com/bacpop/s
 :construction: In-progress future main (not all) features: :construction:
 - Incorporate 64bit memory addresses, removing the restriction on 4GB.
 - Add progress information in the assembly.
-
 
 
 # Installation

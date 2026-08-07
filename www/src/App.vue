@@ -2,7 +2,7 @@
   <SidebarProvider class="h-svh">
     <Sidebar desktop-static class="mt-3.5 mb-6 mx-6 min-w-[185px] flex flex-col">
       <SidebarHeader>
-        <img src="sparrowhawk_logo_web.png" alt="Sparrowhawk" class="h-[120px] w-fit">
+        <img src="sparrowhawk_logo_web.png" alt="Sparrowhawk" class="h-[100px] w-fit">
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
