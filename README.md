@@ -51,6 +51,7 @@ For fans and haters of backronyms: **S**peedy **P**rivate **AR**chitecture **R**
 - [Luca Nesterenko](https://github.com/lucanest/)
 - [Erikson Odih](https://github.com/Erkison)
 - [Andrea Epifani](https://github.com/andyepx)
+- [Antoine Andreoletti](https://github.com/apollis44)
 
 ---
 ## Disclaimer :warning: :construction:
