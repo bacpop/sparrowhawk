@@ -18,12 +18,6 @@ Sparrowhawk is a WebAssembly toolkit for analysis of bacterial genomes including
 
 Docs are here: https://sparrowhawk-docs.bacpop.org/
 
-<br>
-<br>
-<br>
-<br>
-
-
 ## WebAssembly?
 
 - Easy: WebAssembly (WASM) runs directly in your browser, so no installation is
@@ -37,7 +31,7 @@ Docs are here: https://sparrowhawk-docs.bacpop.org/
 
 For larger analyses, some browsers (Chrome, Safari, Edge) are faster than others.
 
-## sparrowhawk?
+## Sparrowhawk?
 Sparrowhawk was at one time the Archmage of [Earthsea](https://en.wikipedia.org/wiki/Earthsea).
 Also, the [sparrowhawk](https://en.wikipedia.org/wiki/Eurasian_sparrowhawk) (*Accipiter nisus*) is a bird of prey native to Europe (and the island of Gont).
 
@@ -45,7 +39,7 @@ For fans and haters of backronyms: **S**peedy **P**rivate **AR**chitecture **R**
 
 ## Contributors
 
-- [Victor Bouza Rodriguez](https://github.com/vrbouza)
+- [Víctor Rodríguez Bouza](https://github.com/vrbouza)
 - [John Lees](https://github.com/johnlees)
 - [Bede Constantinides](https://github.com/bede/)
 - [Luca Nesterenko](https://github.com/lucanest/)
@@ -53,7 +47,13 @@ For fans and haters of backronyms: **S**peedy **P**rivate **AR**chitecture **R**
 - [Andrea Epifani](https://github.com/andyepx)
 - [Antoine Andreoletti](https://github.com/apollis44)
 
+<br>
+<br>
+<br>
+<br>
+
 ---
+
 ## Disclaimer :warning: :construction:
 This is a **work in progress** project. This in particular implies:
 
@@ -67,8 +67,7 @@ These (and potentially other) items will be progressively fixed before version 1
 
 ---
 
-
-# Technical description
+# Developers (developers, developers, developers)
 
 **Note:** this repository is for the web interface of the assembler. If you are looking for the assembler itself (that can be run locally) see [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm).
 
@@ -88,7 +87,7 @@ Current **main features** (see the [sparrowhawk-asm](https://github.com/bacpop/s
 - Add progress information in the assembly.
 
 
-# Installation
+## Installation
 Development has been done only on x86_64 GNU/Linux-based systems, and most surely will probably stay that way (i.e. no other systems have been tested). To use it you will need to have [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed, as well as a working Rust installation (check the [official Rust website](https://rust-lang.org/tools/install/) for information on how to get it) and then download and install the required packages as follows (for example, to get the v0.1.2 version)
 
 ```
@@ -99,7 +98,7 @@ npm install
 ### Note for macOS enjoyers
 It has been found that there is an issue when compiling some crates to wasm32-unknown-unknown in macOS due to the weird clang packaging there. Following [this issue](https://github.com/gyscos/zstd-rs/issues/93), it seems that installing llvm fixes it.
 
-# Usage
+## Usage
 Once you have it installed, you can run the following, that will automatically compile to WebAssembly [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm) and run the development server locally (from the www folder!):
 
 ```

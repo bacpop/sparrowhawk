@@ -29,3 +29,6 @@ rust/deacon-bridge/target/*
 rust/esm-bridge/target/*
 rust/esm-bridge/model/generated/*
 rust/esm-bridge/scripts/__pycache__
+
+# OS X
+.DS_Store
