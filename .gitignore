@@ -6,7 +6,7 @@ www/.env.local
 www/.env.*.local
 
 # Compilation folder
-www/src/pkg
+www/src/pkg*/
 
 # Log files
 www/npm-debug.log*
