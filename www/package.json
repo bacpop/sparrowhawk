@@ -5,7 +5,7 @@
   "scripts": {
     "serve": "node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js serve",
     "build": "node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js build",
-    "build:electron": "SPARROWHAWK_TARGET=electron node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js build",
+    "build:electron": "cross-env SPARROWHAWK_TARGET=electron node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js build",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
@@ -63,6 +63,7 @@
     "@vue/eslint-config-typescript": "^13.0.0",
     "@wasm-tool/wasm-pack-plugin": "^1.7.0",
     "autoprefixer": "^10.4.22",
+    "cross-env": "^7.0.3",
     "eslint": "^8.0.0",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-vue": "^9.0.0",

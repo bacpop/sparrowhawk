@@ -1,0 +1,79 @@
+name: Electron release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: jetli/wasm-pack-action@v0.4.0
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust/sparrowhawk-asm
+            rust/ska.rust
+            rust/sketchlib.rust
+            rust/sparrowhawk-amr
+            rust/orphos-bridge
+            rust/deacon-bridge
+            rust/esm-bridge
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: true
+          cache: npm
+          cache-dependency-path: |
+            www/package-lock.json
+            electron/package-lock.json
+
+      - name: Install renderer dependencies
+        working-directory: www
+        run: npm ci
+
+      - name: Install electron dependencies
+        working-directory: electron
+        run: npm ci
+
+      - name: Build renderer
+        working-directory: electron
+        run: npm run build:renderer
+
+      - name: Package
+        working-directory: electron
+        run: npx electron-builder --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sparrowhawk-${{ matrix.os }}
+          path: |
+            electron/dist/*.AppImage
+            electron/dist/*.dmg
+            electron/dist/*.exe
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: |
+            electron/dist/*.AppImage
+            electron/dist/*.dmg
+            electron/dist/*.exe

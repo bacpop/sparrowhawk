@@ -7,7 +7,7 @@ const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 const isElectronTarget = process.env.SPARROWHAWK_TARGET === "electron";
 
 module.exports = defineConfig({
-    publicPath: isElectronTarget ? './' : '/',
+    publicPath: '/',
     outputDir: isElectronTarget ? 'dist-electron' : 'dist',
     transpileDependencies: true,
     configureWebpack: {

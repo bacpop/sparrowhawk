@@ -1,5 +1,6 @@
 www/node_modules
 www/dist
+www/dist-electron
 
 # local env files
 www/.env.local
