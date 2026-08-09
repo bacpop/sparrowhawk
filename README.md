@@ -16,7 +16,7 @@ Sparrowhawk is a WebAssembly toolkit for analysis of bacterial genomes including
 
 ## Documentation
 
-Docs are here: https://sparrowhawk-docs.bacpop.org/
+Docs are here: https://sparrowhawk-docs.bacpop.org
 
 ## WebAssembly?
 
