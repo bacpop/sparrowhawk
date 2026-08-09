@@ -1,6 +1,6 @@
 import { gunzipSync } from "fflate";
 
-export const AMR_INDEX_FILE_NAME = "amrfinderplus_2026-03-24.1_dna_k31_amr-stress-virulence.amridx.gz";
+export const AMR_INDEX_FILE_NAME = "amrfinderplus_2026-05-15.1_dna_k23_amr-stress-virulence.amridx.gz";
 export const AMR_INDEX_URL = `/${AMR_INDEX_FILE_NAME}`;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
