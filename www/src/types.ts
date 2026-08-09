@@ -147,10 +147,6 @@ export interface AmrDetectionHit {
     first_pass_total: number;
     first_pass_diagnostic_total: number;
     first_pass_fraction: number;
-    refinement_distinct: number;
-    refinement_total: number;
-    refinement_diagnostic_total: number;
-    refinement_fraction: number;
     call_fraction: number;
     call_type: string;
 }
@@ -161,8 +157,6 @@ export interface AmrDetectionResult {
     query_kind: string;
     index_alphabet: string;
     index_k: number;
-    refinement_mode: string;
-    refinement_k: number;
     hits: AmrDetectionHit[];
     gene_count: number;
     gene_group_count: number;
