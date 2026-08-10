@@ -68,19 +68,9 @@ These (and potentially other) items will be progressively fixed before version 1
 ---
 
 # Developers (developers, developers, developers)
+## I want to create something similar to this with my method, what do I do?
+We have created a [guide](https://sparrowhawk-docs.bacpop.org/wasm_guide) that details an example on how would such a method be created. Additionally, we have prepared a `SKILLS.md` and a `AGENTS.md` in the case you want to draft or outline such a project with the help of LLMs. Point them to the `SKILLS.md` file, that is designed to guide them developing both the interface of your method to the web part, and the web itself. We have improved this file by doing two exercises manually. We have adapted the nice bioinformatics read mapping crate [rammap-rs](https://github.com/jwanglab/rammap) to an Sparrowhawk analogous web in [rammap-web](https://github.com/vrbouza/rammap-web). Additionally, and to show the applicability on other scientific fields, we have done a small port of the [Combine](https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit) toolkit, in C++ and Python, to Rust, and taking advantage of the Rust port of Minuit2 of [minuit2-rs](https://github.com/ricardofrantz/minuit2-rs), and a slightly extended [oxyroot-rs](https://github.com/m-dupont/oxyroot), we created [combine-web](https://github.com/vrbouza/combine-web) using Sparrowhawk as scaffold.
 
-**Note:** this repository is for the web interface of the assembler. If you are looking for the assembler itself (that can be run locally) see [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm).
-
-This web interface aims to offer a way of having a simple website that offers the WebAssembly compiled [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm) assembler. It has been developed taking advantage/inspiration from other WebAssembly projects from our group (such as [DATACIN](https://github.com/bacpop/DATACIN)).
-
-Current **main features** (see the [sparrowhawk-asm](https://github.com/bacpop/sparrowhawk-asm) repository for details on the assembler itself):
-- Simple, working, web-interface.
-- Allows to drag-and-drop (or select from a file browser) the Illumina paired-end reads from your computer.
-- Download of the assembled contigs in FASTA format, as well as the de Bruijn graph before collapse as DOT, GFAv1.1, and GFAv2 formats.
-- Customised parameter setting.
-- Due to the current 32bit memory addresses restriction, there is a **total 4GB RAM limit**. This implies that some reads won't be able to be assembled using the standard preprocessing, due to their size. Some additional options have been implemented to try to circumvent this restriction, though keep in mind that they might still not be enough. These are:
-    - Chunking of the preprocessing.
-    - Alternative preprocessing using a Bloom filter.
 
 
 ## Installation
