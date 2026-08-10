@@ -21,7 +21,7 @@
         <div class="mt-3 text-sm text-gray-600 max-h-64 overflow-y-auto">
           <TabsContent value="overview" class="space-y-4">
             <p>
-              Here you can turn protein sequences into <b>embeddings</b>: fixed-length numerical vectors that capture
+              Here you can turn protein sequences into embeddings: fixed-length numerical vectors that capture
               something of a protein's biochemistry and likely structure, learnt by a protein language model. Proteins
               with similar embeddings tend to be functionally or structurally related, even when their sequences have
               diverged past the point where alignment is informative.
@@ -38,15 +38,24 @@
 
             <p>
               Each protein is then placed on a two-dimensional plot, coloured by length, using a
-              small network trained offline to reproduce a <b>UMAP</b> layout. Read it only as
-              "these proteins are near those": the distance <i>between</i> two groups, and how
+              small network trained offline to reproduce a UMAP layout. Read it only as
+              "these proteins are near those": the distance between two groups, and how
               tight or large a group looks, carry no meaning at all.
             </p>
 
             <div>
               <p class="font-medium text-gray-900 mb-2">Example record and files</p>
               <p class="text-sm">
+                <a href="https://www.uniprot.org/proteomes/UP000000807" target="_blank" class="text-blue-600 hover:underline"><i>Mycoplasmoides genitalium</i> G37 reference proteome (483 proteins): UP000000807</a>
+              </p>
+              <ul class="list-disc list-inside mt-1">
+                <li>
+                  <a href="https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Bacteria/UP000000807/UP000000807_243273.fasta.gz" class="text-blue-600 hover:underline">UP000000807_243273.fasta.gz</a>
+                </li>
+              </ul>
+              <p class="text-sm mt-2">
                 <a href="https://www.uniprot.org/proteomes/UP000000625" target="_blank" class="text-blue-600 hover:underline"><i>Escherichia coli</i> K-12 reference proteome: UP000000625</a>
+                — large (about 4,400 proteins), embedding it might take a while.
               </p>
               <ul class="list-disc list-inside mt-1">
                 <li>
