@@ -111,6 +111,10 @@
         </Button>
       </div>
 
+      <p v-if="transmissionSummaryLine" class="mx-6 mr-0 mt-4 text-sm text-gray-500">
+        {{ transmissionSummaryLine }}
+      </p>
+
       <TransmissionClusterResults
         v-if="hasTransmissionStandaloneClusterResults"
         class="mx-6 mt-6"
@@ -135,6 +139,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import TransmissionClusterResults from "@/components/TransmissionClusterResults.vue";
 import TransmissionHelpCollapsible from "@/components/help/TransmissionHelpCollapsible.vue";
 import { parseTransmissionMetadataCsv } from "@/utils/transmissionMetadata";
+import { formatBytes, formatDuration } from "@/utils";
 import type { MetadataRow } from "@/types";
 
 const alignmentExtensions = [".fa", ".fasta", ".fas", ".fna", ".aln"];
@@ -271,6 +276,15 @@ export default defineComponent({
         return 'Error during processing, most likely a memory issue. Try with a smaller alignment.';
       }
       return this.transmissionStandaloneError || 'An unexpected error occurred. Please reset and try again.';
+    },
+    transmissionSummaryLine(): string {
+      const ms = this.transmissionStandalone.elapsedMs;
+      if (this.isTransmissionStandaloneClustering || ms == null) return "";
+      const n = Object.keys(this.transmissionStandalone.clusterResults ?? {}).length;
+      let line = `${n} sample(s) clustered · ${formatDuration(ms)}`;
+      const mem = this.transmissionStandalone.wasmMemoryBytes;
+      if (mem != null) line += ` · peak WebAssembly memory ${formatBytes(mem)}`;
+      return line;
     },
   },
   methods: {

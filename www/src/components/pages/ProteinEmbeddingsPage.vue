@@ -256,7 +256,7 @@ import DataTable from "@/components/pages/taxonomic-id/DataTable.vue";
 import EmbeddingScatter from "@/components/pages/protein-embeddings/EmbeddingScatter.vue";
 import { columns, ProteinEmbeddingRow } from "@/components/pages/protein-embeddings/columns";
 import { GpuAdapterInfo, ProteinEmbeddingResult } from "@/types";
-import { proteinFastaExtensionsWithDotAndCompressList, regExpForAnyProteinFasta } from "@/utils";
+import { formatDuration, proteinFastaExtensionsWithDotAndCompressList, regExpForAnyProteinFasta } from "@/utils";
 import { saveTextFile } from "@/platform/files";
 import { isWebGpuAvailable, getWebGLRendererLabel } from "@/platform/gpu";
 
@@ -427,7 +427,7 @@ export default defineComponent({
         `${r.nSequences} proteins`,
         `${r.dim} dimensions`,
         r.backend === "webgpu" ? "GPU" : "CPU",
-        `${(r.elapsedMs / 1000).toFixed(1)} s`,
+        formatDuration(r.elapsedMs),
         r.batchMin === r.batchMax
           ? `batches of ${r.batchMax}`
           : `batches of ${r.batchMin}–${r.batchMax}`,

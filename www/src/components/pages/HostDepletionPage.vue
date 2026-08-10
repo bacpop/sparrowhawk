@@ -163,6 +163,9 @@
 
           <!-- Results table -->
           <div v-if="deaconFiltered" class="mx-6 mt-4 overflow-x-auto">
+            <div v-if="deaconSummaryLine" class="text-sm text-gray-500 truncate mb-2">
+              {{ deaconSummaryLine }}
+            </div>
             <table class="w-full text-sm border border-gray-200 rounded-md">
               <thead>
                 <tr class="bg-gray-50 text-left">
@@ -219,7 +222,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import VueSlider from 'vue-3-slider-component';
 import HostDepletionHelpCollapsible from "@/components/help/HostDepletionHelpCollapsible.vue";
 import { Button } from "@/components/ui/button";
-import { fastqExtensionsWithDotAndCompressList, getFilesToProcess, regExpWithTwoNumbers, regExpForAnyFastx } from "@/utils";
+import { fastqExtensionsWithDotAndCompressList, formatBytes, formatDuration, getFilesToProcess, regExpWithTwoNumbers, regExpForAnyFastx } from "@/utils";
 import { buildZipBinary, buildTarGzBinary } from "@/archiveUtils";
 import { saveBinaryFile } from "@/platform/files";
 import { DepletionResult } from "@/types";
@@ -393,6 +396,15 @@ export default defineComponent({
     },
     filteringDeaconFilesSet(): Set<string> {
       return this.store.getters.filteringDeaconFiles;
+    },
+    deaconSummaryLine(): string {
+      const results = Object.values(this.deaconResults ?? {}) as DepletionResult[];
+      const totalMs = results.reduce((sum: number, result) => sum + (result.elapsedMs ?? 0), 0);
+      if (this.isFilteringDeacon || results.length === 0 || totalMs === 0) return "";
+      let line = `${results.length} sample(s) filtered · ${formatDuration(totalMs)}`;
+      const mem = Math.max(0, ...results.map((result) => result.wasmMemoryBytes ?? 0));
+      if (mem > 0) line += ` · peak WebAssembly memory ${formatBytes(mem)}`;
+      return line;
     },
   },
   methods: {

@@ -190,6 +190,9 @@
 
         <!-- Show results as a single table with expandable rows per sample -->
         <div v-if="sampleIdentified" class="px-6 mt-4">
+          <div v-if="idSummaryLine" class="text-sm text-gray-500 truncate mb-2">
+            {{ idSummaryLine }}
+          </div>
           <div class="max-h-96 overflow-y-auto">
             <DataTable :columns="tableColumns" :data="tableData" />
           </div>
@@ -212,7 +215,7 @@ import TaxonomicIDHelpCollapsible from "@/components/help/TaxonomicIDHelpCollaps
 import DataTable from "@/components/pages/taxonomic-id/DataTable.vue";
 import { columns, TaxonomicIDRow } from "@/components/pages/taxonomic-id/columns";
 import { SampleIdentifyResult } from "@/types";
-import { fastxExtensionsWithDotAndCompressList } from "@/utils";
+import { fastxExtensionsWithDotAndCompressList, formatBytes, formatDuration } from "@/utils";
 import {saveTextFile} from "@/platform/files";
 
 export default defineComponent({
@@ -434,6 +437,19 @@ export default defineComponent({
     },
     identifyingFilesArray(): string[] {
       return Array.from(this.identifyingFilesSet);
+    },
+    idSummaryLine(): string {
+      const ms = this.allResults_sketchlib.elapsedMs;
+      const n = Object.keys(this.allResults_sketchlib.results || {}).length;
+      if (this.isIdentifying || ms == null || n === 0) return "";
+      let line = `${n} sample(s) identified · ${formatDuration(ms)}`;
+      const mems = Object.values(this.allResults_sketchlib.memoryByWorker ?? {}) as number[];
+      if (mems.length > 0) {
+        const total = mems.reduce((a, b) => a + b, 0);
+        line += ` · peak WebAssembly memory ${formatBytes(total)}`;
+        if (mems.length > 1) line += ` (max ${formatBytes(Math.max(...mems))}/worker)`;
+      }
+      return line;
     }
   },
 

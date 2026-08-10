@@ -118,6 +118,15 @@ export const emptyState = (): RootState => ({
     },
 });
 
+/** House-style duration label, e.g. "8.2 s" (same idiom as the protein-embeddings summary). */
+export const formatDuration = (ms: number): string => (ms / 1000).toFixed(1) + " s";
+
+/** House-style memory label, e.g. "512 MB" or "2.10 GB". */
+export const formatBytes = (bytes: number): string =>
+    bytes >= 1024 * 1024 * 1024
+        ? (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB"
+        : Math.round(bytes / (1024 * 1024)) + " MB";
+
 export const findReadPair = (fileName: string, files: Array<File>): {
     pairFile: File | undefined,
     sampleName: string

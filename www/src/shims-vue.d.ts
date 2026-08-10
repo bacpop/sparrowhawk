@@ -7,3 +7,9 @@ declare module '*.vue' {
 
 declare module 'taxonium-component';
 declare module 'mgnify-jbrowse';
+
+// wasm-bindgen module namespace (webpack asyncWebAssembly); used to read
+// the linear-memory size for the peak-memory summaries.
+declare module '*/index_bg.wasm' {
+    export const memory: WebAssembly.Memory;
+}

@@ -16,6 +16,8 @@ export interface AllResults {
     dotOutput: string;
     gfaOutput: string;
     gfav2Output: string;
+    elapsedMs?: number;
+    wasmMemoryBytes?: number;
 }
 
 export interface IsolateMapping {
@@ -24,6 +26,8 @@ export interface IsolateMapping {
     coverage?: number | null
     mapped_sequences?: string[]
     mapping_vcf?: string
+    elapsedMs?: number
+    wasmMemoryBytes?: number
 }
 
 export interface Alignment {
@@ -32,6 +36,8 @@ export interface Alignment {
     newick?: string
     alignment: string
     distances_csv?: string
+    elapsedMs?: number
+    wasmMemoryBytes?: number
 }
 
 export interface TransmissionGraphNode { id: string; cluster: number; }
@@ -51,6 +57,8 @@ export interface TransmissionStandaloneResults {
     clusterResults: Dict<number> | null
     transmissionGraph: TransmissionGraphData | null
     error: string | null
+    elapsedMs?: number
+    wasmMemoryBytes?: number
 }
 
 export interface AllResultsSka {
@@ -73,6 +81,8 @@ export interface SampleIdentifyResult {
 export interface AllResultsSketchlib {
     results: Dict<SampleIdentifyResult>
     error: string | null
+    elapsedMs?: number
+    memoryByWorker?: Dict<number>
 }
 
 export interface GeneMetadata {
@@ -104,6 +114,8 @@ export interface GeneCallResult {
 export interface AllResultsOrphos {
     results: Dict<GeneCallResult>;
     error: string | null
+    elapsedMs?: number
+    memoryByWorker?: Dict<number>
 }
 
 export interface DepletionResult {
@@ -113,6 +125,8 @@ export interface DepletionResult {
     removedReads: number;
     outputGzip: Uint8Array;
     outputGzip2: Uint8Array | null;  // null if single-end
+    elapsedMs?: number;
+    wasmMemoryBytes?: number;
 }
 
 export interface AllResultsDeacon {
@@ -160,6 +174,8 @@ export interface AmrDetectionResult {
     hits: AmrDetectionHit[];
     gene_count: number;
     gene_group_count: number;
+    elapsedMs?: number;  // added by the worker; not present in the Rust JSON
+    wasmMemoryBytes?: number;  // added by the worker; not present in the Rust JSON
 }
 
 export interface AllResultsAmr {
@@ -220,6 +236,7 @@ export interface ReadsPreprocessing {
     nKmers: number | null;
     histo: [];
     used_min_count: number | null;
+    elapsedMs?: number;
 }
 
 export interface ProcessingState {

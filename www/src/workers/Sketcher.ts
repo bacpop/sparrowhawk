@@ -20,6 +20,7 @@ export class Sketcher {
     wasm: WasmModuleAny | null;
     SketchlibData: SketchlibData | null;
     wasmPromise: Promise<WasmModuleAny>;
+    wasmMemory: WebAssembly.Memory | null = null;
 
     constructor(worker: Worker) {
         this.worker = worker;
@@ -35,10 +36,15 @@ export class Sketcher {
                     resolve(w);
                 });
         });
+        import("@/pkg_sketchlib/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
     }
 
     waitForWasm(): Promise<WasmModuleAny> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
+    }
+
+    memoryBytes(): number | undefined {
+        return this.wasmMemory ? this.wasmMemory.buffer.byteLength : undefined;
     }
 
     async identifyThisFile(file1: File, file2: File | null, sampleName: string, proportion_reads: number, min_count: number, min_qual: number): Promise<void> {
@@ -69,7 +75,8 @@ export class Sketcher {
                 ani,
                 ranks: results.ranks,
                 names: results.names,
-                metadata: results.metadata
+                metadata: results.metadata,
+                wasmMemoryBytes: this.memoryBytes()
             });
         } catch (error) {
             this.worker.postMessage({

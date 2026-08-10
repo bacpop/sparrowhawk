@@ -324,6 +324,9 @@
         <p v-else-if="isMapping" class="mx-6 mr-0 mt-4 text-sm text-gray-500">
           Mapping...
         </p>
+        <p v-else-if="mappingSummaryLine" class="mx-6 mr-0 mt-4 text-sm text-gray-500">
+          {{ mappingSummaryLine }}
+        </p>
 
         <!-- File list with status and download button -->
         <div class="flex flex-row gap-2 w-full mt-4">
@@ -404,6 +407,10 @@
         </div>
 
 
+        <p v-if="alignmentSummaryLine" class="mx-6 mr-0 mt-4 text-sm text-gray-500">
+          {{ alignmentSummaryLine }}
+        </p>
+
         <div v-if="hasAlignmentResults" class="px-8">
           <DownloadButtonSkaAlignment />
         </div>
@@ -446,7 +453,7 @@ import DownloadButtonSka from "@/components/SequenceViewer/DownloadButtonSka.vue
 import DownloadButtonSkaAlignment from "@/components/SequenceViewer/DownloadButtonSkaAlignment.vue";
 import { MSAViewer } from "@/components/MSAViewer";
 import TransmissionClusterResults from "@/components/TransmissionClusterResults.vue";
-import { fastxExtensionsWithDotAndCompressList } from "@/utils";
+import { fastxExtensionsWithDotAndCompressList, formatBytes, formatDuration } from "@/utils";
 import { parseTransmissionMetadataCsv } from "@/utils/transmissionMetadata";
 
 interface UploadedFile {
@@ -684,6 +691,25 @@ export default defineComponent({
       return Object.values(this.allResults_ska.mapResults).some((mapping: any) =>
         (mapping?.mapped_sequences?.length ?? 0) > 0
       );
+    },
+    mappingSummaryLine(): string {
+      if (!this.hasMappingResults) return "";
+      const done = Object.values(this.allResults_ska.mapResults).filter((mapping: any) =>
+        (mapping?.mapped_sequences?.length ?? 0) > 0
+      );
+      const total = done.reduce((sum: number, mapping: any) => sum + (mapping.elapsedMs ?? 0), 0);
+      if (total === 0) return "";
+      let line = `${done.length} sample(s) mapped · ${formatDuration(total)}`;
+      const mem = Math.max(0, ...done.map((mapping: any) => mapping.wasmMemoryBytes ?? 0));
+      if (mem > 0) line += ` · peak WebAssembly memory ${formatBytes(mem)}`;
+      return line;
+    },
+    alignmentSummaryLine(): string {
+      const alignment = this.allResults_ska.alignResults[0];
+      if (!this.hasAlignmentResults || alignment?.elapsedMs == null) return "";
+      let line = `${alignment.names?.length ?? 0} sample(s) aligned · ${formatDuration(alignment.elapsedMs)}`;
+      if (alignment.wasmMemoryBytes != null) line += ` · peak WebAssembly memory ${formatBytes(alignment.wasmMemoryBytes)}`;
+      return line;
     },
     // Convert mapping results to MSA format for the viewer
     mappingMSAData(): { id: string; sequence: string }[] {

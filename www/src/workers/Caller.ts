@@ -33,6 +33,8 @@ export class Caller {
     amrWasm: WasmModuleAny | null;
     amrWasmPromise: Promise<WasmModuleAny>;
     amrDetector: WasmModuleAny | null;
+    wasmMemory: WebAssembly.Memory | null = null;
+    amrWasmMemory: WebAssembly.Memory | null = null;
 
     constructor(worker: Worker) {
         this.worker = worker;
@@ -58,10 +60,17 @@ export class Caller {
                     resolve(w);
                 });
         });
+        import("@/pkg_orphos-bridge/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
+        import("@/pkg_amr/index_bg.wasm").then((m) => { this.amrWasmMemory = m.memory; });
     }
 
     waitForWasm(): Promise<WasmModuleAny> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
+    }
+
+    memoryBytes(): number | undefined {
+        if (!this.wasmMemory) return undefined;
+        return this.wasmMemory.buffer.byteLength + (this.amrWasmMemory?.buffer.byteLength ?? 0);
     }
 
     step(s: string, fileName: string): void {
@@ -150,6 +159,7 @@ export class Caller {
                 amr_hit_count: amrResult ? amrResult.hits.length : 0,
                 amr_tsv: amrTsv,
                 amr_error: amrError,
+                wasm_memory_bytes: this.memoryBytes(),
             }, [fastaBgz.buffer, fastaFai.buffer, fastaGzi.buffer, gffBgz.buffer, gffCsi.buffer]);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);

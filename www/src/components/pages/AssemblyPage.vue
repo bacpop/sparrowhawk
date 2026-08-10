@@ -230,6 +230,11 @@
           </div>
         </div>
 
+        <!-- Run summary -->
+        <p v-if="assemblySummaryLine" class="mx-6 mr-0 mt-4 text-sm text-gray-500">
+          {{ assemblySummaryLine }}
+        </p>
+
         <!-- File list with status -->
         <div class="flex flex-row gap-2 w-full mt-4">
           <div v-if="uploadedFiles.length > 0" class="mx-6 w-1/2 flex-grow">
@@ -277,7 +282,7 @@ import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/compon
 import DownloadButton from "@/components/DownloadButton.vue";
 import AssemblyHelpCollapsible from "@/components/help/AssemblyHelpCollapsible.vue";
 import {Button} from "@/components/ui/button";
-import { fastqExtensionsWithDotAndCompressList } from "@/utils";
+import { fastqExtensionsWithDotAndCompressList, formatBytes, formatDuration } from "@/utils";
 
 export default defineComponent({
   name: "AssemblyPage",
@@ -424,6 +429,16 @@ export default defineComponent({
     },
     infimumMinCount() {
       return this.do_bloom ? 3 : 0
+    },
+    assemblySummaryLine(): string {
+      const asm = this.allResults.elapsedMs;
+      if (asm == null || !this.readsProcessed) return "";
+      const total = (this.store.state.readsPreprocessing.elapsedMs ?? 0) + asm;
+      const n = this.allResults.nContigs;
+      let line = (n != null ? `${n} contig(s) assembled` : "Assembly finished") + " · " + formatDuration(total);
+      const mem = this.allResults.wasmMemoryBytes;
+      if (mem != null) line += ` · peak WebAssembly memory ${formatBytes(mem)}`;
+      return line;
     },
     currentAssemblyState(): string {
       return this.store.getters.assemblyState;

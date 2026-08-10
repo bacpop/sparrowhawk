@@ -137,6 +137,8 @@
             <div class="text-sm text-gray-500 truncate">
               <span v-if="allResults_amr.indexFileName" class="font-mono">{{ allResults_amr.indexFileName }}</span>
               <span v-if="amrResult"> · {{ amrResult.hits.length }} hit(s)</span>
+              <span v-if="amrElapsedLabel"> · {{ amrElapsedLabel }}</span>
+              <span v-if="amrMemoryLabel"> · peak WebAssembly memory {{ amrMemoryLabel }}</span>
             </div>
             <Button variant="outline" size="sm" @click="downloadTsv">
               <Download class="mr-2 h-4 w-4" />
@@ -166,7 +168,7 @@ import DataTable from "@/components/pages/taxonomic-id/DataTable.vue";
 import { columns, AmrDetectionRow } from "@/components/pages/amr-detection/columns";
 import { AmrDetectionResult } from "@/types";
 import { buildAmrTsv } from "@/amrTsv";
-import { fastaExtensionsWithDotAndCompressList, regExpForAnyFasta } from "@/utils";
+import { fastaExtensionsWithDotAndCompressList, formatBytes, formatDuration, regExpForAnyFasta } from "@/utils";
 import {saveTextFile} from "@/platform/files";
 
 export default defineComponent({
@@ -297,6 +299,14 @@ export default defineComponent({
     },
     detectingAmrFilesArray(): string[] {
       return Array.from(this.detectingAmrFilesSet);
+    },
+    amrElapsedLabel(): string {
+      const ms = this.amrResult?.elapsedMs;
+      return ms == null ? "" : formatDuration(ms);
+    },
+    amrMemoryLabel(): string {
+      const bytes = this.amrResult?.wasmMemoryBytes;
+      return bytes == null ? "" : formatBytes(bytes);
     }
   },
   methods: {

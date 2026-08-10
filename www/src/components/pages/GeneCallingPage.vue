@@ -274,6 +274,9 @@
 
         <!-- Results table -->
         <div v-if="genesCalled" class="mx-6 mt-4 overflow-x-auto">
+          <div v-if="geneCallingSummaryLine" class="text-sm text-gray-500 truncate mb-2">
+            {{ geneCallingSummaryLine }}
+          </div>
           <table class="w-full text-sm border border-gray-200 rounded-md">
             <thead>
               <tr class="bg-gray-50 text-left">
@@ -340,7 +343,7 @@ import { Check, FileUp, Loader2, Info, Dna, Download, Eye, Trash2 } from "@lucid
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GeneCallingHelpCollapsible from "@/components/help/GeneCallingHelpCollapsible.vue";
-import { fastaExtensionsWithDotAndCompressList } from "@/utils";
+import { fastaExtensionsWithDotAndCompressList, formatBytes, formatDuration } from "@/utils";
 import { saveBinaryFile, saveTextFile } from "@/platform/files";
 import { GeneCallResult } from "@/types";
 import { buildZip, buildTarGz } from "@/archiveUtils";
@@ -621,6 +624,18 @@ export default defineComponent({
     },
     callingGenesFilesSet(): Set<string> {
       return this.store.getters.callingGenesFiles;
+    },
+    geneCallingSummaryLine(): string {
+      const ms = this.store.state.allResults_orphos.elapsedMs;
+      if (this.callingGenes || ms == null || this.resultCount === 0) return "";
+      let line = `${this.resultCount} file(s) · ${formatDuration(ms)}`;
+      const mems = Object.values(this.store.state.allResults_orphos.memoryByWorker ?? {}) as number[];
+      if (mems.length > 0) {
+        const total = mems.reduce((a, b) => a + b, 0);
+        line += ` · peak WebAssembly memory ${formatBytes(total)}`;
+        if (mems.length > 1) line += ` (max ${formatBytes(Math.max(...mems))}/worker)`;
+      }
+      return line;
     },
   },
   methods: {

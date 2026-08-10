@@ -22,15 +22,21 @@ export class Depleter {
     worker: Worker;
     index: WasmIndex | null = null;
     wasm: typeof import("@/pkg_deacon") | null = null;
+    wasmMemory: WebAssembly.Memory | null = null;
 
     constructor(worker: Worker) {
         this.worker = worker;
+    }
+
+    memoryBytes(): number | undefined {
+        return this.wasmMemory ? this.wasmMemory.buffer.byteLength : undefined;
     }
 
     async loadIndex(file: File): Promise<void> {
         try {
             const wasm = await import("@/pkg_deacon");
             this.wasm = wasm;
+            import("@/pkg_deacon/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
             const buf = await file.arrayBuffer();
             this.index = new wasm.WasmIndex(new Uint8Array(buf));
             this.worker.postMessage({ indexLoaded: true, fileName: file.name, info: this.index.info() });
@@ -58,6 +64,7 @@ export class Depleter {
         };
 
         try {
+            const t0 = performance.now();
             const { out: outputGzip, stats: s1 } = await runSession(file);
             let outputGzip2: Uint8Array | null = null;
             let s2stats = { readsIn: 0, readsOut: 0 };
@@ -73,7 +80,9 @@ export class Depleter {
             const removed = total - kept;
 
             this.worker.postMessage(
-                { filtered: true, sampleName, total, kept, removed, outputGzip, outputGzip2 },
+                { filtered: true, sampleName, total, kept, removed, outputGzip, outputGzip2,
+                  elapsedMs: Math.round(performance.now() - t0),
+                  wasmMemoryBytes: this.memoryBytes() },
                 outputGzip2
                     ? [outputGzip.buffer, outputGzip2.buffer]
                     : [outputGzip.buffer]

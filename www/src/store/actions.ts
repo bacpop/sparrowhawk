@@ -14,6 +14,11 @@ let esmLastProgressAt = 0;
 let esmLastGpuEventAt = 0;
 let esmGpuProven = false;
 
+// Wall-clock batch timers for the pooled tabs' summary lines (main thread; batch =
+// from dispatch with nothing in flight until the in-flight set empties again).
+let identifyStart = 0;
+let geneCallingStart = 0;
+
 function clearEsmWatchdog(): void {
     clearInterval(esmStallTimer);
     esmStallTimer = undefined;
@@ -86,6 +91,7 @@ export default {
                                 nKmers: messageData.data.nKmers,
                                 histo: messageData.data.histo,
                                 used_min_count: messageData.data.used_min_count,
+                                elapsedMs: messageData.data.elapsedMs,
                             });
                         } else {
                             // Something wrong has happened
@@ -136,6 +142,8 @@ export default {
                     outdot: messageData.data.outdot,
                     outgfa: messageData.data.outgfa,
                     outgfav2: messageData.data.outgfav2,
+                    elapsedMs: messageData.data.elapsedMs,
+                    wasmMemoryBytes: messageData.data.wasmMemoryBytes,
                 });
             };
         }
@@ -325,7 +333,12 @@ export default {
                     commit("setTransmissionStandaloneError", message.data.message ?? "generic");
                     return;
                 }
-                commit("setTransmissionStandaloneClusterResults", { clusters: message.data.clusters, graph: message.data.graph });
+                commit("setTransmissionStandaloneClusterResults", {
+                    clusters: message.data.clusters,
+                    graph: message.data.graph,
+                    elapsedMs: message.data.elapsedMs,
+                    wasmMemoryBytes: message.data.wasmMemoryBytes,
+                });
             };
         } else {
             commit("setTransmissionStandaloneClusteringState", false);
@@ -360,14 +373,24 @@ export default {
             return;
         }
 
+        // A fresh batch (nothing in flight) restarts the wall clock; appended files keep it.
+        if (state.processingState.isIdentifyingFiles.size === 0) {
+            identifyStart = performance.now();
+        }
+
         // Attach a result handler to each worker in the pool
-        pool.forEach((worker) => {
+        pool.forEach((worker, workerIndex) => {
             worker.onmessage = (messageData) => {
                 if (messageData.data instanceof Object) {
                     if (messageData.data.error) {
                         const sampleName = messageData.data.sampleName;
                         commit("setSketchlibError", messageData.data.message ?? "generic");
-                        if (sampleName) commit("removeIdentifyingFile", sampleName);
+                        if (sampleName) {
+                            commit("removeIdentifyingFile", sampleName);
+                            if (state.processingState.isIdentifyingFiles.size === 0) {
+                                commit("addIdentifyElapsed", Math.round(performance.now() - identifyStart));
+                            }
+                        }
                     } else if ("ani" in messageData.data && "sampleName" in messageData.data) {
                         const sampleName = messageData.data.sampleName;
                         console.log("Saving results for sample: " + sampleName);
@@ -379,6 +402,12 @@ export default {
                             names: messageData.data.names,
                             metadata: messageData.data.metadata,
                         });
+                        if (typeof messageData.data.wasmMemoryBytes === "number") {
+                            commit("setIdentifyWorkerMemory", { workerIndex, bytes: messageData.data.wasmMemoryBytes });
+                        }
+                        if (state.processingState.isIdentifyingFiles.size === 0) {
+                            commit("addIdentifyElapsed", Math.round(performance.now() - identifyStart));
+                        }
                     } else {
                         console.log("Error found during processing");
                     }
@@ -414,6 +443,7 @@ export default {
         for (const worker of state.workerState.workers_sketchlib) {
             worker.terminate();
         }
+        commit("clearIdentifyWorkerMemory");
         // Spawn new pool
         const pool: Worker[] = [];
         for (let i = 0; i < numWorkers; i++) {
@@ -434,15 +464,21 @@ export default {
         for (const worker of state.workerState.workers_orphos) {
             worker.terminate();
         }
+        commit("clearGeneCallingWorkerMemory");
         const pool: Worker[] = [];
         for (let i = 0; i < numWorkers; i++) {
             pool.push(new WorkerCaller());
         }
-        pool.forEach(worker => {
+        pool.forEach((worker, workerIndex) => {
             worker.onmessage = (msg) => {
                 if (msg.data?.error) {
                     commit("setOrphosError", msg.data.message ?? "generic");
-                    if (msg.data.fileName) commit("removeCallingGenesFile", msg.data.fileName);
+                    if (msg.data.fileName) {
+                        commit("removeCallingGenesFile", msg.data.fileName);
+                        if (state.processingState.isCallingGenesFiles.size === 0) {
+                            commit("addGeneCallingElapsed", Math.round(performance.now() - geneCallingStart));
+                        }
+                    }
                 } else if (msg.data?.geneCallingStep !== undefined) {
                     commit("setGeneCallingStep", msg.data.geneCallingStep);
                 } else if (msg.data?.output_file !== undefined) {
@@ -463,6 +499,12 @@ export default {
                         amrAnnotationTsv: msg.data.amr_tsv,
                         amrError:      msg.data.amr_error,
                     });
+                    if (typeof msg.data.wasm_memory_bytes === "number") {
+                        commit("setGeneCallingWorkerMemory", { workerIndex, bytes: msg.data.wasm_memory_bytes });
+                    }
+                    if (state.processingState.isCallingGenesFiles.size === 0) {
+                        commit("addGeneCallingElapsed", Math.round(performance.now() - geneCallingStart));
+                    }
                 }
             };
         });
@@ -488,6 +530,10 @@ export default {
             return;
         }
         const indxlist = getFilesToProcess(payload.acceptFiles);
+        // A fresh batch (nothing in flight) restarts the wall clock; appended files keep it.
+        if (state.processingState.isCallingGenesFiles.size === 0) {
+            geneCallingStart = performance.now();
+        }
         commit("addGeneCallingProgressTotal", indxlist.length);
         indxlist.forEach((sublist: number[], index: number) => {
             const file = payload.acceptFiles[sublist[0]];
@@ -550,6 +596,8 @@ export default {
                     removedReads: msg.data.removed,
                     outputGzip:   msg.data.outputGzip,
                     outputGzip2:  msg.data.outputGzip2 ?? null,
+                    elapsedMs:    msg.data.elapsedMs,
+                    wasmMemoryBytes: msg.data.wasmMemoryBytes,
                 });
             }
         };

@@ -84,13 +84,14 @@ export default {
         state.workerState.workers_esm = workers;
     },
 
-    setPreprocessing(state: RootState, input: { nKmers: number, histo: [], used_min_count: number }) {
+    setPreprocessing(state: RootState, input: { nKmers: number, histo: [], used_min_count: number, elapsedMs?: number }) {
         console.log("Preprocessing finished! Saving intermediate information in the state");
         console.log(input.nKmers);
 
         state.readsPreprocessing.nKmers = input.nKmers;
         state.readsPreprocessing.histo = input.histo;
         state.readsPreprocessing.used_min_count = input.used_min_count;
+        state.readsPreprocessing.elapsedMs = input.elapsedMs;
 
     },
 
@@ -99,7 +100,9 @@ export default {
         outfasta: string,
         outdot: string,
         outgfa: string,
-        outgfav2: string
+        outgfav2: string,
+        elapsedMs?: number,
+        wasmMemoryBytes?: number
     }) {
         console.log("Assembly finished! Saving contigs as fasta in the state");
 
@@ -108,6 +111,8 @@ export default {
         state.allResults.dotOutput = input.outdot;
         state.allResults.gfaOutput = input.outgfa;
         state.allResults.gfav2Output = input.outgfav2;
+        state.allResults.elapsedMs = input.elapsedMs;
+        state.allResults.wasmMemoryBytes = input.wasmMemoryBytes;
 
     },
 
@@ -188,21 +193,27 @@ export default {
                   coverage: number | null,
                   mapped_sequences: string[]
                   mapping_vcf: string
+                  elapsedMs?: number
+                  wasmMemoryBytes?: number
               }) {
         state.allResults_ska.mapResults[input.name].nb_variants = input.nb_variants
         state.allResults_ska.mapResults[input.name].coverage = input.coverage
         state.allResults_ska.mapResults[input.name].mapped_sequences = input.mapped_sequences
         state.allResults_ska.mapResults[input.name].mapping_vcf = input.mapping_vcf
+        state.allResults_ska.mapResults[input.name].elapsedMs = input.elapsedMs
+        state.allResults_ska.mapResults[input.name].wasmMemoryBytes = input.wasmMemoryBytes
         state.allResults_ska.mapping_vcf = input.mapping_vcf
     },
 
-    setAligned(state: RootState, input: { aligned: boolean, names: string[], newick: string, alignment: string, distances_csv?: string }) {
+    setAligned(state: RootState, input: { aligned: boolean, names: string[], newick: string, alignment: string, distances_csv?: string, elapsedMs?: number, wasmMemoryBytes?: number }) {
         state.allResults_ska.alignResults[0] = {
             aligned: input.aligned,
             names: input.names,
             newick: input.newick,
             alignment: input.alignment,
             distances_csv: input.distances_csv,
+            elapsedMs: input.elapsedMs,
+            wasmMemoryBytes: input.wasmMemoryBytes,
         }
     },
 
@@ -221,10 +232,12 @@ export default {
     setTransmissionStandaloneClusteringState(state: RootState, isClustering: boolean) {
         state.processingState.isTransmissionStandaloneClustering = isClustering;
     },
-    setTransmissionStandaloneClusterResults(state: RootState, input: { clusters: Dict<number>, graph: TransmissionGraphData }) {
+    setTransmissionStandaloneClusterResults(state: RootState, input: { clusters: Dict<number>, graph: TransmissionGraphData, elapsedMs?: number, wasmMemoryBytes?: number }) {
         state.transmissionStandalone.clusterResults = input.clusters;
         state.transmissionStandalone.transmissionGraph = input.graph;
         state.transmissionStandalone.error = null;
+        state.transmissionStandalone.elapsedMs = input.elapsedMs;
+        state.transmissionStandalone.wasmMemoryBytes = input.wasmMemoryBytes;
     },
     setTransmissionStandaloneError(state: RootState, msg: string) { state.transmissionStandalone.error = msg; },
     resetTransmissionStandaloneResults(state: RootState) {
@@ -273,6 +286,20 @@ export default {
         };
     },
 
+    addIdentifyElapsed(state: RootState, ms: number) {
+        state.allResults_sketchlib.elapsedMs = (state.allResults_sketchlib.elapsedMs ?? 0) + ms;
+    },
+
+    setIdentifyWorkerMemory(state: RootState, input: { workerIndex: number, bytes: number }) {
+        state.allResults_sketchlib.memoryByWorker = {
+            ...(state.allResults_sketchlib.memoryByWorker ?? {}),
+            [input.workerIndex]: input.bytes,
+        };
+    },
+    clearIdentifyWorkerMemory(state: RootState) {
+        state.allResults_sketchlib.memoryByWorker = undefined;
+    },
+
     setSketchlibError(state: RootState, msg: string) { state.allResults_sketchlib.error = msg; },
 
     resetAllResults_sketchlib(state: RootState) {
@@ -299,6 +326,20 @@ export default {
     },
     saveGeneCallingResult(state: RootState, input: GeneCallResult) {
         state.allResults_orphos.results[input.fileName] = input;
+    },
+
+    addGeneCallingElapsed(state: RootState, ms: number) {
+        state.allResults_orphos.elapsedMs = (state.allResults_orphos.elapsedMs ?? 0) + ms;
+    },
+
+    setGeneCallingWorkerMemory(state: RootState, input: { workerIndex: number, bytes: number }) {
+        state.allResults_orphos.memoryByWorker = {
+            ...(state.allResults_orphos.memoryByWorker ?? {}),
+            [input.workerIndex]: input.bytes,
+        };
+    },
+    clearGeneCallingWorkerMemory(state: RootState) {
+        state.allResults_orphos.memoryByWorker = undefined;
     },
     setOrphosError(state: RootState, msg: string) { state.allResults_orphos.error = msg; },
 

@@ -11,6 +11,8 @@ export class AmrDetectorWorker {
     wasmPromise: Promise<WasmModuleAny>;
     detectorPromise: Promise<void> | null;
 
+    wasmMemory: WebAssembly.Memory | null = null;
+
     constructor(worker: Worker) {
         this.worker = worker;
         this.wasm = null;
@@ -26,10 +28,15 @@ export class AmrDetectorWorker {
                     resolve(w);
                 });
         });
+        import("@/pkg_amr/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
     }
 
     waitForWasm(): Promise<WasmModuleAny> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
+    }
+
+    memoryBytes(): number | undefined {
+        return this.wasmMemory ? this.wasmMemory.buffer.byteLength : undefined;
     }
 
     async ensureDetector(): Promise<void> {
@@ -49,6 +56,7 @@ export class AmrDetectorWorker {
             await this.ensureDetector();
             const raw = new Uint8Array(await file.arrayBuffer());
             const fastaBytes = file.name.endsWith(".gz") ? gunzipSync(raw) : raw;
+            const t0 = performance.now();
             const json = this.detector!.detect_direct(
                 sampleName,
                 fastaBytes,
@@ -58,7 +66,7 @@ export class AmrDetectorWorker {
             this.worker.postMessage({
                 detected: true,
                 sampleName,
-                result: JSON.parse(json),
+                result: { ...JSON.parse(json), elapsedMs: Math.round(performance.now() - t0), wasmMemoryBytes: this.memoryBytes() },
             });
         } catch (error) {
             this.worker.postMessage({

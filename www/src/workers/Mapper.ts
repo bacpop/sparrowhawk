@@ -42,6 +42,7 @@ export class Mapper {
     SkaData: SkaData | null;
     AlignData: AlignData | null;
     wasmPromise: Promise<WasmModuleAny>;
+    wasmMemory: WebAssembly.Memory | null = null;
 
     constructor(worker: Worker) {
         this.worker = worker;
@@ -55,10 +56,15 @@ export class Mapper {
                     resolve(w);
                 });
         });
+        import("@/pkg_ska/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
     }
 
     waitForWasm(): Promise<WasmModuleAny> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
+    }
+
+    memoryBytes(): number | undefined {
+        return this.wasmMemory ? this.wasmMemory.buffer.byteLength : undefined;
     }
 
     async set_ref(file: File, k: number, rc: boolean, ambig_mask: boolean, repeat_mask: boolean): Promise<void> {
@@ -80,6 +86,7 @@ export class Mapper {
         }
 
         try {
+            const t0 = performance.now();
             const outname = (revReadFile != null) ? file.name.replace(new RegExp("(?:_1)?\\.(?:fa|fna|fasta|fq|fnq|fastq)(?:\\.gz)?" + String.fromCharCode(36)), "") : file.name;
             const results: MapResult = JSON.parse(this.SkaData.map(file, revReadFile, proportion_reads, min_count, min_qual, qual_filter, outname));
 
@@ -89,6 +96,8 @@ export class Mapper {
                 name: outname,
                 mapped_sequences: results["Mapped sequences"],
                 mapping_vcf: results["VCF"],
+                elapsedMs: Math.round(performance.now() - t0),
+                wasmMemoryBytes: this.memoryBytes(),
             });
         } catch {
             this.worker.postMessage({ error: true, message: 'memory' });
@@ -99,6 +108,7 @@ export class Mapper {
         console.log("Processing uploaded fastX files with proportion_reads: " + proportion_reads + " and k: " + k);
 
         try {
+            const t0 = performance.now();
             if (this.AlignData === null) {
                 this.AlignData = this.wasm.AlignData.new(k, rc);
             }
@@ -112,6 +122,8 @@ export class Mapper {
                 newick: results.newick,
                 alignment: results.alignment,
                 distances_csv,
+                elapsedMs: Math.round(performance.now() - t0),
+                wasmMemoryBytes: this.memoryBytes(),
             });
         } catch {
             this.worker.postMessage({ error: true, message: 'memory' });
@@ -122,12 +134,15 @@ export class Mapper {
         console.log("Running standalone transmission clustering with SNP threshold: " + snp_threshold);
 
         try {
+            const t0 = performance.now();
             await this.waitForWasm();
             const alignmentText = await file.text();
             const alignData = this.wasm.AlignData.from_alignment_text(alignmentText);
             const clusters: ClusterLabels = JSON.parse(this.wasm.ska_cluster(alignData, snp_threshold));
             const graph: TransmissionGraphData = JSON.parse(alignData.get_graph_json(snp_threshold));
-            this.worker.postMessage({ clustered: true, clusters, graph });
+            this.worker.postMessage({ clustered: true, clusters, graph,
+                elapsedMs: Math.round(performance.now() - t0),
+                wasmMemoryBytes: this.memoryBytes() });
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.worker.postMessage({ error: true, message });

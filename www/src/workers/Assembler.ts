@@ -45,6 +45,7 @@ export class Assembler {
     wasmPromise: Promise<WasmModuleAny>;
     noBubbleCollapse: boolean = false;
     noDeadEndRemoval: boolean = false;
+    wasmMemory: WebAssembly.Memory | null = null;
 
     constructor(worker: Worker) {
         this.worker = worker;
@@ -58,10 +59,15 @@ export class Assembler {
                     resolve(w);
                 });
         });
+        import("@/pkg/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
     }
 
     waitForWasm(): Promise<WasmModuleAny> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
+    }
+
+    memoryBytes(): number | undefined {
+        return this.wasmMemory ? this.wasmMemory.buffer.byteLength : undefined;
     }
 
     async preprocess(
@@ -78,6 +84,7 @@ export class Assembler {
         no_dead_end_removal: boolean
     ): Promise<void> {
         await this.waitForWasm();
+        const t0 = performance.now();
 
         this.noBubbleCollapse = no_bubble_collapse;
         this.noDeadEndRemoval = no_dead_end_removal;
@@ -107,11 +114,13 @@ export class Assembler {
             nKmers:         resultsjson.nkmers,
             histo:          resultsjson.histo,
             used_min_count: resultsjson.used_min_count,
+            elapsedMs:      Math.round(performance.now() - t0),
         });
     }
 
     async assemble(): Promise<void> {
         console.log("Initiating assembly from worker");
+        const t0 = performance.now();
         this.helper!.assemble();
 
         console.log("Assembly finished");
@@ -123,7 +132,9 @@ export class Assembler {
             ncontigs: resultsjson.ncontigs,
             outdot: resultsjson.outdot,
             outgfa: resultsjson.outgfa,
-            outgfav2: resultsjson.outgfav2
+            outgfav2: resultsjson.outgfav2,
+            elapsedMs: Math.round(performance.now() - t0),
+            wasmMemoryBytes: this.memoryBytes()
         });
     }
 
