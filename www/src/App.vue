@@ -71,6 +71,10 @@
         <TransmissionPage :tabName="tabName"/>
       </div>
 
+      <div v-else-if="tabName === 'Mandrake'">
+        <MandrakePage :tabName="tabName"/>
+      </div>
+
       <div v-else-if="tabName === 'GeneCalling'">
         <GeneCallingPage :tabName="tabName"/>
       </div>
@@ -108,6 +112,7 @@ import HostDepletionPage from "./components/pages/HostDepletionPage.vue";
 import AMRDetectionPage from "./components/pages/AMRDetectionPage.vue";
 import ProteinEmbeddingsPage from "./components/pages/ProteinEmbeddingsPage.vue";
 import TransmissionPage from "./components/pages/TransmissionPage.vue";
+import MandrakePage from "./components/pages/MandrakePage.vue";
 import ResultsDisplayMapping from './components/ResultsDisplayMapping.vue';
 import ResultsDisplayAlignment from './components/ResultsDisplayAlignment.vue';
 import KmerHistogram from './components/KmerHistogram.vue';
@@ -172,6 +177,7 @@ export default defineComponent({
     AMRDetectionPage,
     ProteinEmbeddingsPage,
     TransmissionPage,
+    MandrakePage,
     KmerHistogram,
     ResultsDisplayMapping,
     ResultsDisplayAlignment,
@@ -191,6 +197,7 @@ export default defineComponent({
         {id: 'Mapping', sidebar_label: "Mapping", label: 'Mapping (within species)', icon: 'TextAlignCenter'},
         {id: 'Alignment', sidebar_label: "Alignment", label: 'Alignment (within species)', icon: 'TreePine'},
         {id: 'Transmission', sidebar_label: "Transmission", label: 'Transmission', icon: 'ChartNetwork'},
+        {id: 'Mandrake', sidebar_label: "Mandrake", label: 'Mandrake', icon: 'ChartNetwork'},
         {id: 'TaxonomicID', sidebar_label: "Taxonomic ID", label: 'Taxonomic ID', icon: 'ScanFace'},
         {id: 'GeneCalling', sidebar_label: "Gene calling", label: 'Gene calling', icon: 'Dna'},
         {id: 'HostDepletion', sidebar_label: "Host depletion", label: 'Host depletion', icon: 'Funnel'},
