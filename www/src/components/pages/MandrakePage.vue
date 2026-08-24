@@ -228,7 +228,7 @@
         <FileUp class="w-6 h-6" />
         <p v-if="isDragActive">Drop files here …</p>
         <p v-else>Drop or click to upload an <b>alignment, accessory table, or sketch database</b></p>
-        <p class="text-xs text-gray-400">FASTA/FASTQ, Rtab/TSV, or paired .skm/.skd files</p>
+        <p class="text-xs text-gray-400">FASTA, Rtab/TSV, or paired .skm/.skd files</p>
       </div>
 
       <div v-if="selectedFile || source === 'sketch'" class="mx-6 mr-0 mt-4">
@@ -369,15 +369,17 @@ import {
   type MandrakeSettings,
   type MandrakeUpdate,
 } from "@/workers/Mandrake";
-import { fastxExtensionsWithDotAndCompressList } from "@/utils";
 
 type InputSource = "alignment" | "accessory" | "sketch";
 
 defineProps<{ tabName: string }>();
 
 const mandrakeInputExtensions = [
-  ...fastxExtensionsWithDotAndCompressList,
-  ".fas", ".fas.gz", ".rtab", ".tsv", ".rtab.gz", ".tsv.gz", ".skm", ".skd",
+  ".fa", ".fasta", ".fas", ".fna",
+  ".fa.gz", ".fasta.gz", ".fas.gz", ".fna.gz",
+  ".rtab", ".Rtab", ".tsv",
+  ".rtab.gz", ".Rtab.gz", ".tsv.gz",
+  ".skm", ".skd", ".gz",
 ];
 
 const labelsInput = ref<HTMLInputElement | null>(null);
@@ -419,7 +421,7 @@ const runner = new MandrakeRunner();
 
 const { getRootProps, getInputProps, isDragActive } = useDropzone({
   onDrop: chooseFiles,
-  accept: mandrakeInputExtensions,
+  accept: mandrakeInputExtensions.join(","),
   multiple: true,
 });
 
@@ -474,7 +476,7 @@ function detectSource(filename: string): Exclude<InputSource, "sketch"> | null {
   const lowerFilename = filename.toLowerCase();
   const sourceFilename = lowerFilename.endsWith(".gz") ? lowerFilename.slice(0, -3) : lowerFilename;
   const suffix = sourceFilename.slice(sourceFilename.lastIndexOf("."));
-  if ([".fa", ".fasta", ".fas", ".fna", ".fq", ".fnq", ".fastq"].includes(suffix)) return "alignment";
+  if ([".fa", ".fasta", ".fas", ".fna"].includes(suffix)) return "alignment";
   if ([".rtab", ".tsv"].includes(suffix)) return "accessory";
   return null;
 }
@@ -585,7 +587,7 @@ function chooseFiles(files: File[]): void {
   if (files.length !== 1) {
     clearInputSelection();
     resetResultState();
-    inputError.value = "Select one FASTA/FASTQ or Rtab/TSV file, or a paired .skm/.skd database.";
+    inputError.value = "Select one FASTA or Rtab/TSV file, or a paired .skm/.skd database.";
     return;
   }
   const file = files[0];
@@ -593,7 +595,7 @@ function chooseFiles(files: File[]): void {
   clearInputSelection();
   resetResultState();
   if (!detectedSource) {
-    inputError.value = "Unsupported input suffix. Use FASTA/FASTQ or Rtab/TSV, optionally followed by .gz.";
+    inputError.value = "Unsupported input suffix. Use FASTA or Rtab/TSV, optionally followed by .gz, or select one .skm and one .skd file.";
     return;
   }
   selectedFile.value = file;
