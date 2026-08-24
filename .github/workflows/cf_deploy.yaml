@@ -1,8 +1,6 @@
 name: Deploy to Cloudflare Pages
 
-on:
-  push:
-    branches: [main]
+on: [push]
 
 jobs:
   deploy:
@@ -37,8 +35,9 @@ jobs:
           find dist/ -name '*.map' -delete  # Remove source maps, which are very large
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy www/dist --project-name=sparrowhawk
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
