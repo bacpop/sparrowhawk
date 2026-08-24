@@ -3,15 +3,10 @@
     <div class="w-full md:w-[350px] md:shrink-0">
       <h1 class="text-2xl font-medium flex items-center gap-2 mb-4">
         <ChartNetwork class="w-6 h-6" />
-        Mandrake
+        Clustering
       </h1>
 
       <MandrakeHelpCollapsible />
-
-      <p class="text-sm text-gray-600 mb-4">
-        Build a two-dimensional stochastic cluster embedding from aligned sequences,
-        accessory profiles, or a paired sketch database. All processing stays in this page.
-      </p>
 
       <TooltipProvider>
         <div class="flex flex-col gap-4">
@@ -141,7 +136,7 @@
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Conditional-probability perplexity, in the inclusive range 5 to 100.</p>
+                  <p class="max-w-xs">Conditional-probability perplexity (local vs global attention), in the inclusive range 5 to 100.</p>
                 </TooltipContent>
               </Tooltip>
               Perplexity
@@ -156,7 +151,7 @@
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Target number of stochastic update attempts.</p>
+                  <p class="max-w-xs">Target number of stochastic update attempts (increase for larger numbers of samples).</p>
                 </TooltipContent>
               </Tooltip>
               Maximum updates
@@ -186,7 +181,7 @@
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Initial learning rate for the stochastic embedding.</p>
+                  <p class="max-w-xs">Initial learning rate for the stochastic embedding (rate at which embedding changes).</p>
                 </TooltipContent>
               </Tooltip>
               Learning rate
@@ -201,7 +196,7 @@
                 <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
               </TooltipTrigger>
               <TooltipContent>
-                <p class="max-w-xs">Apply initial attraction exaggeration.</p>
+                <p class="max-w-xs">Apply initial attraction exaggeration, which quadruples attraction forces in the first 10%.</p>
               </TooltipContent>
             </Tooltip>
             <label for="mandrake-exaggeration" class="text-sm">Use initial exaggeration</label>

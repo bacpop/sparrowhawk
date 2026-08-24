@@ -71,7 +71,7 @@
         <TransmissionPage :tabName="tabName"/>
       </div>
 
-      <div v-else-if="tabName === 'Mandrake'">
+      <div v-else-if="tabName === 'Clustering'">
         <MandrakePage :tabName="tabName"/>
       </div>
 
@@ -102,7 +102,7 @@
 import {defineComponent} from 'vue';
 import {useStore} from 'vuex';
 // eslint-disable-next-line
-import {Box, ScanFace, TextAlignCenter, TreePine, Dna, Funnel, Pill, ChartNetwork, ScanBox} from "@lucide/vue";
+import {Box, ScanFace, TextAlignCenter, TreePine, Dna, Funnel, Pill, ChartNetwork, ChartScatter, ScanBox} from "@lucide/vue";
 
 import AssemblyPage from './components/pages/AssemblyPage.vue';
 import MappingAlignmentPage from './components/pages/MappingAlignmentPage.vue';
@@ -168,6 +168,7 @@ export default defineComponent({
     ScanFace,
     Pill,
     ChartNetwork,
+    ChartScatter,
     ScanBox,
     AssemblyPage,
     MappingAlignmentPage,
@@ -197,7 +198,7 @@ export default defineComponent({
         {id: 'Mapping', sidebar_label: "Mapping", label: 'Mapping (within species)', icon: 'TextAlignCenter'},
         {id: 'Alignment', sidebar_label: "Alignment", label: 'Alignment (within species)', icon: 'TreePine'},
         {id: 'Transmission', sidebar_label: "Transmission", label: 'Transmission', icon: 'ChartNetwork'},
-        {id: 'Mandrake', sidebar_label: "Mandrake", label: 'Mandrake', icon: 'ChartNetwork'},
+        {id: 'Clustering', sidebar_label: "Clustering", label: 'Clustering', icon: 'ChartScatter'},
         {id: 'TaxonomicID', sidebar_label: "Taxonomic ID", label: 'Taxonomic ID', icon: 'ScanFace'},
         {id: 'GeneCalling', sidebar_label: "Gene calling", label: 'Gene calling', icon: 'Dna'},
         {id: 'HostDepletion', sidebar_label: "Host depletion", label: 'Host depletion', icon: 'Funnel'},
