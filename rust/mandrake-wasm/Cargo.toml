@@ -1,0 +1,45 @@
+[package]
+name = "mandrake-wasm"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[features]
+default = []
+wasm-sketchlib = ["dep:sketchlib_wasm"]
+# The source is shared with the upstream manifest. These empty declarations
+# keep Cargo's check-cfg warnings quiet when its native-only modules are gated.
+native-inputs = []
+sketchlib = []
+progress = []
+cli = []
+
+[dependencies]
+anyhow = "1"
+csv = "1.4"
+hashbrown = "0.14"
+hdbscan = { version = "=0.12.0", default-features = false, features = ["serial"] }
+log = "0.4"
+ndarray = "0.16"
+needletail = { version = "0.5", default-features = false }
+rand_xoshiro = "0.6"
+rayon = "1.10"
+roaring = "0.10"
+web-time = "1.1"
+
+[dependencies.sketchlib_wasm]
+package = "sketchlib"
+version = "0.3.0"
+path = "../sketchlib.rust"
+optional = true
+
+[lib]
+path = "../mandrake/src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+console_error_panic_hook = "0.1"
+flate2 = { version = "1.1", default-features = false, features = ["zlib-rs"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-file-reader = "1"
+web-sys = { version = "0.3", features = ["File"] }
