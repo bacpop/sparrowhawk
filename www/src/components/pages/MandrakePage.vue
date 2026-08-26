@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-6 md:flex-row md:gap-0">
     <div class="w-full md:w-[350px] md:shrink-0">
       <h1 class="text-2xl font-medium flex items-center gap-2 mb-4">
-        <ChartNetwork class="w-6 h-6" />
+        <ChartScatter class="w-6 h-6" />
         Clustering
       </h1>
 
@@ -48,6 +48,19 @@
               </TooltipContent>
             </Tooltip>
             <label for="mandrake-hdbscan" class="text-sm">Run HDBSCAN after embedding</label>
+          </div>
+
+          <div class="flex flex-row items-center w-full gap-2">
+            <input id="mandrake-sound" type="checkbox" v-model="soundEnabled">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="max-w-xs">Play a tone pair for each embedding frame, pitched by how far the layout moved on each axis.</p>
+              </TooltipContent>
+            </Tooltip>
+            <label for="mandrake-sound" class="text-sm">Add progress sounds</label>
           </div>
 
           <div v-if="source === 'sketch'" class="flex flex-col gap-4">
@@ -343,7 +356,7 @@
       </div>
 
       <div v-else-if="!isRunning && !errorMessage" class="mx-6 mr-0 mt-4 min-h-[420px] border border-gray-200 rounded-md bg-gray-50 flex flex-col justify-center items-center gap-3 p-8 text-center">
-        <ChartNetwork class="w-10 h-10 text-gray-400" />
+        <ChartScatter class="w-10 h-10 text-gray-400" />
         <h2 class="text-lg font-medium text-gray-800">Your embedding will appear here</h2>
         <p class="text-sm text-gray-500">Choose an input file and parameters, then run Mandrake.</p>
       </div>
@@ -354,12 +367,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { useDropzone } from "vue3-dropzone";
-import { ChartNetwork, Check, Download, FileUp, Info, Loader2, Trash2 } from "@lucide/vue";
+import { ChartScatter, Check, Download, FileUp, Info, Loader2, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import MandrakeHelpCollapsible from "@/components/help/MandrakeHelpCollapsible.vue";
 import MandrakeEmbeddingPlot from "@/components/MandrakeEmbeddingPlot.vue";
 import { saveTextFile } from "@/platform/files";
+import { MandrakeSonifier } from "@/lib/mandrakeSound";
 import {
   MandrakeRunner,
   type MandrakeDistanceProgress,
@@ -402,6 +416,8 @@ const repulsionSamples = ref(5);
 const learningRate = ref(1);
 const initialExaggeration = ref(false);
 const runHdbscan = ref(false);
+const soundEnabled = ref(false);
+const sonifier = new MandrakeSonifier();
 const isRunning = ref(false);
 const errorMessage = ref("");
 const result = ref<MandrakeResult | null>(null);
@@ -470,6 +486,11 @@ watch(mode, (nextMode) => {
 
 watch(source, (nextSource) => {
   if (nextSource === "sketch") mode.value = "knn";
+});
+
+watch(soundEnabled, (enabled) => {
+  if (enabled) sonifier.enable();
+  else sonifier.disable();
 });
 
 function detectSource(filename: string): Exclude<InputSource, "sketch"> | null {
@@ -665,6 +686,7 @@ function handleUpdate(update: MandrakeUpdate): void {
     clustering.value = true;
     return;
   }
+  if (soundEnabled.value) sonifier.playFrame(update.embedding);
   liveEmbedding.value = update.embedding;
 }
 
@@ -701,6 +723,7 @@ async function runEmbedding(): Promise<void> {
   distanceProgress.value = { completed: 0, maximum: 0, complete: false };
   embeddingProgress.value = { completed: 0, maximum: Number(maxUpdates.value), eq: Number.NaN, complete: false };
   runKey.value += 1;
+  if (soundEnabled.value) sonifier.enable();
   try {
     labelContents.value = selectedLabelsFile.value ? await selectedLabelsFile.value.text() : null;
     if (source.value === "sketch") {
@@ -769,5 +792,8 @@ function downloadClusters(): void {
   void saveTextFile(`${rows.join("\n")}\n`, `${outputPrefix()}.embedding_hdbscan_clusters.csv`, "text/csv");
 }
 
-onBeforeUnmount(() => runner.cancel());
+onBeforeUnmount(() => {
+  runner.cancel();
+  sonifier.dispose();
+});
 </script>
