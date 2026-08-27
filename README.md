@@ -8,6 +8,7 @@ Sparrowhawk is a WebAssembly toolkit for analysis of bacterial genomes including
   visualisation with [MSEABOARD](https://github.com/lucanest/mseaboard).
 - Reference-free alignment with [ska.rust](https://github.com/bacpop/ska.rust) and phylogeny with [taxonium](https://github.com/theosanderson/taxonium).
 - Single-linkage transmission networks with [ska.rust](https://github.com/bacpop/ska.rust) and [transmission_estimator](https://github.com/klebgenomics/transmission_estimator).
+- Clustering and embedding with [mandrake.rust](https://github.com/bacpop/mandrake.rust).
 - Taxonomic identification (species-identification) with [sketchlib.rust](https://github.com/bacpop/sketchlib.rust) and [gemsparcl](https://github.com/johannahelene/gemsparcl).
 - Annotation of genes with [prodigal](https://github.com/hyattpd/Prodigal) via [orphos](https://github.com/FullHuman/orphos).
 - Host read depletion with [deacon](https://github.com/bede/deacon).
