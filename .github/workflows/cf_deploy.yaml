@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: true
+          submodules: recursive
 
       - uses: dtolnay/rust-toolchain@stable
         with:
