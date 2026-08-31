@@ -9,7 +9,7 @@
       Where is the full documentation?
     </h3>
     <p class="text-sm">
-        <a href="https://sparrowhawk-docs.bacpop.org/">https://sparrowhawk-docs.bacpop.org/</a>
+        <a target="_blank" href="https://sparrowhawk-docs.bacpop.org/" class="text-blue-500 underline">https://sparrowhawk-docs.bacpop.org/</a>
     </p>
     <h3 class="mt-2 mb-2 font-medium">
       Who is this website for?
@@ -56,6 +56,22 @@
       how this works.
     </p>
 
+    <h3 class="mt-2 mb-2 font-medium">What can I do in the "Transmission" tab?</h3>
+    <p class="text-sm">
+      Here you can create putative transmission clusters below a set distance (SNP) threshold, using single-linkage
+      clustering. You can input an alignment to compute distances from, or provide precomputed distances. If dates
+      are provided a timeline plot will be produced. This can also be run as a secondary analysis following alignment.
+    </p>
+
+    <h3 class="mt-2 mb-2 font-medium">What can I do in the "Clustering" tab?</h3>
+    <p class="text-sm">
+      Here you can create two-dimensional embeddings (scatter plots) which are designed to cluster genetically
+      related samples next to one another. This uses the stochastic cluster embeddding / mandrake algorithm, and
+      can be run from sequence alignments, accessory presence/absence matrices, or sketch databases (from sketchlib.rust).
+      You can download the final embedding, and also have HDBSCAN run to find clusters in the embedding space. An animation
+      of the embedding is shown as it is calculated.
+    </p>
+
     <h3 class="mt-2 mb-2 font-medium">What can I do in the "Taxonomic ID" tab?</h3>
     <p class="text-sm">
       Here you can identify the taxonomic classification at the level of species of bacterial genomic sequences (either
@@ -93,7 +109,7 @@
       How do I add tools or develop my own WASM applications with Sparrowhawk?
     </h3>
     <p class="text-sm">
-        More information is at <a href="https://sparrowhawk-docs.bacpop.org/wasm_guide/">https://sparrowhawk-docs.bacpop.org/wasm_guide</a>
+        More information is at <a class="text-blue-500 underline" target="_blank" href="https://sparrowhawk-docs.bacpop.org/wasm_guide/">https://sparrowhawk-docs.bacpop.org/wasm_guide</a>
     </p>
 
     <h3 class="mt-2 mb-2 font-medium">Where can I find the code and references for each method?</h3>
@@ -137,6 +153,9 @@
       </li>
       <li class="text-sm list-disc ml-5">
         Underlying host depletion code: Deacon. <a target="_blank" href="https://github.com/bede/deacon" class="text-blue-500 underline">Link to repository</a>. <a target="_blank" href="https://doi.org/10.1101/2025.06.09.658732" class="text-blue-500 underline">Link to preprint</a>.
+      </li>
+      <li class="text-sm list-disc ml-5">
+        Underlying clustering code: mandrake. <a target="_blank" href="https://github.com/bacpop/mandrake.rust" class="text-blue-500 underline">Link to repository</a>. <a target="_blank" href="https://doi.org/10.1101/2025.06.09.658732" class="text-blue-500 underline">Link to preprint</a>.
       </li>
       <li class="text-sm list-disc ml-5">
         Website: <a target="_blank" href="https://github.com/bacpop/sparrowhawk" class="text-blue-500 underline">link to repository</a>.

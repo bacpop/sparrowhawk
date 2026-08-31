@@ -17,3 +17,8 @@
 	path = rust/sparrowhawk-amr
 	url = https://github.com/bacpop/sparrowhawk-amr.git
     branch = master
+
+[submodule "rust/mandrake"]
+	path = rust/mandrake
+	url = https://github.com/bacpop/mandrake.rust.git
+	branch = main

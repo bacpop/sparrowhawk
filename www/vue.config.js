@@ -137,6 +137,20 @@ module.exports = defineConfig({
             )
             .end()
 
+        config
+            .plugin("wasm-pack_mandrake")
+            .use(WasmPackPlugin)
+            .init(
+                (Plugin) =>
+                    new Plugin({
+                        crateDirectory: path.resolve(__dirname, "../rust/mandrake"),
+                        extraArgs: "--no-default-features --features wasm-sketchlib",
+                        outDir: path.resolve(__dirname, "./src/pkg_mandrake"),
+                        forceMode: "production",
+                    })
+            )
+            .end()
+
             .plugin("wasm-pack_esm")
             .use(WasmPackPlugin)
             .init(

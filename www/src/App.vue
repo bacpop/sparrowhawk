@@ -2,7 +2,7 @@
   <SidebarProvider class="h-svh">
     <Sidebar desktop-static class="mt-3.5 mb-6 mx-6 min-w-[185px] flex flex-col">
       <SidebarHeader>
-        <img src="sparrowhawk_logo_web.png" alt="Sparrowhawk" class="h-[100px] w-fit">
+        <img src="sparrowhawk_logo_web.png" alt="Sparrowhawk" class="h-[100px] w-auto self-start">
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -71,6 +71,10 @@
         <TransmissionPage :tabName="tabName"/>
       </div>
 
+      <div v-else-if="tabName === 'Clustering'">
+        <MandrakePage :tabName="tabName"/>
+      </div>
+
       <div v-else-if="tabName === 'GeneCalling'">
         <GeneCallingPage :tabName="tabName"/>
       </div>
@@ -98,7 +102,7 @@
 import {defineComponent} from 'vue';
 import {useStore} from 'vuex';
 // eslint-disable-next-line
-import {Box, ScanFace, TextAlignCenter, TreePine, Dna, Funnel, Pill, ChartNetwork, ScanBox} from "@lucide/vue";
+import {Box, ScanFace, TextAlignCenter, TreePine, Dna, Funnel, Pill, ChartNetwork, ChartScatter, ScanBox} from "@lucide/vue";
 
 import AssemblyPage from './components/pages/AssemblyPage.vue';
 import MappingAlignmentPage from './components/pages/MappingAlignmentPage.vue';
@@ -108,6 +112,7 @@ import HostDepletionPage from "./components/pages/HostDepletionPage.vue";
 import AMRDetectionPage from "./components/pages/AMRDetectionPage.vue";
 import ProteinEmbeddingsPage from "./components/pages/ProteinEmbeddingsPage.vue";
 import TransmissionPage from "./components/pages/TransmissionPage.vue";
+import MandrakePage from "./components/pages/MandrakePage.vue";
 import ResultsDisplayMapping from './components/ResultsDisplayMapping.vue';
 import ResultsDisplayAlignment from './components/ResultsDisplayAlignment.vue';
 import KmerHistogram from './components/KmerHistogram.vue';
@@ -163,6 +168,7 @@ export default defineComponent({
     ScanFace,
     Pill,
     ChartNetwork,
+    ChartScatter,
     ScanBox,
     AssemblyPage,
     MappingAlignmentPage,
@@ -172,6 +178,7 @@ export default defineComponent({
     AMRDetectionPage,
     ProteinEmbeddingsPage,
     TransmissionPage,
+    MandrakePage,
     KmerHistogram,
     ResultsDisplayMapping,
     ResultsDisplayAlignment,
@@ -191,6 +198,7 @@ export default defineComponent({
         {id: 'Mapping', sidebar_label: "Mapping", label: 'Mapping (within species)', icon: 'TextAlignCenter'},
         {id: 'Alignment', sidebar_label: "Alignment", label: 'Alignment (within species)', icon: 'TreePine'},
         {id: 'Transmission', sidebar_label: "Transmission", label: 'Transmission', icon: 'ChartNetwork'},
+        {id: 'Clustering', sidebar_label: "Clustering", label: 'Clustering', icon: 'ChartScatter'},
         {id: 'TaxonomicID', sidebar_label: "Taxonomic ID", label: 'Taxonomic ID', icon: 'ScanFace'},
         {id: 'GeneCalling', sidebar_label: "Gene calling", label: 'Gene calling', icon: 'Dna'},
         {id: 'HostDepletion', sidebar_label: "Host depletion", label: 'Host depletion', icon: 'Funnel'},
