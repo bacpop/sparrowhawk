@@ -143,15 +143,10 @@ module.exports = defineConfig({
             .init(
                 (Plugin) =>
                     new Plugin({
-                        // The wrapper manifest reuses the source submodule while
-                        // resolving sketchlib to Sparrowhawk's single checkout.
-                        crateDirectory: path.resolve(__dirname, "../rust/mandrake-wasm"),
+                        crateDirectory: path.resolve(__dirname, "../rust/mandrake"),
                         extraArgs: "--no-default-features --features wasm-sketchlib",
                         outDir: path.resolve(__dirname, "./src/pkg_mandrake"),
                         forceMode: "production",
-                        // The app deliberately has no hot reload; avoid a second
-                        // wrapper build when wasm-pack updates the generated package.
-                        forceWatch: false,
                     })
             )
             .end()
