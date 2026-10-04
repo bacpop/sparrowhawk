@@ -9,6 +9,11 @@ declare module '@/workers/Mapper.worker' {
     export default WorkerFactory;
 }
 
+declare module '@/workers/AlignmentExtractor.worker' {
+    const WorkerFactory: new () => Worker;
+    export default WorkerFactory;
+}
+
 declare module '@/workers/Sketcher.worker' {
     const WorkerFactory: new () => Worker;
     export default WorkerFactory;

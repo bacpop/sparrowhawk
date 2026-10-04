@@ -1,5 +1,13 @@
 export type Dict<T> = Record<string, T>
 
+export interface WasmRuntimeNotice {
+    type: "wasm-runtime";
+    moduleId: string;
+    label: string;
+    target: "wasm32" | "wasm64";
+    fallbackReason?: string;
+}
+
 export interface WorkerState {
     worker: Worker | null;
     worker_ska: Worker | null;
@@ -34,8 +42,15 @@ export interface Alignment {
     aligned: boolean
     names?: string[]
     newick?: string
-    alignment: string
-    distances_csv?: string
+    runId: number
+    k: number
+    rc: boolean
+    alignmentAvailable: boolean
+    alignmentFrozen: boolean
+    invalidated: boolean
+    alignmentDownloadError: string | null
+    alignment_gzip: Uint8Array | null
+    distances_csv_gzip: Uint8Array
     elapsedMs?: number
     wasmMemoryBytes?: number
 }
@@ -239,6 +254,25 @@ export interface ReadsPreprocessing {
     elapsedMs?: number;
 }
 
+export type AlignmentStage =
+    | "loading" | "preparing" | "extracting"
+    | "distances" | "storing" | "obtaining-alignment"
+    | "tree-distances" | "tree" | "exporting";
+
+export interface AlignmentProgress {
+    stage: AlignmentStage;
+    sampleIndex: number | null;
+    sampleTotal: number | null;
+    sampleName: string | null;
+    runId?: number;
+}
+
+export type AlignmentStageStatus = "active" | "complete" | "interrupted";
+
+export interface AlignmentLogEntry extends AlignmentProgress {
+    status: AlignmentStageStatus;
+}
+
 export interface ProcessingState {
     isPreprocessing: boolean;
     isAssembling: boolean;
@@ -246,6 +280,8 @@ export interface ProcessingState {
     isMapping: boolean;
     isMappingFiles: Set<string>;  // Track which files are being mapped
     isAligning: boolean;
+    isObtainingAlignment: boolean;
+    alignmentLog: AlignmentLogEntry[];
     isIdentifying: boolean;
     isIdentifyingFiles: Set<string>;  // Track which files are being identified
     assemblyState: string;  // Current state from Sparrowhawk assembly

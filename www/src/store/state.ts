@@ -2,6 +2,7 @@ import {AllResults, AllResultsSka, AllResultsSketchlib, AllResultsOrphos, AllRes
 
 
 export interface RootState {
+    wasmRuntimeStatus: Record<string, import("@/types").WasmRuntimeNotice>,
     workerState: WorkerState,
     readsFileNames: string | null,
     readsPreprocessing: ReadsPreprocessing,

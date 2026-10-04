@@ -1,6 +1,24 @@
 import {RootState} from "@/store/state";
 
+/** Browser-reported logical worker ceiling, with a fallback for unavailable values. */
+export const getMaxWorkerThreads = (): number => {
+    const detected = typeof navigator === "undefined" ? undefined : navigator.hardwareConcurrency;
+    if (typeof detected !== "number" || !Number.isFinite(detected) || detected < 1) return 12;
+    return Math.max(1, Math.floor(detected));
+};
+
+/** Keep requested pool sizes within the browser-reported per-workflow ceiling. */
+export const clampWorkerCount = (requested: number, maximum = getMaxWorkerThreads()): number => {
+    const normalized = Number.isFinite(requested) ? Math.floor(requested) : 1;
+    return Math.max(1, Math.min(maximum, normalized));
+};
+
+/** Alignment reserves one worker for distance, matrix, and tree processing. */
+export const getMaxAlignmentExtractionWorkers = (): number =>
+    Math.max(1, getMaxWorkerThreads() - 1);
+
 export const emptyState = (): RootState => ({
+    wasmRuntimeStatus: {},
     readsFileNames: null,
     errors: "",
     min_count: 0,
@@ -98,6 +116,8 @@ export const emptyState = (): RootState => ({
         isMapping: false,
         isMappingFiles: new Set<string>(),
         isAligning: false,
+            isObtainingAlignment: false,
+        alignmentLog: [],
         isIdentifying: false,
         isIdentifyingFiles: new Set<string>(),
         assemblyState: '',

@@ -178,6 +178,10 @@ module.exports = defineConfig({
             .test(/\.worker\.(js|ts)$/)
             .use("worker-loader")
             .loader("worker-loader")
+            .options({
+                filename: "js/[name].[contenthash].worker.js",    // This change is needed for having two binaries with identical name, but compiled for one wasm64 and the other wasm32
+                chunkFilename: "js/[id].[contenthash].worker.js",
+            })
             .end()
             .use("ts-loader")
             .loader("ts-loader")

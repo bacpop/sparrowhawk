@@ -1,14 +1,15 @@
 import { gunzipSync } from "fflate";
 import { AMR_INDEX_FILE_NAME, createAmrDetector } from "@/workers/amrIndex";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type WasmModuleAny = any;
+import type { AmrDetector } from "@/pkg_amr";
+
+type AmrModule = typeof import("@/pkg_amr");
 
 export class AmrDetectorWorker {
     worker: Worker;
-    wasm: WasmModuleAny | null;
-    detector: WasmModuleAny | null;
-    wasmPromise: Promise<WasmModuleAny>;
+    wasm: AmrModule | null;
+    detector: AmrDetector | null;
+    wasmPromise: Promise<AmrModule>;
     detectorPromise: Promise<void> | null;
 
     wasmMemory: WebAssembly.Memory | null = null;
@@ -31,7 +32,7 @@ export class AmrDetectorWorker {
         import("@/pkg_amr/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
     }
 
-    waitForWasm(): Promise<WasmModuleAny> {
+    waitForWasm(): Promise<AmrModule> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
     }
 

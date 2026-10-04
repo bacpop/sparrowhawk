@@ -1,4 +1,5 @@
 import {loadAssetBlob} from "@/platform/files";
+import type { SketchlibData } from "@/pkg_sketchlib";
 
 interface IdentifyResult {
     ani: number[];
@@ -7,19 +8,13 @@ interface IdentifyResult {
     metadata: string[];
 }
 
-interface SketchlibData {
-    query(file1: File, file2: File | null, proportion_reads: number, min_count: number, min_qual: number): Promise<void>;
-    get_ani(top_n: number): string;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type WasmModuleAny = any;
+type SketchlibModule = typeof import("@/pkg_sketchlib");
 
 export class Sketcher {
     worker: Worker;
-    wasm: WasmModuleAny | null;
+    wasm: SketchlibModule | null;
     SketchlibData: SketchlibData | null;
-    wasmPromise: Promise<WasmModuleAny>;
+    wasmPromise: Promise<SketchlibModule>;
     wasmMemory: WebAssembly.Memory | null = null;
 
     constructor(worker: Worker) {
@@ -39,7 +34,7 @@ export class Sketcher {
         import("@/pkg_sketchlib/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
     }
 
-    waitForWasm(): Promise<WasmModuleAny> {
+    waitForWasm(): Promise<SketchlibModule> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
     }
 
@@ -49,7 +44,7 @@ export class Sketcher {
 
     async identifyThisFile(file1: File, file2: File | null, sampleName: string, proportion_reads: number, min_count: number, min_qual: number): Promise<void> {
         console.log("Starting identification for sample: " + sampleName);
-        await this.waitForWasm();
+        const wasm = await this.waitForWasm();
 
         try {
             if (this.SketchlibData === null) {
@@ -62,10 +57,11 @@ export class Sketcher {
                     return;
                 }
 
-                this.SketchlibData = await this.wasm.SketchlibData.new(invertedindex);
+                // Typed as File, but the Rust reader only uses size and slice, which a Blob has too.
+                this.SketchlibData = wasm.SketchlibData.new(invertedindex as File);
             }
 
-            await this.SketchlibData!.query(file1, file2, proportion_reads, min_count, min_qual);
+            this.SketchlibData!.query(file1, file2, proportion_reads, min_count, min_qual);
 
             const results: IdentifyResult = JSON.parse(this.SketchlibData!.get_ani(3));
             const ani = results.ani;

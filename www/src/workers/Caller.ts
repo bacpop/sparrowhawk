@@ -1,38 +1,25 @@
 import { createAmrDetector } from "@/workers/amrIndex";
 import { buildGeneCallingAmrTsv } from "@/amrTsv";
 import { AmrDetectionResult, GeneMetadataMap } from "@/types";
+import type { OrphosData } from "@/pkg_orphos-bridge";
+import type { AmrDetector } from "@/pkg_amr";
 interface CallResult {
     output_file: string;
     gene_count: number;
     sequence_count: number;
 }
 
-interface OrphosData {
-    read_fasta(input_file: File): void;
-    index_fasta(): void;
-    call_genes(): void;
-    get_results(format: string): string;
-    get_annotated_results(format: string, amr_json: string): string;
-    get_cds_fasta(): string;
-    get_gene_metadata_json(): string;
-    take_fasta_bgz(): Uint8Array<ArrayBuffer>;
-    take_fasta_fai(): Uint8Array<ArrayBuffer>;
-    take_fasta_gzi(): Uint8Array<ArrayBuffer>;
-    take_gff_bgz():   Uint8Array<ArrayBuffer>;
-    take_gff_csi():   Uint8Array<ArrayBuffer>;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type WasmModuleAny = any;
+type OrphosModule = typeof import("@/pkg_orphos-bridge");
+type AmrModule = typeof import("@/pkg_amr");
 
 export class Caller {
     worker: Worker;
-    wasm: WasmModuleAny | null;
+    wasm: OrphosModule | null;
     OrphosData: OrphosData | null;
-    wasmPromise: Promise<WasmModuleAny>;
-    amrWasm: WasmModuleAny | null;
-    amrWasmPromise: Promise<WasmModuleAny>;
-    amrDetector: WasmModuleAny | null;
+    wasmPromise: Promise<OrphosModule>;
+    amrWasm: AmrModule | null;
+    amrWasmPromise: Promise<AmrModule>;
+    amrDetector: AmrDetector | null;
     wasmMemory: WebAssembly.Memory | null = null;
     amrWasmMemory: WebAssembly.Memory | null = null;
 
@@ -64,7 +51,7 @@ export class Caller {
         import("@/pkg_amr/index_bg.wasm").then((m) => { this.amrWasmMemory = m.memory; });
     }
 
-    waitForWasm(): Promise<WasmModuleAny> {
+    waitForWasm(): Promise<OrphosModule> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
     }
 
@@ -77,11 +64,11 @@ export class Caller {
         this.worker.postMessage({ geneCallingStep: s, fileName });
     }
 
-    waitForAmrWasm(): Promise<WasmModuleAny> {
+    waitForAmrWasm(): Promise<AmrModule> {
         return this.amrWasm ? Promise.resolve(this.amrWasm) : this.amrWasmPromise;
     }
 
-    async ensureAmrDetector(): Promise<WasmModuleAny> {
+    async ensureAmrDetector(): Promise<AmrDetector> {
         if (this.amrDetector !== null) return this.amrDetector;
         const wasm = await this.waitForAmrWasm();
         this.amrDetector = await createAmrDetector(wasm);
@@ -90,11 +77,11 @@ export class Caller {
 
     async callGenes(fileName: string, input_file: File, metag: boolean, closed_ends: boolean, mask: boolean, tt: number, non_sd: boolean, min_gene_fraction: number, min_gene_group_fraction: number): Promise<void> {
         console.log("Starting gene calling for: " + fileName);
-        await this.waitForWasm();
+        const wasm = await this.waitForWasm();
 
         try {
             this.step('creating_interface', fileName);
-            this.OrphosData = this.wasm.OrphosData.new(metag, "gff", closed_ends, mask, non_sd, tt);
+            this.OrphosData = wasm.OrphosData.new(metag, "gff", closed_ends, mask, non_sd, tt);
 
             this.step('reading_fasta', fileName);
             this.OrphosData!.read_fasta(input_file);
@@ -160,7 +147,8 @@ export class Caller {
                 amr_tsv: amrTsv,
                 amr_error: amrError,
                 wasm_memory_bytes: this.memoryBytes(),
-            }, [fastaBgz.buffer, fastaFai.buffer, fastaGzi.buffer, gffBgz.buffer, gffCsi.buffer]);
+            }, [fastaBgz.buffer as ArrayBuffer, fastaFai.buffer as ArrayBuffer, fastaGzi.buffer as ArrayBuffer,
+                gffBgz.buffer as ArrayBuffer, gffCsi.buffer as ArrayBuffer]);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.worker.postMessage({ error: true, fileName, message: message || 'unknown' });

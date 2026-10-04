@@ -1,3 +1,5 @@
+import type { AssemblyHelper } from "@/pkg";
+
 interface PreprocessingResult {
     nkmers: number;
     histo: number[];
@@ -12,37 +14,13 @@ interface AssemblyResult {
     outgfav2: string;
 }
 
-interface WasmModule {
-    AssemblyHelper: {
-        new(
-            k: number,
-            verbose: boolean,
-            min_count: number,
-            min_qual: number,
-            chunk_size: number,
-            do_bloom: boolean,
-            do_fit: boolean,
-            no_bubble_collapse: boolean,
-            no_dead_end_removal: boolean,
-        ): AssemblyHelper;
-    };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type WasmModuleAny = any;
-
-interface AssemblyHelper {
-    preprocess(file1: File, file2: File | null): void;
-    get_preprocessing_info(): string;
-    assemble(): void;
-    get_assembly(): string;
-}
+type AsmModule = typeof import("@/pkg");
 
 export class Assembler {
     worker: Worker;
-    wasm: WasmModuleAny | null;
+    wasm: AsmModule | null;
     helper: AssemblyHelper | null;
-    wasmPromise: Promise<WasmModuleAny>;
+    wasmPromise: Promise<AsmModule>;
     noBubbleCollapse: boolean = false;
     noDeadEndRemoval: boolean = false;
     wasmMemory: WebAssembly.Memory | null = null;
@@ -62,7 +40,7 @@ export class Assembler {
         import("@/pkg/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
     }
 
-    waitForWasm(): Promise<WasmModuleAny> {
+    waitForWasm(): Promise<AsmModule> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
     }
 
@@ -83,7 +61,7 @@ export class Assembler {
         no_bubble_collapse: boolean,
         no_dead_end_removal: boolean
     ): Promise<void> {
-        await this.waitForWasm();
+        const wasm = await this.waitForWasm();
         const t0 = performance.now();
 
         this.noBubbleCollapse = no_bubble_collapse;
@@ -91,7 +69,7 @@ export class Assembler {
 
         if (this.helper === null) {
             try {
-                this.helper = this.wasm!.AssemblyHelper.new(
+                this.helper = wasm.AssemblyHelper.new(
                     k, verbose,
                     min_count, min_qual,
                     csize, do_bloom, do_fit,

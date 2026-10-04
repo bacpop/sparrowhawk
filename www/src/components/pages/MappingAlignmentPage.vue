@@ -44,6 +44,33 @@
             </div>
           </div>
 
+          <div v-if="tabName === 'Alignment'">
+            <p class="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="max-w-xs">Controls how many samples have their split k-mers extracted at once. One additional worker computes distances and builds the alignment and tree. More workers can use more memory. The default is two.</p>
+                </TooltipContent>
+              </Tooltip>
+              Split-k-mer extraction workers
+            </p>
+            <div class="flex flex-row items-center w-full gap-2">
+              <VueSlider class="flex-grow"
+                         v-model="alignmentWorkers"
+                         :lazy="true"
+                         :min="1"
+                         :max="maxExtractionWorkers"
+                         :interval="1"
+                         :disabled="isAligning"
+              />
+              <span class="block w-[40px] text-center border border-gray-300 rounded-md text-sm">
+                {{ alignmentWorkers }}
+              </span>
+            </div>
+          </div>
+
           <div>
             <p class="flex items-center gap-1">
               <Tooltip>
@@ -71,23 +98,22 @@
             </div>
           </div>
           
-          <!-- TODO: implement properly minimum count for allele frequency, like in Ska you can do -->
-          
-          <!-- <div>
+          <div>
             <p class="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Only k-mers appearing more than this value will be used.</p>
+                  <p class="max-w-xs">For reads, retain split k-mers seen at least this many times. A value of 0 disables count filtering.</p>
                 </TooltipContent>
               </Tooltip>
-              Min counts for k-mer filtering
+              Min counts for k-mer filtering (reads only)
             </p>
             <div class="flex flex-row items-center w-full gap-2">
               <VueSlider class="flex-grow"
                          v-model="min_count"
+                         @change="markMinCountManual"
                          :lazy="true"
                          :min="0"
                          :max="30"
@@ -98,7 +124,7 @@
                 {{ min_count }}
               </span>
             </div>
-          </div> -->
+          </div>
 
           <div>
             <p class="flex items-center gap-1">
@@ -154,7 +180,7 @@
           </div>
 
           <div class="flex flex-row items-center w-full gap-2">
-            <input id="rc" type="checkbox" v-model="rc" :disabled="refProcessed || hasAlignmentResults"/>
+            <input id="rc" type="checkbox" v-model="rc" :disabled="refProcessed || hasAlignmentResults || isProcessingAny"/>
             <Tooltip>
               <TooltipTrigger as-child>
                 <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
@@ -169,7 +195,7 @@
           </div>
 
           <div class="flex flex-row items-center w-full gap-2" v-if="tabName=='Mapping'">
-            <input id="ambig_mask" type="checkbox" v-model="ambig_mask" :disabled="refProcessed || hasAlignmentResults"/>
+            <input id="ambig_mask" type="checkbox" v-model="ambig_mask" :disabled="refProcessed || hasAlignmentResults || isProcessingAny"/>
             <Tooltip>
               <TooltipTrigger as-child>
                 <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
@@ -184,7 +210,7 @@
           </div>
 
           <div class="flex flex-row items-center w-full gap-2" v-if="tabName=='Mapping'">
-            <input id="repeat_mask" type="checkbox" v-model="repeat_mask" :disabled="refProcessed || hasAlignmentResults"/>
+            <input id="repeat_mask" type="checkbox" v-model="repeat_mask" :disabled="refProcessed || hasAlignmentResults || isProcessingAny"/>
             <Tooltip>
               <TooltipTrigger as-child>
                 <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
@@ -295,7 +321,7 @@
           Error during processing — most likely a memory issue. Try with fewer or smaller files.
         </template>
         <template v-else>
-          An unexpected error occurred. Please reset and try again.
+          Alignment failed: {{ skaError }}
         </template>
       </div>
 
@@ -351,7 +377,7 @@
         
 
         <!-- Reset button -->
-        <Button v-if="uploadedFiles.length > 0" @click="resetAll" class="mx-6 mr-0 mt-4" variant="outline" size="sm">
+        <Button v-if="uploadedFiles.length > 0" :disabled="isProcessingAny" @click="resetAll" class="mx-6 mr-0 mt-4" variant="outline" size="sm">
           <Trash2 class="mr-1 h-3 w-3" />
           Clear results
         </Button>
@@ -372,8 +398,11 @@
 
       <!-- Alignment tab -->
       <div v-else-if="tabName=='Alignment'">
-        <!-- Dropbox - always visible when not aligning -->
-        <div v-if="!isAligning"
+        <p v-if="alignmentClosed" class="mx-6 mb-4 text-sm text-gray-600">
+          {{ alignmentInvalidated ? 'Processing failed. Clear results to start another dataset.' :
+            'This dataset is closed to new samples. Clear results to start another.' }}
+        </p>
+        <div v-if="!isProcessingAny && !alignmentClosed"
              v-bind='getRootPropsQueryAlign()'
              :class="[
                'p-6 mx-6 mr-0 bg-white border border-gray-200 rounded-md flex flex-col justify-center items-center gap-2 text-gray-600',
@@ -389,9 +418,40 @@
           </p>
         </div>
 
-        <div v-else class="p-6 mx-6 bg-amber-50 border border-amber-400 rounded-md flex flex-col justify-center items-center gap-2 text-gray-600">
-          <Loader2 class="w-6 h-6 text-amber-500 animate-spin"/>
-          <p class="text-sm text-gray-500">Aligning...</p>
+        <div v-if="isAligning || isObtainingAlignment || alignmentLog.length > 0"
+             class="p-6 mx-6 bg-amber-50 border border-amber-400 rounded-md text-gray-600">
+          <div v-if="isAligning && alignmentLog.length === 0"
+               class="flex items-center gap-2 text-sm" role="status" aria-live="polite">
+            <Loader2 class="w-5 h-5 text-amber-500 animate-spin"/>
+            <span class="font-semibold text-gray-800">Loading alignment engine…</span>
+          </div>
+          <ol v-if="alignmentLog.length > 0"
+              class="flex flex-col gap-2"
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions text"
+              aria-atomic="false">
+            <li v-for="progress in alignmentLog"
+                :key="progress.stage"
+                class="flex flex-col gap-1 text-sm">
+              <div class="flex items-center gap-2">
+                <Loader2 v-if="(isAligning || isObtainingAlignment) && progress.status === 'active'"
+                         class="w-4 h-4 shrink-0 text-amber-500 animate-spin" aria-hidden="true"/>
+                <Check v-else-if="progress.status === 'complete'"
+                       class="w-4 h-4 shrink-0 text-green-600" aria-hidden="true"/>
+                <CircleAlert v-else-if="progress.status === 'interrupted'"
+                             class="w-4 h-4 shrink-0 text-red-600" aria-hidden="true"/>
+                <span class="sr-only">{{ progress.status === 'active' ? 'In progress:' :
+                  progress.status === 'complete' ? 'Completed:' : 'Interrupted:' }}</span>
+                <span class="font-semibold text-gray-800">
+                  {{ alignmentStageLabel(progress) }}
+                </span>
+              </div>
+              <span v-if="progress.sampleName" class="ml-6 text-xs text-gray-600 font-mono truncate">
+                {{ progress.sampleName }}
+              </span>
+            </li>
+          </ol>
         </div>
 
         <!-- File list with status -->
@@ -416,7 +476,7 @@
         </div>
 
         <!-- Reset button -->
-        <Button v-if="uploadedAlignmentFiles.length > 0 && !isProcessingAny" @click="resetAll" class="mx-6 mt-4" variant="outline" size="sm">
+        <Button v-if="uploadedAlignmentFiles.length > 0 && !isProcessingAny" :disabled="isProcessingAny" @click="resetAll" class="mx-6 mt-4" variant="outline" size="sm">
           <Trash2 class="mr-1 h-3 w-3" />
           Clear results
         </Button>
@@ -444,7 +504,7 @@ import { useStore } from "vuex";
 import VueSlider from 'vue-3-slider-component';
 import VueSelect from "vue3-select-component";
 import "vue3-select-component/styles";
-import { Check, FileUp, Loader2, Info, Network, TextAlignCenter, TreePine, Trash2 } from "@lucide/vue";
+import { Check, CircleAlert, FileUp, Loader2, Info, Network, TextAlignCenter, TreePine, Trash2 } from "@lucide/vue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import MappingHelpCollapsible from "@/components/help/MappingHelpCollapsible.vue";
@@ -453,8 +513,16 @@ import DownloadButtonSka from "@/components/SequenceViewer/DownloadButtonSka.vue
 import DownloadButtonSkaAlignment from "@/components/SequenceViewer/DownloadButtonSkaAlignment.vue";
 import { MSAViewer } from "@/components/MSAViewer";
 import TransmissionClusterResults from "@/components/TransmissionClusterResults.vue";
-import { fastxExtensionsWithDotAndCompressList, formatBytes, formatDuration } from "@/utils";
+import {
+  fastaExtensionsWithDotAndCompressList,
+  fastqExtensionsWithDotAndCompressList,
+  fastxExtensionsWithDotAndCompressList,
+  formatBytes,
+  formatDuration,
+  getMaxAlignmentExtractionWorkers,
+} from "@/utils";
 import { parseTransmissionMetadataCsv } from "@/utils/transmissionMetadata";
+import type { AlignmentLogEntry, AlignmentProgress, AlignmentStage } from "@/types";
 
 interface UploadedFile {
   name: string;
@@ -475,6 +543,7 @@ export default defineComponent({
     FileUp,
     Loader2,
     Check,
+    CircleAlert,
     Info,
     Network,
     TextAlignCenter,
@@ -496,8 +565,11 @@ export default defineComponent({
     const store = useStore();
     const k: Ref<number> = ref(31);
     const min_qual: Ref<number> = ref(20);
-    const min_count: Ref<number> = ref(0);
+    const min_count: Ref<number> = ref(5);
+    const minCountManuallySet: Ref<boolean> = ref(false);
     const proportion_reads: Ref<number> = ref(1);
+    const maxExtractionWorkers = getMaxAlignmentExtractionWorkers();
+    const alignmentWorkers: Ref<number> = ref(Math.min(2, maxExtractionWorkers));
     const qual_filter: Ref<number> = ref(2);
     const rc: Ref<boolean> = ref(false);
     const ambig_mask: Ref<boolean> = ref(false);
@@ -526,6 +598,27 @@ export default defineComponent({
     const isIndexingRef = computed(() => store.getters.isIndexingRef);
     const isMapping = computed(() => store.getters.isMapping);
 
+    function markMinCountManual(): void {
+      minCountManuallySet.value = true;
+    }
+
+    function setMinCountDefaultForFiles(files: File[]): void {
+      if (minCountManuallySet.value || files.length === 0) return;
+
+      const hasReadFiles = files.some(file =>
+        fastqExtensionsWithDotAndCompressList.some(extension => file.name.toLowerCase().endsWith(extension))
+      );
+      const allFastaFiles = files.every(file =>
+        fastaExtensionsWithDotAndCompressList.some(extension => file.name.toLowerCase().endsWith(extension))
+      );
+
+      if (hasReadFiles) {
+        min_count.value = 5;
+      } else if (allFastaFiles) {
+        min_count.value = 0;
+      }
+    }
+
     function onDropMapping(acceptFiles: File[]): void {
       if (!refProcessed.value && !isIndexingRef.value) {
         // First upload is reference
@@ -539,6 +632,7 @@ export default defineComponent({
         });
       } else if (refProcessed.value && !isMapping.value) {
         // Subsequent uploads are query files
+        setMinCountDefaultForFiles(acceptFiles);
         const newFiles = acceptFiles.map(f => ({ name: f.name, type: 'query' as const }));
         uploadedFiles.value = [...uploadedFiles.value, ...newFiles];
         processQueryMap({ 
@@ -550,7 +644,13 @@ export default defineComponent({
       }
     }
 
-    function onDropQueryAlign(acceptFiles: File[]): void {
+    async function onDropQueryAlign(acceptFiles: File[]): Promise<void> {
+      const p = store.state.processingState;
+      const dataset = store.state.allResults_ska.alignResults[0];
+      if (p.isAligning || p.isObtainingAlignment || p.isClustering || p.isTransmissionStandaloneClustering ||
+          p.isIndexingRef || p.isMapping || dataset?.alignmentFrozen || dataset?.invalidated) return;
+      const previousFiles = [...uploadedAlignmentFiles.value];
+      setMinCountDefaultForFiles(acceptFiles);
       const newNames = acceptFiles.map(f => f.name);
       // Append new files to the existing list, avoiding duplicates
       const existingNames = new Set(uploadedAlignmentFiles.value);
@@ -559,15 +659,17 @@ export default defineComponent({
           uploadedAlignmentFiles.value.push(name);
         }
       }
-      processQueryAlign({ 
+      const outcome = await processQueryAlign({
         acceptFiles: acceptFiles,
         k: k.value,
         proportion_reads: proportion_reads.value, 
         rc: rc.value,
         min_count: min_count.value,
         min_qual: min_qual.value,
-        qual_filter: qual_filter.value
+        qual_filter: qual_filter.value,
+        extraction_workers: alignmentWorkers.value,
      });
+      if (!outcome?.success && !outcome?.invalidated) uploadedAlignmentFiles.value = previousFiles;
     }
 
     function parseMetadataCSV(file: File): void {
@@ -593,6 +695,9 @@ export default defineComponent({
     }
 
     function resetAll(): void {
+      const p = store.state.processingState;
+      if (p.isAligning || p.isObtainingAlignment || p.isIndexingRef || p.isMapping ||
+          p.isClustering || p.isTransmissionStandaloneClustering) return;
       uploadedFiles.value = [];
       uploadedAlignmentFiles.value = [];
       enableClustering.value = false;
@@ -629,7 +734,10 @@ export default defineComponent({
       k,
       min_qual,
       min_count,
+      markMinCountManual,
       proportion_reads,
+      maxExtractionWorkers,
+      alignmentWorkers,
       qual_filter,
       rc,
       ambig_mask,
@@ -675,8 +783,18 @@ export default defineComponent({
     isAligning(): boolean {
       return this.store.getters.isAligning;
     },
+    isObtainingAlignment(): boolean { return this.store.getters.isObtainingAlignment; },
+    alignmentClosed(): boolean {
+      const result = this.allResults_ska.alignResults[0];
+      return result?.alignmentFrozen === true || result?.invalidated === true;
+    },
+    alignmentInvalidated(): boolean { return this.allResults_ska.alignResults[0]?.invalidated === true; },
+    alignmentLog(): AlignmentLogEntry[] {
+      return this.store.getters.alignmentLog;
+    },
     isProcessingAny(): boolean {
-      return this.store.getters.isIndexingRef || this.store.getters.isMapping || this.store.getters.isAligning;
+      return this.store.getters.isIndexingRef || this.store.getters.isMapping || this.store.getters.isAligning ||
+        this.store.getters.isObtainingAlignment || this.store.getters.isClustering || this.store.getters.isTransmissionStandaloneClustering;
     },
     isClustering(): boolean {
       return this.store.getters.isClustering;
@@ -755,6 +873,24 @@ export default defineComponent({
     },
     runClustering(): void {
       this.processCluster({ snp_threshold: this.snp_threshold });
+    },
+    alignmentStageLabel(progress: AlignmentProgress): string {
+      const labels: Record<AlignmentStage, string> = {
+        loading: "Loading alignment engine",
+        preparing: "Preparing samples",
+        extracting: "Extracting split k-mers",
+        distances: "Computing sample distances",
+        storing: "Adding samples to alignment matrix",
+        "obtaining-alignment": "Obtaining alignment...",
+        "tree-distances": "Preparing tree distances",
+        tree: "Building tree",
+        exporting: "Preparing results",
+      };
+      const label = labels[progress.stage];
+      if (progress.sampleIndex !== null && progress.sampleTotal !== null) {
+        return `${label} (${progress.sampleIndex}/${progress.sampleTotal})`;
+      }
+      return label;
     },
     getFileStatus(file: UploadedFile): 'indexing' | 'mapping' | 'done' {
       if (file.type === 'reference') {

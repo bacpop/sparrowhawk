@@ -41,6 +41,7 @@
     <!-- Main Content -->
     <main class="bg-white mt-6 mb-6 rounded-tl-xl rounded-bl-xl border border-gray-200 border-r-0 flex-1 overflow-y-auto p-4 pt-12 md:p-8">
       <SidebarTrigger class="md:hidden fixed top-3 left-3 z-50 bg-white shadow-md rounded-md" />
+      <WasmRuntimeWarnings />
       <div v-if="tabName === 'Assembly'">
         <AssemblyPage :tabName="tabName">
           <KmerHistogram class="mt-6"/>
@@ -100,6 +101,8 @@
 
 <script lang="ts">
 import {defineComponent} from 'vue';
+import WasmRuntimeWarnings from './components/WasmRuntimeWarnings.vue';
+import { observeWasmRuntime } from '@/wasm/runtime';
 import {useStore} from 'vuex';
 // eslint-disable-next-line
 import {Box, ScanFace, TextAlignCenter, TreePine, Dna, Funnel, Pill, ChartNetwork, ChartScatter, ScanBox} from "@lucide/vue";
@@ -148,6 +151,7 @@ export default defineComponent({
   name: 'App',
 
   components: {
+    WasmRuntimeWarnings,
     FaqPage,
     Sidebar,
     SidebarFooter,
@@ -237,6 +241,7 @@ export default defineComponent({
     }
     if (window.Worker) {
       const worker = new WorkerMapper();
+      observeWasmRuntime(worker, (notice) => this.store.commit('recordWasmRuntimeStatus', notice));
       this.store.commit('SET_WORKER_SKA', worker);
     } else {
       throw new Error("WebWorkers are not supported by this web browser.");

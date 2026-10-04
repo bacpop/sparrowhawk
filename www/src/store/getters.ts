@@ -2,6 +2,9 @@ import {RootState} from "@/store/state";
 import {GetterTree} from "vuex";
 
 export const getters: GetterTree<RootState, RootState> = {
+    wasmRuntimeStatus(state: RootState) {
+        return state.wasmRuntimeStatus;
+    },
     // Processing state getters
     isPreprocessing(state: RootState): boolean {
         return state.processingState.isPreprocessing;
@@ -21,6 +24,12 @@ export const getters: GetterTree<RootState, RootState> = {
     isAligning(state: RootState): boolean {
         return state.processingState.isAligning;
     },
+    isObtainingAlignment(state: RootState): boolean {
+        return state.processingState.isObtainingAlignment;
+    },
+    alignmentLog(state: RootState) {
+        return state.processingState.alignmentLog;
+    },
     isIdentifying(state: RootState): boolean {
         return state.processingState.isIdentifying;
     },
@@ -30,6 +39,7 @@ export const getters: GetterTree<RootState, RootState> = {
             state.processingState.isIndexingRef ||
             state.processingState.isMapping ||
             state.processingState.isAligning ||
+            state.processingState.isObtainingAlignment ||
             state.processingState.isIdentifying ||
             state.processingState.isDetectingAmr ||
             state.processingState.isEmbedding;

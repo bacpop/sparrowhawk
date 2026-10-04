@@ -28,7 +28,7 @@
                          v-model="numWorkers"
                          :lazy="true"
                          :min="1"
-                         :max="8"
+                         :max="maxWorkers"
                          :interval="1"
                          :disabled="callingGenes"
                          @change="onNumWorkersChange"
@@ -343,7 +343,7 @@ import { Check, FileUp, Loader2, Info, Dna, Download, Eye, Trash2 } from "@lucid
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GeneCallingHelpCollapsible from "@/components/help/GeneCallingHelpCollapsible.vue";
-import { fastaExtensionsWithDotAndCompressList, formatBytes, formatDuration } from "@/utils";
+import { fastaExtensionsWithDotAndCompressList, formatBytes, formatDuration, getMaxWorkerThreads } from "@/utils";
 import { saveBinaryFile, saveTextFile } from "@/platform/files";
 import { GeneCallResult } from "@/types";
 import { buildZip, buildTarGz } from "@/archiveUtils";
@@ -398,7 +398,8 @@ export default defineComponent({
     const min_gene_fraction: Ref<number> = ref(0.10);
     const min_gene_group_fraction: Ref<number> = ref(0.10);
     const tt: Ref<number> = ref(0);
-    const numWorkers: Ref<number> = ref(4);
+    const maxWorkers = getMaxWorkerThreads();
+    const numWorkers: Ref<number> = ref(Math.min(4, maxWorkers));
     const uploadedFileNames: Ref<string[]> = ref([]);
 
     const selectedGenome = ref<string | null>(null);
@@ -589,6 +590,7 @@ export default defineComponent({
       tt,
       min_gene_fraction,
       min_gene_group_fraction,
+      maxWorkers,
       numWorkers,
       onNumWorkersChange,
       uploadedFileNames,

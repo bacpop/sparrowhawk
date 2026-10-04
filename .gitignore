@@ -34,3 +34,9 @@ rust/esm-bridge/scripts/__pycache__
 
 # OS X
 .DS_Store
+
+# Local manual wasm64 builds and tools
+.wasm64-build/
+.wasm64-tools/
+www/public/pkg_wasm64/
+scripts/__pycache__/

@@ -108,7 +108,7 @@
                          v-model="numWorkers"
                          :lazy="true"
                          :min="1"
-                         :max="8"
+                         :max="maxWorkers"
                          :interval="1"
                          :disabled="isIdentifying"
                          @change="onNumWorkersChange"
@@ -215,7 +215,7 @@ import TaxonomicIDHelpCollapsible from "@/components/help/TaxonomicIDHelpCollaps
 import DataTable from "@/components/pages/taxonomic-id/DataTable.vue";
 import { columns, TaxonomicIDRow } from "@/components/pages/taxonomic-id/columns";
 import { SampleIdentifyResult } from "@/types";
-import { fastxExtensionsWithDotAndCompressList, formatBytes, formatDuration } from "@/utils";
+import { fastxExtensionsWithDotAndCompressList, formatBytes, formatDuration, getMaxWorkerThreads } from "@/utils";
 import {saveTextFile} from "@/platform/files";
 
 export default defineComponent({
@@ -254,7 +254,8 @@ export default defineComponent({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { allResults_sketchlib } = useState(["allResults_sketchlib"]) as any;
 
-    const numWorkers: Ref<number> = ref(4);
+    const maxWorkers = getMaxWorkerThreads();
+    const numWorkers: Ref<number> = ref(Math.min(4, maxWorkers));
 
     function onNumWorkersChange(value: number): void {
       initSketchlibWorkers(value);
@@ -405,6 +406,7 @@ export default defineComponent({
       proportion_reads,
       min_qual,
       min_count,
+      maxWorkers,
       numWorkers,
       onNumWorkersChange,
       uploadedFileNames,

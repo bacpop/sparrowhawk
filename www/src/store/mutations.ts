@@ -1,7 +1,15 @@
 import {RootState} from "@/store/state";
+import type { WasmRuntimeNotice } from "@/types";
+import { retainWasmRuntimeStatus } from "@/wasm/runtime";
+import type { Alignment, AlignmentProgress, AlignmentStage, AlignmentStageStatus } from "@/types";
 import {GeneCallResult, DepletionResult, AmrDetectionResult, Dict, TransmissionGraphData, ProteinEmbeddingResult, EsmRetry, GpuAdapterInfo} from "@/types";
 
 export default {
+    recordWasmRuntimeStatus(state: RootState, notice: WasmRuntimeNotice) {
+        state.wasmRuntimeStatus[notice.moduleId] = retainWasmRuntimeStatus(
+            state.wasmRuntimeStatus[notice.moduleId], notice,
+        );
+    },
     // Processing state mutations
     setPreprocessingState(state: RootState, isProcessing: boolean) {
         state.processingState.isPreprocessing = isProcessing;
@@ -28,6 +36,30 @@ export default {
     setAligningState(state: RootState, isAligning: boolean) {
         state.processingState.isAligning = isAligning;
     },
+    clearAlignmentLog(state: RootState) {
+        state.processingState.alignmentLog = [];
+    },
+    recordAlignmentProgress(state: RootState, progress: AlignmentProgress) {
+        const log = state.processingState.alignmentLog;
+        const existingIndex = log.findIndex((entry) => entry.stage === progress.stage);
+        if (existingIndex === -1) {
+            log.push({ ...progress, status: "active" });
+        } else {
+            log.splice(existingIndex, 1, { ...progress, status: log[existingIndex].status });
+        }
+    },
+    setAlignmentStageStatus(state: RootState, input: {
+        stage: AlignmentStage;
+        status: AlignmentStageStatus;
+    }) {
+        const entry = state.processingState.alignmentLog.find((entry) => entry.stage === input.stage);
+        if (entry) entry.status = input.status;
+    },
+    finishAlignmentLog(state: RootState, status: "complete" | "interrupted") {
+        for (const entry of state.processingState.alignmentLog) {
+            if (entry.status === "active") entry.status = status;
+        }
+    },
     setIdentifyingState(state: RootState, isIdentifying: boolean) {
         state.processingState.isIdentifying = isIdentifying;
     },
@@ -42,6 +74,8 @@ export default {
             isMapping: false,
             isMappingFiles: new Set<string>(),
             isAligning: false,
+            isObtainingAlignment: false,
+            alignmentLog: [],
             isIdentifying: false,
             isIdentifyingFiles: new Set<string>(),
             assemblyState: '',
@@ -205,16 +239,43 @@ export default {
         state.allResults_ska.mapping_vcf = input.mapping_vcf
     },
 
-    setAligned(state: RootState, input: { aligned: boolean, names: string[], newick: string, alignment: string, distances_csv?: string, elapsedMs?: number, wasmMemoryBytes?: number }) {
-        state.allResults_ska.alignResults[0] = {
-            aligned: input.aligned,
-            names: input.names,
-            newick: input.newick,
-            alignment: input.alignment,
-            distances_csv: input.distances_csv,
-            elapsedMs: input.elapsedMs,
-            wasmMemoryBytes: input.wasmMemoryBytes,
+    setAligned(state: RootState, input: Alignment) {
+        state.allResults_ska.alignResults[0] = { ...input };
+        state.allResults_ska.clusterResults = null;
+        state.allResults_ska.transmissionGraph = null;
+    },
+    invalidateAlignment(state: RootState) {
+        const result = state.allResults_ska.alignResults[0];
+        if (result) {
+            result.aligned = false;
+            result.alignmentAvailable = false;
+            result.alignment_gzip = null;
+            result.distances_csv_gzip = new Uint8Array();
+            result.invalidated = true;
+        } else {
+            state.allResults_ska.alignResults[0] = {
+                aligned: false, names: [], newick: "", runId: 0, k: 31, rc: false,
+                alignmentAvailable: false, alignmentFrozen: false, invalidated: true,
+                alignmentDownloadError: null, alignment_gzip: null, distances_csv_gzip: new Uint8Array(),
+            };
         }
+        state.allResults_ska.clusterResults = null;
+        state.allResults_ska.transmissionGraph = null;
+    },
+    setObtainingAlignmentState(state: RootState, obtaining: boolean) {
+        state.processingState.isObtainingAlignment = obtaining;
+    },
+    setAlignmentFrozen(state: RootState) {
+        const result = state.allResults_ska.alignResults[0];
+        if (result) result.alignmentFrozen = true;
+    },
+    setAlignmentDownloadError(state: RootState, message: string | null) {
+        const result = state.allResults_ska.alignResults[0];
+        if (result) result.alignmentDownloadError = message;
+    },
+    cacheAlignmentDownload(state: RootState, input: { runId: number; bytes: Uint8Array }) {
+        const result = state.allResults_ska.alignResults[0];
+        if (result?.runId === input.runId) result.alignment_gzip = input.bytes;
     },
 
     setSkaMappingError(state: RootState, msg: string) { state.allResults_ska.error = msg; },
@@ -259,6 +320,9 @@ export default {
             clusterResults: null,
             transmissionGraph: null,
         };
+        state.processingState.isAligning = false;
+        state.processingState.isObtainingAlignment = false;
+        state.processingState.alignmentLog = [];
 
         if (state.workerState.worker_ska) {
             state.workerState.worker_ska.postMessage({reset: true});

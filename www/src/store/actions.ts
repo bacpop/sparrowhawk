@@ -4,7 +4,17 @@ import WorkerSketcher from '@/workers/Sketcher.worker';
 import WorkerCaller from '@/workers/Caller.worker';
 import WorkerAmrDetector from '@/workers/AmrDetector.worker';
 import WorkerEmbedder from '@/workers/Embedder.worker';
-import {regExpWithTwoNumbers, regExpForAnyFastx, regExpForAnyFasta, regExpForAnyProteinFasta, getFilesToProcess} from "@/utils";
+import WorkerAlignmentExtractor from '@/workers/AlignmentExtractor.worker';
+import { observeWasmRuntime } from '@/wasm/runtime';
+import {
+    clampWorkerCount,
+    getMaxAlignmentExtractionWorkers,
+    regExpWithTwoNumbers,
+    regExpForAnyFastx,
+    regExpForAnyFasta,
+    regExpForAnyProteinFasta,
+    getFilesToProcess,
+} from "@/utils";
 import {listGpuAdapters as probeGpuAdapters} from "@/platform/gpu";
 
 // GPU stall watchdog. Progress arrives per batch, so silence means the device is wedged.
@@ -18,6 +28,30 @@ let esmGpuProven = false;
 // from dispatch with nothing in flight until the in-flight set empties again).
 let identifyStart = 0;
 let geneCallingStart = 0;
+let alignmentRunCounter = 0;
+let skaRequestCounter = 0;
+
+function skaBusy(state: RootState): boolean {
+    const p = state.processingState;
+    return p.isAligning || p.isObtainingAlignment || p.isClustering ||
+        p.isTransmissionStandaloneClustering || p.isIndexingRef || p.isMapping;
+}
+
+interface AlignmentSamplePlan {
+    sampleIndex: number;
+    name: string;
+    firstFileIndex: number;
+    secondFileIndex: number | null;
+}
+
+interface ExtractedAlignmentSample {
+    type: "sampleExtracted";
+    runId: number;
+    sampleIndex: number;
+    sampleName: string;
+    packedKmers: Uint32Array;
+    elapsedMs: number;
+}
 
 function clearEsmWatchdog(): void {
     clearInterval(esmStallTimer);
@@ -170,6 +204,8 @@ export default {
         qual_filter: number
     }) {
         const {commit, state} = context;
+        if (state.processingState.isAligning || state.processingState.isObtainingAlignment ||
+            state.processingState.isClustering || state.processingState.isTransmissionStandaloneClustering) return;
         console.log("Ref file uploaded, k = " + payload.k)
 
         // Set indexing state
@@ -189,6 +225,7 @@ export default {
                     qual_filter: payload.qual_filter
                 });
                 state.workerState.worker_ska.onmessage = (messageData) => {
+                    if (!messageData.data?.ref) return;
                     // Clear indexing state
                     commit("setIndexingRefState", false);
 
@@ -207,6 +244,8 @@ export default {
         qual_filter: number
     }) {
         const {commit, state} = context;
+        if (state.processingState.isAligning || state.processingState.isObtainingAlignment ||
+            state.processingState.isClustering || state.processingState.isTransmissionStandaloneClustering) return;
         console.log("Query files uploaded mapping")
 
         // Set mapping state
@@ -232,6 +271,8 @@ export default {
             if (state.workerState.worker_ska) {
                 state.workerState.worker_ska.postMessage(messageData);
                 state.workerState.worker_ska.onmessage = (message) => {
+                    if (message.data.alignmentError || message.data.clusterError || message.data.alignmentDownloadError) return;
+                    if (!("nb_variants" in message.data) && !message.data.error) return;
                     if (message.data.error) {
                         commit("setSkaMappingError", message.data.message ?? "generic");
                         commit("removeMappingFile", messageData.sampleName);
@@ -259,91 +300,480 @@ export default {
         min_count: number,
         min_qual: number,
         qual_filter: number,
+        extraction_workers: number,
     }) {
         const {commit, state} = context;
-        console.log("Processing query of uploaded files for alignment...")
+        console.log("Processing query of uploaded files for alignment...");
 
-        // Initialize the aligned state so that we can know that it is loading
-        commit("setAligned", {aligned: false, names: [], newick: ""})
+        // Check first if the previous alignment has failed or it's done.
+        const previous = state.allResults_ska.alignResults[0];
+        if (skaBusy(state) || previous?.alignmentFrozen || previous?.invalidated) {
+            commit("setSkaAlignError", "This dataset is busy or closed to additions. Clear results to start another.");
+            return { success: false, invalidated: false };
+        }
 
-        // Set aligning state
+        // Check k values, rc
+        if (previous?.aligned && (previous.k !== payload.k || previous.rc !== payload.rc)) {
+            commit("setSkaAlignError", "k and reverse-complement settings must match the existing dataset.");
+            return { success: false, invalidated: false };
+        }
+        const append = previous?.aligned === true;
+        const baseIndex = append ? (previous.names?.length ?? 0) : 0;
+        commit("setSkaAlignError", "");
+        commit("clearAlignmentLog");
+
+        // Get the aggregator worker
+        const aggregator = state.workerState.worker_ska;
+        if (!aggregator) {
+            commit("setAligningState", false);
+            commit("setSkaAlignError", "worker_unavailable");
+            return { success: false, invalidated: false };
+        }
+
+        const runId = ++alignmentRunCounter;
+        const requestedWorkers = Number.isFinite(payload.extraction_workers)
+            ? Math.floor(payload.extraction_workers)
+            : 2;
+        const workerCount = clampWorkerCount(
+            requestedWorkers,
+            getMaxAlignmentExtractionWorkers(),
+        );
+
+        // Create pool (array) of workers, catching errors always if possible
+        const extractors: Worker[] = [];
+        try {
+            const poolSize = Math.min(workerCount, Math.max(1, payload.acceptFiles.length));
+            for (let index = 0; index < poolSize; index++) {
+                const worker = new WorkerAlignmentExtractor();
+                extractors.push(worker);
+                observeWasmRuntime(worker, (notice) => commit("recordWasmRuntimeStatus", notice));
+            }
+        } catch (error) {
+            extractors.forEach((worker) => worker.terminate());
+            const message = error instanceof Error ? error.message : String(error);
+            commit("setAligningState", false);
+            commit("setSkaAlignError", message);
+            console.error("[ska-align] Could not start extraction workers", { runId, error });
+            return { success: false, invalidated: false };
+        }
+
+
+
+        // This big promise is the alignment!!
         commit("setAligningState", true);
+        const pool = extractors;
+        return new Promise<{ success: boolean; invalidated: boolean }>((resolve) => {
+            // Inits...
+            let finished = false;
+            let finishSent = false;
+            let samples: AlignmentSamplePlan[] | null = null;
+            let nextSampleToSchedule = 0;
+            let nextSampleToAdd = 0;
+            let extractedCount = 0;
+            let acknowledgedCount = 0;
+            let poolTerminated = false;
 
-        const messageData = {
-            align: true,
-            files: payload.acceptFiles,
-            k: payload.k,
-            proportion_reads: payload.proportion_reads,
-            rc: payload.rc,
-            min_count: payload.min_count,
-            min_qual: payload.min_qual,
-            qual_filter: payload.qual_filter,
-        };
+            const runningByWorker = new Map<number, number>();
+            const pendingResults = new Map<number, ExtractedAlignmentSample>();
+            const acknowledgedSamples = new Set<number>();
+            const wordWidth = payload.k < 32 ? 2 : 4;
 
-        if (state.workerState.worker_ska) {
-            state.workerState.worker_ska.postMessage(messageData);
-            state.workerState.worker_ska.onmessage = (message) => {
-                // Clear aligning state
+            // Helper methods/functions. TODO: move out  from here (although we'd need to fix the arguments)
+
+            const terminatePool = () => {
+                if (poolTerminated) return;
+                poolTerminated = true;
+                pool.forEach((extractor) => extractor.terminate());
+            };
+
+            // Proper end of the promise
+            const finish = (errorMessage?: string, result?: Record<string, unknown>, validationOnly = false) => {
+                if (finished) return;
+                finished = true;
+                terminatePool();
+                aggregator.removeEventListener("message", onAggregatorMessage);
+                aggregator.removeEventListener("error", onAggregatorError);
+
+                if (errorMessage) {
+                    if (!validationOnly) {
+                        try {
+                            aggregator.postMessage({ cancelAlignment: true, runId });
+                        } catch (error) {
+                            console.error("[ska-align] Could not notify the worker of cancellation", error);
+                        }
+                        commit("invalidateAlignment");
+                    }
+                    console.error("[ska-align] Alignment failed", { runId, error: errorMessage });
+                    commit("setSkaAlignError", errorMessage);
+                } else if (result) {
+                    commit("setAligned", result);
+                }
+                commit("finishAlignmentLog", errorMessage ? "interrupted" : "complete");
                 commit("setAligningState", false);
+                resolve({ success: !errorMessage, invalidated: !!errorMessage && !validationOnly });
+            };
 
-                if (message.data.error) {
-                    commit("setSkaAlignError", message.data.message ?? "generic");
+            // Properly ending, but with an error
+            const fail = (error: unknown) => {
+                const message = error instanceof Error ? error.message : String(error);
+                finish(message || "Alignment failed.");
+            };
+
+            const maybeFinishAlignment = () => {
+                if (finished || finishSent || samples === null) return;
+                if (acknowledgedCount !== samples.length) return;
+                finishSent = true;
+                if (samples.length === 0) terminatePool();
+                try {
+                    aggregator.postMessage({ finishAlignment: true, runId });
+                } catch (error) {
+                    fail(error);
+                }
+            };
+
+            // This is the method that moves the results from one worker that processed it, to the aggregator
+            const flushResults = () => {
+                if (finished || samples === null) return;
+                while (pendingResults.has(baseIndex + nextSampleToAdd)) {
+                    const sample = pendingResults.get(baseIndex + nextSampleToAdd)!;
+                    pendingResults.delete(baseIndex + nextSampleToAdd);
+                    try {
+                        aggregator.postMessage({
+                            addAlignmentSample: true,
+                            runId,
+                            sampleIndex: sample.sampleIndex,
+                            sampleName: sample.sampleName,
+                            packedKmers: sample.packedKmers,
+                        }, [sample.packedKmers.buffer as ArrayBuffer]);
+                    } catch (error) {
+                        fail(error);
+                        return;
+                    }
+                    nextSampleToAdd += 1;
+                }
+                maybeFinishAlignment();
+            };
+
+            // This manages the buffers we have here (essentially "samples" and "pendingResults"), alongside flushResults.
+            const pump = () => {
+                if (finished || samples === null) return;
+                while (
+                    nextSampleToSchedule < samples.length &&
+                    nextSampleToSchedule - acknowledgedCount < pool.length
+                ) {
+                    const workerIndex = pool.findIndex((_, index) => !runningByWorker.has(index));
+                    if (workerIndex < 0) break;
+
+                    const sample = samples[nextSampleToSchedule];
+                    const firstFile = payload.acceptFiles[sample.firstFileIndex];
+                    const secondFile = sample.secondFileIndex === null
+                        ? null
+                        : payload.acceptFiles[sample.secondFileIndex];
+                    if (!firstFile || (sample.secondFileIndex !== null && !secondFile)) {
+                        fail(new Error(`The sample plan refers to a missing file for ${sample.name}.`));
+                        return;
+                    }
+
+                    nextSampleToSchedule += 1;
+                    runningByWorker.set(workerIndex, sample.sampleIndex);
+                    try {
+                        pool[workerIndex].postMessage({
+                            extractSample: true,
+                            runId,
+                            sampleIndex: sample.sampleIndex,
+                            sampleName: sample.name,
+                            firstFile,
+                            secondFile,
+                            k: payload.k,
+                            rc: payload.rc,
+                            proportion_reads: payload.proportion_reads,
+                            min_count: payload.min_count,
+                            min_qual: payload.min_qual,
+                            qual_filter: payload.qual_filter,
+                        });
+                    } catch (error) {
+                        fail(error);
+                        return;
+                    }
+                }
+                flushResults();
+            };
+
+            const onAggregatorMessage = (event: MessageEvent) => {
+                const data = event.data;
+                if (!(data instanceof Object)) return;
+                if (data.alignmentProgress) {
+                    if (data.alignmentProgress.runId !== runId) return;
+                    if (data.alignmentProgress.stage === "loading" || data.alignmentProgress.stage === "preparing") return;
+                    commit("recordAlignmentProgress", data.alignmentProgress);
+                    const progress = data.alignmentProgress;
+                    // Per-sample stages remain active until every sample has passed them.
+                    if (progress.stage === "storing" && samples !== null &&
+                        samples.length > 0 && progress.sampleIndex === baseIndex + samples.length) {
+                        commit("setAlignmentStageStatus", { stage: "distances", status: "complete" });
+                    }
+                    // Finalisation stages run sequentially in the alignment worker.
+                    if (progress.stage === "tree") {
+                        commit("setAlignmentStageStatus", { stage: "tree-distances", status: "complete" });
+                    } else if (progress.stage === "exporting") {
+                        commit("setAlignmentStageStatus", { stage: "tree", status: "complete" });
+                    }
                     return;
                 }
-                commit("setAligned", message.data);
+                if (data.runId !== runId) return;
+
+
+                // After organising all the files etc.
+                if (data.alignmentPlan) {
+                    if (!Array.isArray(data.samples)) {
+                        fail(new Error("The alignment worker returned an invalid sample plan."));
+                        return;
+                    }
+                    samples = data.samples as AlignmentSamplePlan[];
+                    commit("recordAlignmentProgress", {
+                        stage: "extracting",
+                        sampleIndex: baseIndex,
+                        sampleTotal: baseIndex + samples.length,
+                        sampleName: null,
+                        runId,
+                    });
+                    if (samples.length === 0) {
+                        commit("setAlignmentStageStatus", { stage: "extracting", status: "complete" });
+                        terminatePool();
+                    }
+                    pump();
+                    return;
+                }
+
+
+                if (data.alignmentSampleAdded) {
+                    if (!acknowledgedSamples.has(data.sampleIndex)) {
+                        acknowledgedSamples.add(data.sampleIndex);
+                        acknowledgedCount += 1;
+                    }
+                    if (samples !== null && acknowledgedCount === samples.length) {
+                        commit("setAlignmentStageStatus", { stage: "storing", status: "complete" });
+                    }
+                    pump();
+                    return;
+                }
+
+
+                if (data.aligned === true) {
+                    if (!(data.distances_csv_gzip instanceof Uint8Array)) {
+                        fail(new Error("The alignment worker returned invalid compressed outputs."));
+                        return;
+                    }
+                    finish(undefined, { ...data, invalidated: false, alignmentDownloadError: null });
+                    return;
+                }
+
+                if (data.error && data.alignmentError) {
+                    finish(String(data.message ?? "Alignment worker failed."), undefined, data.validationOnly === true);
+                }
             };
+
+            const onAggregatorError = (event: ErrorEvent) => {
+                fail(new Error(event.message || "Alignment worker failed."));
+            };
+
+            // This just defines what to do for all the workers. This should be simplified
+            pool.forEach((extractor, workerIndex) => {
+                extractor.onmessage = (event: MessageEvent) => {
+                    const data = event.data;
+                    if (!(data instanceof Object) || data.runId !== runId) return;
+                    const expectedSample = runningByWorker.get(workerIndex);
+                    if (data.type === "sampleError") {
+                        fail(new Error(`Sample ${data.sampleName ?? expectedSample} failed: ${data.message ?? "extraction error"}`));
+                        return;
+                    }
+                    if (data.type !== "sampleExtracted") return;
+                    if (expectedSample !== data.sampleIndex) {
+                        fail(new Error("An extraction worker returned a result for the wrong sample."));
+                        return;
+                    }
+
+                    runningByWorker.delete(workerIndex);
+                    const extracted = data as ExtractedAlignmentSample;
+                    if (extracted.packedKmers.length % wordWidth !== 0) {
+                        fail(new Error(`Sample ${extracted.sampleName} returned malformed packed k-mers.`));
+                        return;
+                    }
+                    pendingResults.set(extracted.sampleIndex, extracted);
+                    extractedCount += 1;
+                    console.info("[ska-align] Extracted sample", {
+                        runId,
+                        sample: extracted.sampleName,
+                        sampleIndex: extracted.sampleIndex + 1,
+                        sampleTotal: baseIndex + (samples?.length ?? 0),
+                        kmerCount: extracted.packedKmers.length / wordWidth,
+                        elapsedMs: extracted.elapsedMs,
+                    });
+                    commit("recordAlignmentProgress", {
+                        stage: "extracting",
+                        sampleIndex: baseIndex + extractedCount,
+                        sampleTotal: baseIndex + (samples?.length ?? 0),
+                        sampleName: extracted.sampleName,
+                        runId,
+                    });
+                    if (samples !== null && extractedCount === samples.length) {
+                        commit("setAlignmentStageStatus", { stage: "extracting", status: "complete" });
+                        terminatePool();
+                    }
+                    flushResults();
+                    pump();
+                };
+                extractor.onerror = (event: ErrorEvent) => {
+                    fail(new Error(`Extraction worker ${workerIndex + 1} failed: ${event.message || "worker error"}`));
+                };
+            });
+
+            aggregator.addEventListener("message", onAggregatorMessage);
+            aggregator.addEventListener("error", onAggregatorError);
+
+
+            // And finally, the actual execution, which is done from the aggregator worker.
+            try {
+                aggregator.postMessage({
+                    alignStart: true,
+                    runId,
+                    fileNames: payload.acceptFiles.map((file) => file.name),
+                    k: payload.k,
+                    rc: payload.rc,
+                    append,
+                });
+            } catch (error) {
+                fail(error);
+                return;
+            }
+            console.info("[ska-align] Started extraction pool", {
+                runId,
+                workers: pool.length,
+                sampleFiles: payload.acceptFiles.length,
+                k: payload.k,
+            });
+        }); // Big promise
+    },
+
+    async getAlignmentDownload(context: ActionContext<RootState, RootState>): Promise<Uint8Array> {
+        const { state, commit } = context;
+        const result = state.allResults_ska.alignResults[0];
+        const worker = state.workerState.worker_ska;
+
+        if (skaBusy(state)) throw new Error("Wait for the current SKA operation to finish.");
+        if (!worker || !result?.aligned || !result.alignmentAvailable) throw new Error("No alignment is available for download.");
+
+        console.info("[ska-align] Obtaining alignment...");
+
+        commit("setAlignmentFrozen");
+        commit("setAlignmentDownloadError", null);
+        commit("recordAlignmentProgress", { stage: "obtaining-alignment", sampleIndex: null, sampleTotal: null, sampleName: null, runId: result.runId });
+        commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: "active" });
+
+        // In case we've got it already...
+        if (result.alignment_gzip) {
+            commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: "complete" });
+            return result.alignment_gzip;
         }
+        const runId = result.runId;
+        const requestId = ++skaRequestCounter;
+
+        commit("setObtainingAlignmentState", true);
+        return new Promise<Uint8Array>((resolve, reject) => {
+
+            const finish = (bytes?: Uint8Array, error?: string) => {
+                worker.removeEventListener("message", onMessage);
+                worker.removeEventListener("error", onError);
+                commit("setObtainingAlignmentState", false);
+                commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: error ? "interrupted" : "complete" });
+
+                if (error) { commit("setAlignmentDownloadError", error); reject(new Error(error)); }
+                else { commit("cacheAlignmentDownload", { runId, bytes }); resolve(bytes!); }
+            };
+
+            const onMessage = (event: MessageEvent) => {
+                const data = event.data;
+                if (data?.alignmentProgress?.runId === runId && data.alignmentProgress.stage === "obtaining-alignment") {
+                    commit("recordAlignmentProgress", data.alignmentProgress);
+                    return;
+                }
+                if (data?.runId !== runId || data.requestId !== requestId) return;
+                if (data.alignmentDownloadError) finish(undefined, String(data.message));
+                else if (data.alignmentDownload) {
+                    if (!(data.bytes instanceof Uint8Array)) finish(undefined, "Invalid alignment download buffer.");
+                    else finish(data.bytes);
+                }
+            };
+
+            const onError = (event: ErrorEvent) => finish(undefined, event.message || "Alignment export worker failed.");
+
+            worker.addEventListener("message", onMessage);
+            worker.addEventListener("error", onError);
+            try { worker.postMessage({ exportAlignment: true, runId, requestId }); }
+            catch (error) { finish(undefined, error instanceof Error ? error.message : String(error)); }
+        });
     },
 
     async processCluster(context: ActionContext<RootState, RootState>, payload: { snp_threshold: number }) {
-        const {commit, state} = context;
-        console.log("Running transmission clustering with SNP threshold: " + payload.snp_threshold);
-
+        const { commit, state } = context;
+        if (skaBusy(state)) return;
+        const worker = state.workerState.worker_ska;
+        const result = state.allResults_ska.alignResults[0];
+        if (!worker || !result?.aligned) { commit("setSkaClusterError", "No completed alignment dataset is available."); return; }
+        const requestId = ++skaRequestCounter;
         commit("setClusteringState", true);
-
-        if (state.workerState.worker_ska) {
-            state.workerState.worker_ska.postMessage({ cluster: true, snp_threshold: payload.snp_threshold });
-            state.workerState.worker_ska.onmessage = (message) => {
+        return new Promise<void>((resolve) => {
+            const finish = (error?: string, data?: { clusters: unknown; graph: unknown }) => {
+                worker.removeEventListener("message", onMessage);
+                worker.removeEventListener("error", onError);
                 commit("setClusteringState", false);
-                if (message.data.error) {
-                    commit("setSkaClusterError", message.data.message ?? "generic");
-                    return;
-                }
-                commit("setClusterResults", { clusters: message.data.clusters, graph: message.data.graph });
+                if (error) commit("setSkaClusterError", error);
+                else if (data) commit("setClusterResults", data);
+                resolve();
             };
-        }
+            const onMessage = (event: MessageEvent) => {
+                const data = event.data;
+                if (data?.requestId !== requestId || data.runId !== result.runId) return;
+                if (data.clusterError) finish(String(data.message));
+                else if (data.clustered) finish(undefined, data);
+            };
+            const onError = (event: ErrorEvent) => finish(event.message || "Clustering worker failed.");
+            worker.addEventListener("message", onMessage);
+            worker.addEventListener("error", onError);
+            try { worker.postMessage({ cluster: true, snp_threshold: payload.snp_threshold, runId: result.runId, requestId }); }
+            catch (error) { finish(error instanceof Error ? error.message : String(error)); }
+        });
     },
 
     async processTransmissionStandaloneCluster(context: ActionContext<RootState, RootState>, payload: { file: File, snp_threshold: number }) {
-        const {commit, state} = context;
-        console.log("Running standalone transmission clustering with SNP threshold: " + payload.snp_threshold);
-
+        const { commit, state } = context;
+        if (skaBusy(state)) { commit("setTransmissionStandaloneError", "Wait for the current SKA operation to finish."); return; }
+        const worker = state.workerState.worker_ska;
+        if (!worker) { commit("setTransmissionStandaloneError", "worker_unavailable"); return; }
+        const requestId = ++skaRequestCounter;
         commit("setTransmissionStandaloneClusteringState", true);
         commit("resetTransmissionStandaloneResults");
-
-        if (state.workerState.worker_ska) {
-            state.workerState.worker_ska.postMessage({
-                transmission_cluster: true,
-                file: payload.file,
-                snp_threshold: payload.snp_threshold,
-            });
-            state.workerState.worker_ska.onmessage = (message) => {
+        return new Promise<void>((resolve) => {
+            const finish = (error?: string, data?: Record<string, unknown>) => {
+                worker.removeEventListener("message", onMessage);
+                worker.removeEventListener("error", onError);
                 commit("setTransmissionStandaloneClusteringState", false);
-                if (message.data.error) {
-                    commit("setTransmissionStandaloneError", message.data.message ?? "generic");
-                    return;
-                }
-                commit("setTransmissionStandaloneClusterResults", {
-                    clusters: message.data.clusters,
-                    graph: message.data.graph,
-                    elapsedMs: message.data.elapsedMs,
-                    wasmMemoryBytes: message.data.wasmMemoryBytes,
-                });
+                if (error) commit("setTransmissionStandaloneError", error);
+                else if (data) commit("setTransmissionStandaloneClusterResults", data);
+                resolve();
             };
-        } else {
-            commit("setTransmissionStandaloneClusteringState", false);
-            commit("setTransmissionStandaloneError", "worker_unavailable");
-        }
+            const onMessage = (event: MessageEvent) => {
+                const data = event.data;
+                if (data?.requestId !== requestId || !data.standalone) return;
+                if (data.clusterError) finish(String(data.message));
+                else if (data.clustered) finish(undefined, data);
+            };
+            const onError = (event: ErrorEvent) => finish(event.message || "Clustering worker failed.");
+            worker.addEventListener("message", onMessage);
+            worker.addEventListener("error", onError);
+            try { worker.postMessage({ transmission_cluster: true, file: payload.file, snp_threshold: payload.snp_threshold, requestId }); }
+            catch (error) { finish(error instanceof Error ? error.message : String(error)); }
+        });
     },
 
     async resetTransmissionStandaloneResults(context: ActionContext<RootState, RootState>) {
@@ -352,7 +782,8 @@ export default {
     },
 
     async resetAllResults_ska(context: ActionContext<RootState, RootState>) {
-        const {commit} = context;
+        const {commit, state} = context;
+        if (skaBusy(state)) return;
         commit("resetAllResults_ska");
     },
 
@@ -439,6 +870,7 @@ export default {
 
     async initSketchlibWorkers(context: ActionContext<RootState, RootState>, numWorkers: number) {
         const {commit, state} = context;
+        const workerCount = clampWorkerCount(numWorkers);
         // Terminate existing workers
         for (const worker of state.workerState.workers_sketchlib) {
             worker.terminate();
@@ -446,10 +878,10 @@ export default {
         commit("clearIdentifyWorkerMemory");
         // Spawn new pool
         const pool: Worker[] = [];
-        for (let i = 0; i < numWorkers; i++) {
+        for (let i = 0; i < workerCount; i++) {
             pool.push(new WorkerSketcher());
         }
-        console.log(`Spawned ${numWorkers} sketchlib worker(s)`);
+        console.log(`Spawned ${workerCount} sketchlib worker(s)`);
         commit("SET_WORKERS_SKETCHLIB", pool);
     },
 
@@ -461,12 +893,13 @@ export default {
     // ORPHOS
     async initCallerWorkers(context: ActionContext<RootState, RootState>, numWorkers: number) {
         const { commit, state } = context;
+        const workerCount = clampWorkerCount(numWorkers);
         for (const worker of state.workerState.workers_orphos) {
             worker.terminate();
         }
         commit("clearGeneCallingWorkerMemory");
         const pool: Worker[] = [];
-        for (let i = 0; i < numWorkers; i++) {
+        for (let i = 0; i < workerCount; i++) {
             pool.push(new WorkerCaller());
         }
         pool.forEach((worker, workerIndex) => {
@@ -508,7 +941,7 @@ export default {
                 }
             };
         });
-        console.log(`Spawned ${numWorkers} caller worker(s)`);
+        console.log(`Spawned ${workerCount} caller worker(s)`);
         commit("SET_WORKERS_ORPHOS", pool);
     },
 
@@ -622,14 +1055,15 @@ export default {
     // AMR
     async initAmrWorkers(context: ActionContext<RootState, RootState>, numWorkers: number) {
         const {commit, state} = context;
+        const workerCount = clampWorkerCount(numWorkers);
         for (const worker of state.workerState.workers_amr) {
             worker.terminate();
         }
         const pool: Worker[] = [];
-        for (let i = 0; i < numWorkers; i++) {
+        for (let i = 0; i < workerCount; i++) {
             pool.push(new WorkerAmrDetector());
         }
-        console.log(`Spawned ${numWorkers} AMR worker(s)`);
+        console.log(`Spawned ${workerCount} AMR worker(s)`);
         commit("SET_WORKERS_AMR", pool);
     },
 
@@ -693,13 +1127,14 @@ export default {
     // ESM / PROTEIN EMBEDDINGS
     async initEmbedderWorkers(context: ActionContext<RootState, RootState>, numWorkers: number) {
         const {commit, state, dispatch} = context;
+        const workerCount = clampWorkerCount(numWorkers);
         for (const worker of state.workerState.workers_esm) {
             worker.terminate();
         }
         // The new instance holds no model, and cubecl's one-shot GPU init is reset with it.
         commit("setEsmModelUnloaded");
         const pool: Worker[] = [];
-        for (let i = 0; i < numWorkers; i++) {
+        for (let i = 0; i < workerCount; i++) {
             pool.push(new WorkerEmbedder());
         }
         
@@ -768,7 +1203,7 @@ export default {
                 }
             };
         });
-        console.log(`Spawned ${numWorkers} embedder worker(s)`);
+        console.log(`Spawned ${workerCount} embedder worker(s)`);
         commit("SET_WORKERS_ESM", pool);
     },
 

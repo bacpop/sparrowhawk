@@ -2,8 +2,7 @@ import { gunzipSync } from "fflate";
 import type { EsmEmbedder } from "@/pkg_esm";
 import { ESM_WEIGHTS_FILE_NAME, loadEsmEncoder, loadEsmWeights } from "@/workers/esmWeights";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type WasmModuleAny = any;
+type EsmModule = typeof import("@/pkg_esm");
 
 export interface EmbedderOptions {
     use_gpu: boolean;
@@ -24,9 +23,9 @@ function isWasmPanic(error: unknown): boolean {
 
 export class Embedder {
     worker: Worker;
-    wasm: WasmModuleAny | null = null;
+    wasm: EsmModule | null = null;
     embedder: EsmEmbedder | null = null;
-    wasmPromise: Promise<WasmModuleAny>;
+    wasmPromise: Promise<EsmModule>;
     private embedderPromise: Promise<void> | null = null;
     private activeBackend: string | null = null;
     private loadedWithGpu: boolean | null = null;
@@ -66,7 +65,7 @@ export class Embedder {
         this.wasmPromise.catch(() => { /* reported when awaited */ });
     }
 
-    waitForWasm(): Promise<WasmModuleAny> {
+    waitForWasm(): Promise<EsmModule> {
         return this.wasm ? Promise.resolve(this.wasm) : this.wasmPromise;
     }
 
