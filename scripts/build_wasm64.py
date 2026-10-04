@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build a local wasm-bindgen web package, without invoking the website build.
 
-Python 3.11+ and nightly Rust with rust-src are required. Example:
+Python 3.9+ and nightly Rust with rust-src are required. Example:
     python3 scripts/build_wasm64.py --crate rust/ska.rust --module ska
 """
 
@@ -11,7 +11,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,27 +29,26 @@ def build(crate: Path, module: str) -> None:
         raise ValueError("The crate must be inside the sparrowhawk folder.")
 
     manifest = crate / "Cargo.toml"
+    # Resolving the dependencies here (rather than reading Cargo.lock) lets the build work without a
+    # committed lockfile, as in CI; cargo writes a local one if it is missing.
     metadata = json.loads(subprocess.check_output([
-        "cargo", "metadata", "--locked", "--no-deps", "--format-version", "1",
+        "cargo", "metadata", "--format-version", "1",
+        "--filter-platform", "wasm64-unknown-unknown",
         "--manifest-path", str(manifest),
     ], cwd=ROOT, text=True))
-    
+
     package = next(p for p in metadata["packages"] if Path(p["manifest_path"]).resolve() == manifest)
     libraries = [t for t in package["targets"] if "cdylib" in t["crate_types"]]
-    
+
     if len(libraries) != 1:
         raise ValueError("Expected one cdylib target in the crate manifest.")
-    
-    lock = Path(metadata["workspace_root"]) / "Cargo.lock"
-    
-    if not lock.resolve().is_relative_to(ROOT):
-        raise ValueError("The crate's workspace and lockfile must be inside sparrowhawk.")
-    
-    with lock.open("rb") as handle:
-        versions = {p["version"] for p in tomllib.load(handle)["package"] if p["name"] == "wasm-bindgen"}
-    
+
+    resolved = {node["id"] for node in metadata["resolve"]["nodes"]}
+    versions = {p["version"] for p in metadata["packages"]
+                if p["name"] == "wasm-bindgen" and p["id"] in resolved}
+
     if len(versions) != 1:
-        raise ValueError("Expected exactly one locked wasm-bindgen version.")
+        raise ValueError("Expected exactly one resolved wasm-bindgen version.")
     
     # Checking versions of wasm-bindgen
     version = versions.pop()
@@ -68,7 +66,7 @@ def build(crate: Path, module: str) -> None:
 
     # The actual build 
     run([
-        "cargo", "+nightly", "build", "--lib", "--locked", "--release",
+        "cargo", "+nightly", "build", "--lib", "--release",
         "--manifest-path", str(manifest), "--target", "wasm64-unknown-unknown",
         "-Z", "build-std=std,panic_abort", "--target-dir", str(target),
     ])
