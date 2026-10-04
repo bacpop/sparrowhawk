@@ -507,11 +507,6 @@ export default {
                     if (data.alignmentProgress.stage === "loading" || data.alignmentProgress.stage === "preparing") return;
                     commit("recordAlignmentProgress", data.alignmentProgress);
                     const progress = data.alignmentProgress;
-                    // Per-sample stages remain active until every sample has passed them.
-                    if (progress.stage === "storing" && samples !== null &&
-                        samples.length > 0 && progress.sampleIndex === baseIndex + samples.length) {
-                        commit("setAlignmentStageStatus", { stage: "distances", status: "complete" });
-                    }
                     // Finalisation stages run sequentially in the alignment worker.
                     if (progress.stage === "tree") {
                         commit("setAlignmentStageStatus", { stage: "tree-distances", status: "complete" });
@@ -552,7 +547,7 @@ export default {
                         acknowledgedCount += 1;
                     }
                     if (samples !== null && acknowledgedCount === samples.length) {
-                        commit("setAlignmentStageStatus", { stage: "storing", status: "complete" });
+                        commit("setAlignmentStageStatus", { stage: "distances", status: "complete" });
                     }
                     pump();
                     return;

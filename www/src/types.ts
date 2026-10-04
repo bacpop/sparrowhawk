@@ -256,7 +256,7 @@ export interface ReadsPreprocessing {
 
 export type AlignmentStage =
     | "loading" | "preparing" | "extracting"
-    | "distances" | "storing" | "obtaining-alignment"
+    | "distances" | "obtaining-alignment"
     | "tree-distances" | "tree" | "exporting";
 
 export interface AlignmentProgress {
