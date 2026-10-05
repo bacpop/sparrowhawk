@@ -66,7 +66,7 @@
               </div>
               <div>
                 <dt class="font-medium text-gray-900">Use canonical k-mers</dt>
-                <dd class="ml-4">It allows to identify identically one k-mer and its reverse-complement. It is recommended when uploading reads.</dd>
+                <dd class="ml-4">It allows to identify identically one k-mer and its reverse-complement. On by default; recommended when uploading reads.</dd>
               </div>
             </dl>
           </TabsContent>

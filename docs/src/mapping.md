@@ -12,7 +12,7 @@ The values in brackets are the default ones:
 - **Proportion of reads** \[1.0\]: a real number between 0 and 1 that allows you to choose, when you upload reads, what fraction of those you want to sample (if you want to do so).
 - **Min Illumina read quality** \[20\]: integer 0–33; filters nucleotides below this quality score.
 - **Quality filter type** \[All bases\]: dropdown; "No filter" / "Middle base" (only the central split-kmer base) / "All bases" (any base in the k-mer).
-- **Use canonical k-mers** \[false\]: accounts for both strand orientations; recommended when using raw reads. Can only be set before uploading any file.
+- **Use canonical k-mers** \[true\]: accounts for both strand orientations; recommended when using raw reads. Can only be set before uploading any file.
 - **Mask ambiguous bases** \[false\]: replaces ambiguous bases in the output with `N`. Can only be set before uploading any file.
 - **Mask repeats** \[false\]: masks repeated regions in the output with `N`. Can only be set before uploading any file.
 

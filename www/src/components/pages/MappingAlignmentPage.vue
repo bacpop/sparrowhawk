@@ -186,7 +186,7 @@
                 <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
               </TooltipTrigger>
               <TooltipContent>
-                <p class="max-w-xs">Recommended to activate when using reads. You can only set it before uploading any file.</p>
+                <p class="max-w-xs">On by default, and recommended when using reads. You can only change it before uploading any file.</p>
               </TooltipContent>
             </Tooltip>
             <label for="rc">
@@ -571,7 +571,7 @@ export default defineComponent({
     const maxExtractionWorkers = getMaxAlignmentExtractionWorkers();
     const alignmentWorkers: Ref<number> = ref(Math.min(2, maxExtractionWorkers));
     const qual_filter: Ref<number> = ref(2);
-    const rc: Ref<boolean> = ref(false);
+    const rc: Ref<boolean> = ref(true);
     const ambig_mask: Ref<boolean> = ref(false);
     const repeat_mask: Ref<boolean> = ref(false);
     const enableClustering: Ref<boolean> = ref(false);
