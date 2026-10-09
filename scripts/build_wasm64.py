@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+WASM64_MAX_MEMORY_BYTES = 16 * 1024 * 1024 * 1024
 
 
 
@@ -69,6 +70,8 @@ def build(crate: Path, module: str) -> None:
         "cargo", "+nightly", "build", "--lib", "--release",
         "--manifest-path", str(manifest), "--target", "wasm64-unknown-unknown",
         "-Z", "build-std=std,panic_abort", "--target-dir", str(target),
+        "--config",
+        f'target.wasm64-unknown-unknown.rustflags=["-C", "link-arg=--max-memory={WASM64_MAX_MEMORY_BYTES}"]',
     ])
 
     # Now, the binding. THis will check (for local runs) and re-install wasm-bindgen-cli if needed.
