@@ -247,6 +247,7 @@ export class Mapper {
             const clusters: ClusterLabels = JSON.parse(wasm.ska_cluster(imported, snp_threshold));
             const graph: TransmissionGraphData = JSON.parse(imported.get_graph_json(snp_threshold));
             this.worker.postMessage({ clustered: true, standalone: true, requestId, clusters, graph,
+                distancesCapped: imported.distances_capped(),
                 elapsedMs: Math.round(performance.now() - t0),
                 wasmMemoryBytes: this.memoryBytes() });
         } catch (error) {

@@ -96,6 +96,7 @@ export const emptyState = (): RootState => ({
     transmissionStandalone: {
         clusterResults: null,
         transmissionGraph: null,
+        distancesCapped: false,
         error: null,
     },
 

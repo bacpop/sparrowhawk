@@ -71,6 +71,7 @@ export interface MetadataRow {
 export interface TransmissionStandaloneResults {
     clusterResults: Dict<number> | null
     transmissionGraph: TransmissionGraphData | null
+    distancesCapped: boolean
     error: string | null
     elapsedMs?: number
     wasmMemoryBytes?: number

@@ -293,9 +293,10 @@ export default {
     setTransmissionStandaloneClusteringState(state: RootState, isClustering: boolean) {
         state.processingState.isTransmissionStandaloneClustering = isClustering;
     },
-    setTransmissionStandaloneClusterResults(state: RootState, input: { clusters: Dict<number>, graph: TransmissionGraphData, elapsedMs?: number, wasmMemoryBytes?: number }) {
+    setTransmissionStandaloneClusterResults(state: RootState, input: { clusters: Dict<number>, graph: TransmissionGraphData, distancesCapped?: boolean, elapsedMs?: number, wasmMemoryBytes?: number }) {
         state.transmissionStandalone.clusterResults = input.clusters;
         state.transmissionStandalone.transmissionGraph = input.graph;
+        state.transmissionStandalone.distancesCapped = input.distancesCapped ?? false;
         state.transmissionStandalone.error = null;
         state.transmissionStandalone.elapsedMs = input.elapsedMs;
         state.transmissionStandalone.wasmMemoryBytes = input.wasmMemoryBytes;
@@ -305,6 +306,7 @@ export default {
         state.transmissionStandalone = {
             clusterResults: null,
             transmissionGraph: null,
+            distancesCapped: false,
             error: null,
         };
     },

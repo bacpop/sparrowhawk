@@ -77,6 +77,10 @@
         {{ transmissionErrorMessage }}
       </div>
 
+      <div v-if="transmissionStandalone.distancesCapped" role="status" class="mx-6 mb-4 p-3 bg-amber-50 border border-amber-300 rounded-md text-sm text-amber-900">
+        One or more imported SNP distances exceeded the supported 32-bit range and were capped. Clustering and reported distances may be underestimates for those pairs.
+      </div>
+
       <div
         v-if="!isTransmissionStandaloneClustering"
         v-bind="getRootPropsTransmission()"
