@@ -471,8 +471,22 @@
           {{ alignmentSummaryLine }}
         </p>
 
-        <div v-if="hasAlignmentResults" class="px-8">
-          <DownloadButtonSkaAlignment />
+        <div v-if="hasAlignmentResults || hasClusterResults" class="px-8 flex flex-wrap gap-6 items-start">
+          <DownloadButtonSkaAlignment v-if="hasAlignmentResults" />
+          <div v-if="hasClusterResults" class="flex flex-col gap-2">
+            <span>Download clusters</span>
+            <Button
+              :disabled="clusterDownloadBusy || isDownloadingClusters"
+              class="max-w-fit cursor-pointer"
+              variant="outline"
+              size="sm"
+              @click="downloadClusters"
+            >
+              <Loader2 v-if="isDownloadingClusters" class="w-4 h-4 mr-2 animate-spin" />
+              <Download v-else class="w-4 h-4 mr-2" />
+              .tsv
+            </Button>
+          </div>
         </div>
 
         <!-- Reset button -->
@@ -484,6 +498,9 @@
         <TransmissionClusterResults
           v-if="hasClusterResults"
           class="mx-6 mt-6"
+          ref="clusterResultsPanel"
+          :downloadDisabled="clusterDownloadBusy"
+          @download-state="isDownloadingClusters = $event"
           :clusterResults="allResults_ska.clusterResults"
           :transmissionGraph="allResults_ska.transmissionGraph"
           :metadataRows="metadataRows"
@@ -504,7 +521,7 @@ import { useStore } from "vuex";
 import VueSlider from 'vue-3-slider-component';
 import VueSelect from "vue3-select-component";
 import "vue3-select-component/styles";
-import { Check, CircleAlert, FileUp, Loader2, Info, Network, TextAlignCenter, TreePine, Trash2 } from "@lucide/vue";
+import { Check, Download, CircleAlert, FileUp, Loader2, Info, Network, TextAlignCenter, TreePine, Trash2 } from "@lucide/vue";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import MappingHelpCollapsible from "@/components/help/MappingHelpCollapsible.vue";
@@ -543,6 +560,7 @@ export default defineComponent({
     FileUp,
     Loader2,
     Check,
+    Download,
     CircleAlert,
     Info,
     Network,
@@ -563,6 +581,13 @@ export default defineComponent({
   },
   setup() {
     const store = useStore();
+    const clusterResultsPanel = ref<InstanceType<typeof TransmissionClusterResults> | null>(null);
+    const isDownloadingClusters = ref(false);
+
+    async function downloadClusters(): Promise<void> {
+      await clusterResultsPanel.value?.downloadClustersTSV();
+    }
+
     const k: Ref<number> = ref(31);
     const min_qual: Ref<number> = ref(20);
     const min_count: Ref<number> = ref(5);
@@ -730,6 +755,9 @@ export default defineComponent({
     });
 
     return {
+      clusterResultsPanel,
+      isDownloadingClusters,
+      downloadClusters,
       store,
       k,
       min_qual,
@@ -765,6 +793,9 @@ export default defineComponent({
     };
   },
   computed: {
+    clusterDownloadBusy(): boolean {
+      return this.isProcessingAny || this.isClustering;
+    },
     skaError(): string | null {
       return this.store.getters.skaError;
     },

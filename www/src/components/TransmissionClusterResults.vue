@@ -2,11 +2,11 @@
   <div>
     <div class="flex items-center justify-between mb-2">
       <h2 class="text-base font-medium">Transmission clusters</h2>
-      <Button @click="downloadClustersTSV" variant="outline" size="sm">
-        <FileDown class="mr-1 h-3 w-3" />
-        Download TSV
-      </Button>
     </div>
+
+    <p v-if="downloadError" class="mb-2 text-sm text-red-600" role="alert">
+      {{ downloadError }}
+    </p>
 
     <div class="max-h-48 overflow-y-auto border border-gray-200 rounded-md text-sm">
       <table class="w-full">
@@ -48,8 +48,6 @@
 
 <script lang="ts">
 import { defineComponent, PropType } from "vue";
-import { FileDown } from "@lucide/vue";
-import { Button } from "@/components/ui/button";
 import TransmissionGraph from "@/components/TransmissionGraph.vue";
 import TransmissionClusterTimeline from "@/components/TransmissionClusterTimeline.vue";
 import { saveTextFile } from "@/platform/files";
@@ -58,12 +56,16 @@ import type { Dict, MetadataRow, TransmissionGraphData } from "@/types";
 export default defineComponent({
   name: "TransmissionClusterResults",
   components: {
-    Button,
-    FileDown,
     TransmissionGraph,
     TransmissionClusterTimeline,
   },
+  emits: ["download-state"],
+  data() { return { isDownloading: false, downloadError: "" }; },
   props: {
+    downloadDisabled: {
+      type: Boolean,
+      default: false,
+    },
     clusterResults: {
       type: Object as PropType<Dict<number> | null>,
       required: false,
@@ -139,8 +141,22 @@ export default defineComponent({
       return row?.location ?? null;
     },
     async downloadClustersTSV(): Promise<void> {
-      const tsv = "Sample\tCluster\n" + this.clusterTableRows.map((row) => `${row.name}\t${row.cluster}`).join("\n");
-      await saveTextFile(tsv, "transmission_clusters.tsv", "text/tab-separated-values;charset=utf-8");
+      if (this.downloadDisabled || this.isDownloading || !this.clusterTableRows.length) return;
+
+      this.isDownloading = true;
+      this.downloadError = "";
+      this.$emit("download-state", true);
+      try {
+        const tsv = "Sample\tCluster\n" + this.clusterTableRows
+          .map((row) => `${row.name}\t${row.cluster}`).join("\n");
+        await saveTextFile(tsv, "transmission_clusters.tsv", "text/tab-separated-values;charset=utf-8");
+      } catch (error) {
+        this.downloadError = error instanceof Error ? error.message : String(error);
+        console.error("[transmission] Cluster download failed", error);
+      } finally {
+        this.isDownloading = false;
+        this.$emit("download-state", false);
+      }
     },
   },
 });

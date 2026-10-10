@@ -108,11 +108,25 @@
         </div>
       </div>
 
-      <div v-if="alignmentFile" class="mx-6 mr-0 mt-4 flex items-center gap-2">
+      <div v-if="alignmentFile" class="mx-6 mr-0 mt-4 flex flex-wrap gap-6 items-start">
         <Button @click="clear" variant="outline" size="sm">
           <Trash2 class="mr-1 h-3 w-3" />
           Clear results
         </Button>
+        <div v-if="hasTransmissionStandaloneClusterResults" class="flex flex-col gap-2">
+          <span>Download clusters</span>
+          <Button
+            :disabled="clusterDownloadBusy || isDownloadingClusters"
+            class="max-w-fit cursor-pointer"
+            variant="outline"
+            size="sm"
+            @click="downloadClusters"
+          >
+            <Loader2 v-if="isDownloadingClusters" class="w-4 h-4 mr-2 animate-spin" />
+            <Download v-else class="w-4 h-4 mr-2" />
+            .tsv
+          </Button>
+        </div>
       </div>
 
       <p v-if="transmissionSummaryLine" class="mx-6 mr-0 mt-4 text-sm text-gray-500">
@@ -122,6 +136,9 @@
       <TransmissionClusterResults
         v-if="hasTransmissionStandaloneClusterResults"
         class="mx-6 mt-6"
+        ref="clusterResultsPanel"
+        :downloadDisabled="clusterDownloadBusy"
+        @download-state="isDownloadingClusters = $event"
         :clusterResults="transmissionStandalone.clusterResults"
         :transmissionGraph="transmissionStandalone.transmissionGraph"
         :metadataRows="metadataRows"
@@ -137,7 +154,7 @@ import { useDropzone } from "vue3-dropzone";
 import { useActions, useState } from "vuex-composition-helpers";
 import { useStore } from "vuex";
 import VueSlider from "vue-3-slider-component";
-import { ChartNetwork, Check, FileUp, Info, Loader2, Network, Trash2 } from "@lucide/vue";
+import { ChartNetwork, Check, Download, FileUp, Info, Loader2, Network, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import TransmissionClusterResults from "@/components/TransmissionClusterResults.vue";
@@ -160,6 +177,7 @@ export default defineComponent({
     Button,
     ChartNetwork,
     Check,
+    Download,
     FileUp,
     Info,
     Loader2,
@@ -175,6 +193,13 @@ export default defineComponent({
   },
   setup() {
     const store = useStore();
+    const clusterResultsPanel = ref<InstanceType<typeof TransmissionClusterResults> | null>(null);
+    const isDownloadingClusters = ref(false);
+
+    async function downloadClusters(): Promise<void> {
+      await clusterResultsPanel.value?.downloadClustersTSV();
+    }
+
     const snp_threshold: Ref<number> = ref(20);
     const alignmentFile: Ref<File | null> = ref(null);
     const alignmentFileName: Ref<string | null> = ref(null);
@@ -244,6 +269,9 @@ export default defineComponent({
     });
 
     return {
+      clusterResultsPanel,
+      isDownloadingClusters,
+      downloadClusters,
       store,
       snp_threshold,
       alignmentFile,
@@ -263,6 +291,9 @@ export default defineComponent({
     };
   },
   computed: {
+    clusterDownloadBusy(): boolean {
+      return this.isTransmissionStandaloneClustering;
+    },
     isTransmissionStandaloneClustering(): boolean {
       return this.store.getters.isTransmissionStandaloneClustering;
     },
