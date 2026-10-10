@@ -65,13 +65,20 @@ def build(crate: Path, module: str) -> None:
 
     target = ROOT / ".wasm64-build" / module
 
+    rustflags = [
+        "-C",
+        f"link-arg=--max-memory={WASM64_MAX_MEMORY_BYTES}",
+    ]
+    if module == "ska":
+        rustflags.extend(["-C", "target-feature=+simd128"])
+
     # The actual build 
     run([
         "cargo", "+nightly", "build", "--lib", "--release",
         "--manifest-path", str(manifest), "--target", "wasm64-unknown-unknown",
         "-Z", "build-std=std,panic_abort", "--target-dir", str(target),
         "--config",
-        f'target.wasm64-unknown-unknown.rustflags=["-C", "link-arg=--max-memory={WASM64_MAX_MEMORY_BYTES}"]',
+        f"target.wasm64-unknown-unknown.rustflags={json.dumps(rustflags)}",
     ])
 
     # Now, the binding. THis will check (for local runs) and re-install wasm-bindgen-cli if needed.
