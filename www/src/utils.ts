@@ -94,6 +94,10 @@ export const emptyState = (): RootState => ({
     gpuAdapters: [],
 
     transmissionStandalone: {
+        tree: null,
+        treeError: null,
+        requestId: null,
+        stage: null,
         clusterResults: null,
         transmissionGraph: null,
         distancesCapped: false,

@@ -1,5 +1,5 @@
 import {RootState} from "@/store/state";
-import type { WasmRuntimeNotice } from "@/types";
+import type { TreeResult, TransmissionStandaloneResults, WasmRuntimeNotice } from "@/types";
 import { retainWasmRuntimeStatus } from "@/wasm/runtime";
 import type { Alignment, AlignmentProgress, AlignmentStage, AlignmentStageStatus } from "@/types";
 import {GeneCallResult, DepletionResult, AmrDetectionResult, Dict, TransmissionGraphData, ProteinEmbeddingResult, EsmRetry, GpuAdapterInfo} from "@/types";
@@ -293,7 +293,18 @@ export default {
     setTransmissionStandaloneClusteringState(state: RootState, isClustering: boolean) {
         state.processingState.isTransmissionStandaloneClustering = isClustering;
     },
-    setTransmissionStandaloneClusterResults(state: RootState, input: { clusters: Dict<number>, graph: TransmissionGraphData, distancesCapped?: boolean, elapsedMs?: number, wasmMemoryBytes?: number }) {
+    setTransmissionStandaloneRequest(state: RootState, requestId: number) {
+        state.transmissionStandalone.requestId = requestId;
+        state.transmissionStandalone.stage = "distances";
+    },
+    setTransmissionStandaloneStage(state: RootState, input: { requestId: number; stage: TransmissionStandaloneResults["stage"] }) {
+        if (state.transmissionStandalone.requestId === input.requestId) state.transmissionStandalone.stage = input.stage;
+    },
+    setTransmissionStandaloneClusterResults(state: RootState, input: { requestId: number, clusters: Dict<number>, graph: TransmissionGraphData, tree?: TreeResult | null, treeError?: string | null, distancesCapped?: boolean, elapsedMs?: number, wasmMemoryBytes?: number }) {
+        if (state.transmissionStandalone.requestId !== input.requestId) return;
+        state.transmissionStandalone.tree = input.tree ?? null;
+        state.transmissionStandalone.treeError = input.treeError ?? null;
+        state.transmissionStandalone.stage = null;
         state.transmissionStandalone.clusterResults = input.clusters;
         state.transmissionStandalone.transmissionGraph = input.graph;
         state.transmissionStandalone.distancesCapped = input.distancesCapped ?? false;
@@ -306,6 +317,10 @@ export default {
         state.transmissionStandalone = {
             clusterResults: null,
             transmissionGraph: null,
+            tree: null,
+            treeError: null,
+            requestId: null,
+            stage: null,
             distancesCapped: false,
             error: null,
         };

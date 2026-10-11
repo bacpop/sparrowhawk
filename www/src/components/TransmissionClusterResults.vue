@@ -50,6 +50,8 @@
 import { defineComponent, PropType } from "vue";
 import TransmissionGraph from "@/components/TransmissionGraph.vue";
 import TransmissionClusterTimeline from "@/components/TransmissionClusterTimeline.vue";
+import { buildSampleMetadataIndex, adjustClusterAssignments } from "@/utils/transmissionMetadata";
+import type { SampleMetadataIndex } from "@/utils/transmissionMetadata";
 import { saveTextFile } from "@/platform/files";
 import type { Dict, MetadataRow, TransmissionGraphData } from "@/types";
 
@@ -86,23 +88,11 @@ export default defineComponent({
     },
   },
   computed: {
+    metadataIndex(): SampleMetadataIndex {
+      return buildSampleMetadataIndex(Object.keys(this.clusterResults ?? {}), this.metadataRows);
+    },
     adjustedClusterResults(): Record<string, number> | null {
-      if (!this.clusterResults || !this.enableLocationMatching || !this.metadataRows.length) {
-        return this.clusterResults;
-      }
-
-      const keyToId = new Map<string, number>();
-      let nextId = 1;
-      const result: Record<string, number> = {};
-      for (const [name, cluster] of Object.entries(this.clusterResults)) {
-        const loc = this.sampleLocation(name) ?? '';
-        const key = `${cluster}:${loc}`;
-        if (!keyToId.has(key)) {
-          keyToId.set(key, nextId++);
-        }
-        result[name] = keyToId.get(key)!;
-      }
-      return result;
+      return adjustClusterAssignments(this.clusterResults, this.metadataIndex, this.enableLocationMatching);
     },
     clusterTableRows(): { name: string; cluster: number }[] {
       const results = this.adjustedClusterResults;
@@ -114,10 +104,7 @@ export default defineComponent({
         .sort((a, b) => a.cluster - b.cluster || a.name.localeCompare(b.name));
     },
     hasTimelineMatches(): boolean {
-      return this.clusterTableRows.some((row) => {
-        const [prefix] = row.name.split(".");
-        return this.metadataRows.some((metadataRow) => (metadataRow.id === prefix || metadataRow.id === row.name) && Boolean(metadataRow.date));
-      });
+      return this.clusterTableRows.some(row => Boolean(this.metadataIndex.rowsBySample.get(row.name)?.date));
     },
     transmissionGraphNodes() {
       const nodes = this.transmissionGraph?.nodes ?? [];
@@ -135,11 +122,6 @@ export default defineComponent({
     },
   },
   methods: {
-    sampleLocation(name: string): string | null {
-      const prefix = name.replace(/(?:\.[^.]+)+$/, '');
-      const row = this.metadataRows.find((metadataRow) => metadataRow.id === prefix || metadataRow.id === name);
-      return row?.location ?? null;
-    },
     async downloadClustersTSV(): Promise<void> {
       if (this.downloadDisabled || this.isDownloading || !this.clusterTableRows.length) return;
 

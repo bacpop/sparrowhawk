@@ -1,5 +1,6 @@
 import { loadWasmPackage } from "@/wasm/loader";
 import { skaPackage } from "@/wasm/packages/ska";
+import type { TreeResult } from "@/types";
 import type { AlignData, SkaData } from "@/pkg_ska";
 
 // These interfaces are those of the JSONs for retrieving info and returning info
@@ -10,9 +11,7 @@ interface MapResult {
     "VCF": string;
 }
 
-interface AlignResult {
-    names: string[];
-    newick: string;
+interface AlignResult extends TreeResult {
     alignmentAvailable: boolean;
 }
 
@@ -175,6 +174,7 @@ export class Mapper {
                 aligned: true,
                 runId,
                 names: results.names,
+                treeTipNames: results.treeTipNames,
                 newick: results.newick,
                 alignmentAvailable: results.alignmentAvailable,
                 alignmentFrozen: false,
@@ -241,12 +241,22 @@ export class Mapper {
         try {
             const t0 = performance.now();
             const wasm = await this.waitForWasm();
+            this.worker.postMessage({ standalone: true, requestId, stage: "distances" });
             const alignmentText = await file.text();
             const imported: AlignData = wasm.AlignData.from_alignment_text(alignmentText);
             alignData = imported;
+            this.worker.postMessage({ standalone: true, requestId, stage: "clustering" });
             const clusters: ClusterLabels = JSON.parse(wasm.ska_cluster(imported, snp_threshold));
             const graph: TransmissionGraphData = JSON.parse(imported.get_graph_json(snp_threshold));
-            this.worker.postMessage({ clustered: true, standalone: true, requestId, clusters, graph,
+            this.worker.postMessage({ standalone: true, requestId, stage: "tree" });
+            let tree: TreeResult | null = null;
+            let treeError: string | null = null;
+            try {
+                tree = JSON.parse(imported.build_tree());
+            } catch (error) {
+                treeError = error instanceof Error ? error.message : String(error);
+            }
+            this.worker.postMessage({ clustered: true, standalone: true, requestId, clusters, graph, tree, treeError,
                 distancesCapped: imported.distances_capped(),
                 elapsedMs: Math.round(performance.now() - t0),
                 wasmMemoryBytes: this.memoryBytes() });

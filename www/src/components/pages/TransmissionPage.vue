@@ -78,7 +78,7 @@
       </div>
 
       <div v-if="transmissionStandalone.distancesCapped" role="status" class="mx-6 mb-4 p-3 bg-amber-50 border border-amber-300 rounded-md text-sm text-amber-900">
-        One or more imported SNP distances exceeded the supported 32-bit range and were capped. Clustering and reported distances may be underestimates for those pairs.
+        One or more imported SNP distances exceeded the supported 32-bit range and were capped. Clustering, reported distances, and tree distances may be underestimates for those pairs.
       </div>
 
       <div
@@ -97,7 +97,7 @@
 
       <div v-else class="p-6 mx-6 bg-amber-50 border border-amber-400 rounded-md flex flex-col justify-center items-center gap-2 text-gray-600">
         <Loader2 class="w-6 h-6 text-amber-500 animate-spin" />
-        <p class="text-sm text-gray-500">Clustering...</p>
+        <p class="text-sm text-gray-500">{{ transmissionProgressText }}</p>
       </div>
 
       <div v-if="alignmentFileName" class="mx-6 mr-0 mt-4 max-h-48 overflow-y-auto">
@@ -144,6 +144,15 @@
         :metadataRows="metadataRows"
         :enableLocationMatching="enableLocationMatching"
       />
+      <section v-if="hasTransmissionStandaloneClusterResults" class="mx-6 mt-6 min-w-0">
+        <h2 class="text-base font-medium mb-2">Tree</h2>
+        <p v-if="transmissionStandalone.treeError" class="mb-2 text-sm text-red-600" role="alert">
+          {{ transmissionStandalone.treeError }}
+        </p>
+        <TaxoniumTree v-else :tree="transmissionStandalone.tree"
+          :cluster-results="transmissionStandalone.clusterResults" :metadata-rows="metadataRows"
+          :enable-location-matching="enableLocationMatching" />
+      </section>
     </div>
   </div>
 </template>
@@ -157,6 +166,7 @@ import VueSlider from "vue-3-slider-component";
 import { ChartNetwork, Check, Download, FileUp, Info, Loader2, Network, Trash2 } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import TaxoniumTree from "@/components/TaxoniumTree.vue";
 import TransmissionClusterResults from "@/components/TransmissionClusterResults.vue";
 import TransmissionHelpCollapsible from "@/components/help/TransmissionHelpCollapsible.vue";
 import { parseTransmissionMetadataCsv } from "@/utils/transmissionMetadata";
@@ -188,6 +198,7 @@ export default defineComponent({
     TooltipProvider,
     TooltipTrigger,
     TransmissionClusterResults,
+    TaxoniumTree,
     TransmissionHelpCollapsible,
     VueSlider,
   },
@@ -291,6 +302,13 @@ export default defineComponent({
     };
   },
   computed: {
+    transmissionProgressText(): string {
+      switch (this.transmissionStandalone.stage) {
+        case "clustering": return "Computing transmission clusters…";
+        case "tree": return "Building the neighbour-joining tree…";
+        default: return "Reading alignment and computing distances…";
+      }
+    },
     clusterDownloadBusy(): boolean {
       return this.isTransmissionStandaloneClustering;
     },

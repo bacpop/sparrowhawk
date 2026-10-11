@@ -62,8 +62,8 @@
 
       <div v-else-if="tabName === 'Alignment'">
         <MappingAlignmentPage :tabName="tabName">
-          <template #alignment>
-            <ResultsDisplayAlignment class="mt-6 mx-6 border-t border-t-gray-200 pt-6"/>
+          <template #alignment="{ metadataRows, enableLocationMatching }">
+            <ResultsDisplayAlignment :metadata-rows="metadataRows" :enable-location-matching="enableLocationMatching" class="mt-6 mx-6 border-t border-t-gray-200 pt-6"/>
           </template>
         </MappingAlignmentPage>
       </div>

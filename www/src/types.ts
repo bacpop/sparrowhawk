@@ -38,10 +38,17 @@ export interface IsolateMapping {
     wasmMemoryBytes?: number
 }
 
+export interface TreeResult {
+    names: string[];
+    treeTipNames?: string[];
+    newick: string;
+}
+
 export interface Alignment {
     aligned: boolean
     names?: string[]
     newick?: string
+    treeTipNames?: string[]
     runId: number
     k: number
     rc: boolean
@@ -69,6 +76,10 @@ export interface MetadataRow {
 }
 
 export interface TransmissionStandaloneResults {
+    tree: TreeResult | null
+    treeError: string | null
+    requestId: number | null
+    stage: "distances" | "clustering" | "tree" | null
     clusterResults: Dict<number> | null
     transmissionGraph: TransmissionGraphData | null
     distancesCapped: boolean

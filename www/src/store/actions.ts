@@ -748,18 +748,26 @@ export default {
         const requestId = ++skaRequestCounter;
         commit("setTransmissionStandaloneClusteringState", true);
         commit("resetTransmissionStandaloneResults");
+        commit("setTransmissionStandaloneRequest", requestId);
         return new Promise<void>((resolve) => {
             const finish = (error?: string, data?: Record<string, unknown>) => {
                 worker.removeEventListener("message", onMessage);
                 worker.removeEventListener("error", onError);
                 commit("setTransmissionStandaloneClusteringState", false);
-                if (error) commit("setTransmissionStandaloneError", error);
-                else if (data) commit("setTransmissionStandaloneClusterResults", data);
+                if (state.transmissionStandalone.requestId === requestId) {
+                    commit("setTransmissionStandaloneStage", { requestId, stage: null });
+                    if (error) commit("setTransmissionStandaloneError", error);
+                    else if (data) commit("setTransmissionStandaloneClusterResults", data);
+                }
                 resolve();
             };
             const onMessage = (event: MessageEvent) => {
                 const data = event.data;
                 if (data?.requestId !== requestId || !data.standalone) return;
+                if (["distances", "clustering", "tree"].includes(data.stage)) {
+                    commit("setTransmissionStandaloneStage", { requestId, stage: data.stage });
+                    return;
+                }
                 if (data.clusterError) finish(String(data.message));
                 else if (data.clustered) finish(undefined, data);
             };

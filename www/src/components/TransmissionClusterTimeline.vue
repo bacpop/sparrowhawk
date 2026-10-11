@@ -4,18 +4,14 @@
 
 <script lang="ts">
 import { defineComponent, PropType } from "vue";
+import type { MetadataRow } from "@/types";
+import { buildSampleMetadataIndex } from "@/utils/transmissionMetadata";
 // @ts-ignore - plotly.js-dist doesn't have types
 import Plotly from 'plotly.js-dist';
 
 interface ClusterRow {
   name: string;
   cluster: number;
-}
-
-interface MetadataRow {
-  id: string;
-  date: string;
-  location: string;
 }
 
 interface PreparedPoint {
@@ -42,11 +38,10 @@ export default defineComponent({
 
   computed: {
     preparedData(): PreparedPoint[] {
-      // Join cluster rows with metadata by matching sample name (strip file extensions)
+      const metadataIndex = buildSampleMetadataIndex(this.clusterRows.map(row => row.name), this.metadataRows);
       const joined: { cluster: number; date: string }[] = [];
       for (const row of this.clusterRows) {
-        const prefix = row.name.replace(/(?:\.[^.]+)+$/, '');
-        const meta = this.metadataRows.find(m => m.id === prefix || m.id === row.name);
+        const meta = metadataIndex.rowsBySample.get(row.name);
         if (meta?.date) {
           joined.push({ cluster: row.cluster, date: meta.date });
         }

@@ -507,7 +507,7 @@
           :enableLocationMatching="enableLocationMatching"
         />
 
-        <slot name="alignment"/>
+        <slot name="alignment" :metadata-rows="metadataRows" :enable-location-matching="enableLocationMatching"/>
       </div>
     </div>
   </div>
