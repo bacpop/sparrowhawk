@@ -5,6 +5,7 @@ import WorkerCaller from '@/workers/Caller.worker';
 import WorkerAmrDetector from '@/workers/AmrDetector.worker';
 import WorkerEmbedder from '@/workers/Embedder.worker';
 import WorkerAlignmentExtractor from '@/workers/AlignmentExtractor.worker';
+import type { AggregationFineProfile } from '@/workers/Mapper';
 import { observeWasmRuntime } from '@/wasm/runtime';
 import {
     clampWorkerCount,
@@ -51,6 +52,60 @@ interface ExtractedAlignmentSample {
     sampleName: string;
     packedKmers: Uint32Array;
     elapsedMs: number;
+    wasmWaitMs: number;
+    extractionCallMs: number;
+    workerStartedAtEpochMs: number;
+    workerFinishedAtEpochMs: number;
+}
+
+// Temporary alignment profiling data; remove after the bottleneck investigation.
+interface AlignmentSampleProfile {
+    scheduledAtEpochMs: number;
+    extractedAtEpochMs: number | null;
+    aggregatorPostedAtEpochMs: number | null;
+    kmerCount: number;
+    packedKmerBytes: number;
+    extractionQueueMs: number;
+    wasmWaitMs: number;
+    extractionCallMs: number;
+    extractionReturnMs: number;
+    orderBufferWaitMs: number;
+    aggregationQueueMs: number;
+    aggregationWasmCallMs: number;
+    aggregationRustMs: number | null;
+    aggregationInnerTimingAvailable: boolean;
+    aggregationUnpackEntryMs: number;
+    aggregationHashLookupMs: number;
+    aggregationSampledBlockMs: number;
+    aggregationFineProfile: AggregationFineProfile | null;
+    aggregationProfileSampledEntries: number;
+    aggregationProfileTotalEntries: number;
+    aggregationProfileSampledUpdateEntries: number;
+    aggregationProfileSampleInterval: number;
+    aggregationProfileSampleBlockEntries: number;
+    aggregationProfileSampledLookupHits: number;
+    aggregationResizeBlockMs: number;
+    aggregationResizeBlocks: number;
+    aggregationPostToAckMs: number;
+}
+
+function epochNowMs(): number {
+    return performance.timeOrigin + performance.now();
+}
+
+function summarizeProfileTimes(values: number[]): Record<string, number> {
+    const sorted = values.filter(Number.isFinite).sort((left, right) => left - right);
+    if (sorted.length === 0) return { count: 0, totalMs: 0, meanMs: 0, medianMs: 0, p95Ms: 0 };
+    const total = sorted.reduce((sum, value) => sum + value, 0);
+    const percentile = (fraction: number) => sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
+    const rounded = (value: number) => Math.round(value * 10) / 10;
+    return {
+        count: sorted.length,
+        totalMs: rounded(total),
+        meanMs: rounded(total / sorted.length),
+        medianMs: rounded(percentile(0.5)),
+        p95Ms: rounded(percentile(0.95)),
+    };
 }
 
 function clearEsmWatchdog(): void {
@@ -338,6 +393,7 @@ export default {
             requestedWorkers,
             getMaxAlignmentExtractionWorkers(),
         );
+        const profileRunStartedAtEpochMs = epochNowMs();
 
         // Create pool (array) of workers, catching errors always if possible
         const extractors: Worker[] = [];
@@ -372,10 +428,16 @@ export default {
             let extractedCount = 0;
             let acknowledgedCount = 0;
             let poolTerminated = false;
+            let setupElapsedMs: number | undefined;
+            let firstExtractionScheduledAtEpochMs: number | null = null;
+            let lastExtractionReceivedAtEpochMs: number | null = null;
+            let firstAggregatorPostedAtEpochMs: number | null = null;
+            let lastAggregatorAcknowledgedAtEpochMs: number | null = null;
 
             const runningByWorker = new Map<number, number>();
             const pendingResults = new Map<number, ExtractedAlignmentSample>();
             const acknowledgedSamples = new Set<number>();
+            const alignmentProfiles = new Map<number, AlignmentSampleProfile>();
             const wordWidth = payload.k < 32 ? 2 : 4;
 
             // Helper methods/functions. TODO: move out  from here (although we'd need to fix the arguments)
@@ -438,12 +500,24 @@ export default {
                     const sample = pendingResults.get(baseIndex + nextSampleToAdd)!;
                     pendingResults.delete(baseIndex + nextSampleToAdd);
                     try {
+                        const postedAtEpochMs = epochNowMs();
+                        const profile = alignmentProfiles.get(sample.sampleIndex);
+                        if (profile) {
+                            profile.aggregatorPostedAtEpochMs = postedAtEpochMs;
+                            if (profile.extractedAtEpochMs !== null) {
+                                profile.orderBufferWaitMs = Math.max(0, postedAtEpochMs - profile.extractedAtEpochMs);
+                            }
+                        }
+                        if (firstAggregatorPostedAtEpochMs === null) {
+                            firstAggregatorPostedAtEpochMs = postedAtEpochMs;
+                        }
                         aggregator.postMessage({
                             addAlignmentSample: true,
                             runId,
                             sampleIndex: sample.sampleIndex,
                             sampleName: sample.sampleName,
                             packedKmers: sample.packedKmers,
+                            postedAtEpochMs,
                         }, [sample.packedKmers.buffer as ArrayBuffer]);
                     } catch (error) {
                         fail(error);
@@ -476,12 +550,46 @@ export default {
 
                     nextSampleToSchedule += 1;
                     runningByWorker.set(workerIndex, sample.sampleIndex);
+                    const scheduledAtEpochMs = epochNowMs();
+                    if (firstExtractionScheduledAtEpochMs === null) {
+                        firstExtractionScheduledAtEpochMs = scheduledAtEpochMs;
+                    }
+                    alignmentProfiles.set(sample.sampleIndex, {
+                        scheduledAtEpochMs,
+                        extractedAtEpochMs: null,
+                        aggregatorPostedAtEpochMs: null,
+                        kmerCount: 0,
+                        packedKmerBytes: 0,
+                        extractionQueueMs: 0,
+                        wasmWaitMs: 0,
+                        extractionCallMs: 0,
+                        extractionReturnMs: 0,
+                        orderBufferWaitMs: 0,
+                        aggregationQueueMs: 0,
+                        aggregationWasmCallMs: 0,
+                        aggregationRustMs: null,
+                        aggregationInnerTimingAvailable: false,
+                        aggregationUnpackEntryMs: 0,
+                        aggregationHashLookupMs: 0,
+                        aggregationSampledBlockMs: 0,
+                        aggregationFineProfile: null,
+                        aggregationProfileSampledEntries: 0,
+                        aggregationProfileTotalEntries: 0,
+                        aggregationProfileSampledUpdateEntries: 0,
+                        aggregationProfileSampleInterval: 0,
+                        aggregationProfileSampleBlockEntries: 0,
+                        aggregationProfileSampledLookupHits: 0,
+                        aggregationResizeBlockMs: 0,
+                        aggregationResizeBlocks: 0,
+                        aggregationPostToAckMs: 0,
+                    });
                     try {
                         pool[workerIndex].postMessage({
                             extractSample: true,
                             runId,
                             sampleIndex: sample.sampleIndex,
                             sampleName: sample.name,
+                            scheduledAtEpochMs,
                             firstFile,
                             secondFile,
                             k: payload.k,
@@ -525,6 +633,7 @@ export default {
                         return;
                     }
                     samples = data.samples as AlignmentSamplePlan[];
+                    setupElapsedMs = data.setupElapsedMs;
                     commit("recordAlignmentProgress", {
                         stage: "extracting",
                         sampleIndex: baseIndex,
@@ -542,6 +651,35 @@ export default {
 
 
                 if (data.alignmentSampleAdded) {
+                    const acknowledgedAtEpochMs = epochNowMs();
+                    lastAggregatorAcknowledgedAtEpochMs = acknowledgedAtEpochMs;
+                    const profile = alignmentProfiles.get(data.sampleIndex);
+                    if (profile) {
+                        profile.aggregationQueueMs = data.queueElapsedMs;
+                        profile.aggregationWasmCallMs = data.wasmCallElapsedMs;
+                        profile.aggregationRustMs = Number.isFinite(data.rustCoreElapsedMs)
+                            ? data.rustCoreElapsedMs
+                            : null;
+                        profile.aggregationInnerTimingAvailable = data.aggregationInnerTimingAvailable === true;
+                        profile.aggregationUnpackEntryMs = data.aggregationUnpackEntryMs;
+                        profile.aggregationHashLookupMs = data.aggregationHashLookupMs;
+                        profile.aggregationSampledBlockMs = data.aggregationSampledBlockMs;
+                        profile.aggregationFineProfile = data.aggregationFineProfile ?? null;
+                        profile.aggregationProfileSampledEntries = data.aggregationProfileSampledEntries;
+                        profile.aggregationProfileTotalEntries = data.aggregationProfileTotalEntries;
+                        profile.aggregationProfileSampledUpdateEntries = data.aggregationProfileSampledUpdateEntries;
+                        profile.aggregationProfileSampleInterval = data.aggregationProfileSampleInterval;
+                        profile.aggregationProfileSampleBlockEntries = data.aggregationProfileSampleBlockEntries;
+                        profile.aggregationProfileSampledLookupHits = data.aggregationProfileSampledLookupHits;
+                        profile.aggregationResizeBlockMs = data.aggregationResizeBlockMs;
+                        profile.aggregationResizeBlocks = data.aggregationResizeBlocks;
+                        if (profile.aggregatorPostedAtEpochMs !== null) {
+                            profile.aggregationPostToAckMs = Math.max(
+                                0,
+                                acknowledgedAtEpochMs - profile.aggregatorPostedAtEpochMs,
+                            );
+                        }
+                    }
                     if (!acknowledgedSamples.has(data.sampleIndex)) {
                         acknowledgedSamples.add(data.sampleIndex);
                         acknowledgedCount += 1;
@@ -559,6 +697,179 @@ export default {
                         fail(new Error("The alignment worker returned invalid compressed outputs."));
                         return;
                     }
+                    const profiles = Array.from(alignmentProfiles.values());
+                    const sum = (selector: (profile: AlignmentSampleProfile) => number) =>
+                        profiles.reduce((total, profile) => total + selector(profile), 0);
+                    const rounded = (value: number) => Math.round(value * 10) / 10;
+                    const totalKmers = sum((profile) => profile.kmerCount);
+                    const totalPackedKmerBytes = sum((profile) => profile.packedKmerBytes);
+                    const rustCoreTimingAvailable = profiles.length > 0 &&
+                        profiles.every((profile) => profile.aggregationRustMs !== null);
+                    const aggregationInnerTimingAvailable = profiles.length > 0 &&
+                        profiles.every((profile) => profile.aggregationInnerTimingAvailable);
+                    const sumInner = (selector: (profile: AlignmentSampleProfile) => number) =>
+                        sum((profile) => {
+                            const value = selector(profile);
+                            return Number.isFinite(value) ? value : 0;
+                        });
+                    const aggregationRustCoreTotalMs = rustCoreTimingAvailable
+                        ? sum((profile) => profile.aggregationRustMs ?? 0)
+                        : null;
+                    const replayProfiles = profiles
+                        .map((profile) => profile.aggregationFineProfile)
+                        .filter((profile): profile is AggregationFineProfile => profile !== null);
+                    const sumReplay = (selector: (profile: AggregationFineProfile) => number) =>
+                        replayProfiles.reduce((total, profile) => total + selector(profile), 0);
+                    const replaySampledEntries = sumReplay((profile) => profile.sampledEntries);
+                    const replayAvailable = replayProfiles.length === profiles.length && replaySampledEntries > 0;
+                    const replayTotalEstimatedMs = sumReplay((profile) =>
+                        profile.monomorphicAppendMs + profile.siteTransitionMs +
+                        profile.polymorphicUpdateMs + profile.newGroupCreationMs +
+                        profile.distanceAccumulationMs,
+                    );
+                    const replaySharePercent = (selector: (profile: AggregationFineProfile) => number) =>
+                        replayTotalEstimatedMs > 0 ? rounded(sumReplay(selector) * 100 / replayTotalEstimatedMs) : null;
+                    const replayTimes = (selector: (profile: AggregationFineProfile) => number) =>
+                        summarizeProfileTimes(replayProfiles.map(selector));
+                    const observedReplayTimes = (selector: (profile: AggregationFineProfile) => number) =>
+                        summarizeProfileTimes(replayProfiles.map((profile) => profile.totalEntries > 0
+                            ? selector(profile) * profile.sampledEntries / profile.totalEntries
+                            : 0,
+                        ));
+                    const percentOfCore = (timeMs: number) =>
+                        aggregationRustCoreTotalMs !== null && aggregationRustCoreTotalMs > 0
+                            ? rounded(timeMs * 100 / aggregationRustCoreTotalMs)
+                            : null;
+                    const aggregationInnerProfile = {
+                        available: aggregationInnerTimingAvailable,
+                        sampleIntervalEntries: Number.isFinite(profiles[0]?.aggregationProfileSampleInterval)
+                            ? profiles[0]?.aggregationProfileSampleInterval
+                            : null,
+                        sampleBlockEntries: Number.isFinite(profiles[0]?.aggregationProfileSampleBlockEntries)
+                            ? profiles[0]?.aggregationProfileSampleBlockEntries
+                            : null,
+                        sampledEntries: sumInner((profile) => profile.aggregationProfileSampledEntries),
+                        sampledUpdateEntries: sumInner((profile) =>
+                            profile.aggregationProfileSampledUpdateEntries,
+                        ),
+                        totalEntries: sumInner((profile) => profile.aggregationProfileTotalEntries),
+                        sampledLookupHits: sumInner((profile) =>
+                            profile.aggregationProfileSampledLookupHits,
+                        ),
+                        unpackEntry: summarizeProfileTimes(profiles.map((profile) =>
+                            profile.aggregationUnpackEntryMs,
+                        )),
+                        hashLookup: summarizeProfileTimes(profiles.map((profile) =>
+                            profile.aggregationHashLookupMs,
+                        )),
+                        sampledAggregationBlock: {
+                            ...summarizeProfileTimes(profiles.map((profile) => profile.aggregationSampledBlockMs)),
+                            estimatedCoverageOfRustCorePercent: aggregationInnerTimingAvailable
+                                ? percentOfCore(sumInner((profile) => profile.aggregationSampledBlockMs))
+                                : null,
+                        },
+                        postingsResizeBlocks: {
+                            totalBlockMs: rounded(sumInner((profile) => profile.aggregationResizeBlockMs)),
+                            sampledBlocks: sumInner((profile) => profile.aggregationResizeBlocks),
+                        },
+                        operationReplay: {
+                            available: replayAvailable,
+                            schemaVersion: replayProfiles[0]?.schemaVersion ?? null,
+                            sampledEntries: replaySampledEntries,
+                            skippedBlocks: sumReplay((profile) => profile.skippedBlocks),
+                            scratchPreparationMs: rounded(sumReplay((profile) => profile.scratchPreparationMs)),
+                            observedDiagnosticWallMs: rounded(sumReplay((profile) => profile.diagnosticWallMs)),
+                            observedDiagnosticShareOfRustCorePercent: percentOfCore(sumReplay((profile) => profile.diagnosticWallMs)),
+                            monomorphicAppend: {
+                                estimatedTimes: replayTimes((profile) => profile.monomorphicAppendMs),
+                                observedTimes: observedReplayTimes((profile) => profile.monomorphicAppendMs),
+                                sampledEntries: sumReplay((profile) => profile.monomorphicEntries),
+                            },
+                            siteTransition: {
+                                estimatedTimes: replayTimes((profile) => profile.siteTransitionMs),
+                                observedTimes: observedReplayTimes((profile) => profile.siteTransitionMs),
+                                sampledEntries: sumReplay((profile) => profile.transitionEntries),
+                            },
+                            polymorphicUpdate: {
+                                estimatedTimes: replayTimes((profile) => profile.polymorphicUpdateMs),
+                                observedTimes: observedReplayTimes((profile) => profile.polymorphicUpdateMs),
+                                sampledEntries: sumReplay((profile) => profile.polymorphicEntries),
+                            },
+                            newGroupCreation: {
+                                estimatedTimes: replayTimes((profile) => profile.newGroupCreationMs),
+                                observedTimes: observedReplayTimes((profile) => profile.newGroupCreationMs),
+                                sampledEntries: sumReplay((profile) => profile.newSiteEntries),
+                            },
+                            distanceAccumulation: {
+                                estimatedTimes: replayTimes((profile) => profile.distanceAccumulationMs),
+                                observedTimes: observedReplayTimes((profile) => profile.distanceAccumulationMs),
+                                sampledGroups: sumReplay((profile) => profile.distanceGroups),
+                                sampledIds: sumReplay((profile) => profile.distanceIds),
+                            },
+                            estimatedOperationTotalMs: rounded(replayTotalEstimatedMs),
+                            shareOfReplayEstimatesPercent: {
+                                monomorphicAppend: replaySharePercent((profile) => profile.monomorphicAppendMs),
+                                siteTransition: replaySharePercent((profile) => profile.siteTransitionMs),
+                                polymorphicUpdate: replaySharePercent((profile) => profile.polymorphicUpdateMs),
+                                newGroupCreation: replaySharePercent((profile) => profile.newGroupCreationMs),
+                                distanceAccumulation: replaySharePercent((profile) => profile.distanceAccumulationMs),
+                            },
+                            note: "Independent batched replays on temporary site copies with original capacities; distances use the production accumulation routine and a scratch row. Site-update replays exclude distance arithmetic. Scratch preparation and destruction are outside operation clocks but included in diagnostic wall time. Estimates are scaled by sampled entry coverage and reflect scratch/cache behaviour; they are not exclusive phases of real aggregation. New-group creation excludes hash-map insertion. Counts are observed, not extrapolated. Allocation failures skip diagnostics without aborting alignment.",
+                        },
+                        note: aggregationInnerTimingAvailable
+                            ? "Profile timings sample contiguous 4,096-entry blocks every 262,144 entries. Unpack and lookup are independent prepasses. Sampled aggregation blocks include unpacking, lookup, site updates, and distances; no prepass times are subtracted. These overlapping measurements must not be added. Prepasses and diagnostic replays warm caches and add work included in Rust core timing. Blocks containing postings-map growth are excluded from the scaled block estimate and reported at full observed duration."
+                            : "The internal profile is unavailable or incompatible; rebuild the SKA WASM package to match this frontend.",
+                    };
+                    // One copyable line preserves nested fields in exported
+                    // browser logs even when DevTools displays only 'Object'.
+                    console.info("[ska-align] Internal aggregation profile JSON", JSON.stringify({ runId, ...aggregationInnerProfile }));
+                    console.info("[ska-align] Profile summary", {
+                        runId,
+                        samples: profiles.length,
+                        totalKmers,
+                        totalPackedKmerBytes,
+                        k: payload.k,
+                        minCount: payload.min_count,
+                        extractionWorkers: pool.length,
+                        setupMs: setupElapsedMs,
+                        endToEndWallMs: rounded(epochNowMs() - profileRunStartedAtEpochMs),
+                        alignmentWallMs: data.elapsedMs,
+                        extractionDispatchToLastResultMs:
+                            firstExtractionScheduledAtEpochMs !== null && lastExtractionReceivedAtEpochMs !== null
+                                ? rounded(lastExtractionReceivedAtEpochMs - firstExtractionScheduledAtEpochMs)
+                                : 0,
+                        extractionWorkerQueue: summarizeProfileTimes(profiles.map((profile) => profile.extractionQueueMs)),
+                        extractionWasmWait: summarizeProfileTimes(profiles.map((profile) => profile.wasmWaitMs)),
+                        extractionCall: summarizeProfileTimes(profiles.map((profile) => profile.extractionCallMs)),
+                        extractionResultDelivery: summarizeProfileTimes(profiles.map((profile) => profile.extractionReturnMs)),
+                        extractionCallTotalMs: rounded(sum((profile) => profile.extractionCallMs)),
+                        aggregationDispatchToLastAckMs:
+                            firstAggregatorPostedAtEpochMs !== null && lastAggregatorAcknowledgedAtEpochMs !== null
+                                ? rounded(lastAggregatorAcknowledgedAtEpochMs - firstAggregatorPostedAtEpochMs)
+                                : 0,
+                        aggregationWorkerQueue: summarizeProfileTimes(profiles.map((profile) => profile.aggregationQueueMs)),
+                        aggregationWasmCall: summarizeProfileTimes(profiles.map((profile) => profile.aggregationWasmCallMs)),
+                        rustCoreTimingAvailable,
+                        aggregationRustCore: summarizeProfileTimes(profiles.map((profile) =>
+                            profile.aggregationRustMs ?? Number.NaN,
+                        )),
+                        aggregationInnerProfile,
+                        wasmCallOutsideRust: summarizeProfileTimes(profiles.map((profile) =>
+                            profile.aggregationRustMs === null
+                                ? Number.NaN
+                                : Math.max(0, profile.aggregationWasmCallMs - profile.aggregationRustMs),
+                        )),
+                        aggregationPostToAck: summarizeProfileTimes(profiles.map((profile) => profile.aggregationPostToAckMs)),
+                        extractionOrderBufferWait: summarizeProfileTimes(profiles.map((profile) => profile.orderBufferWaitMs)),
+                        finishAlignmentMs: data.finishAlignmentMs,
+                        finishResultParseMs: data.finishResultParseMs,
+                        distancesCsvGzipMs: data.distancesCsvGzipMs,
+                        rustAggregationMsPerMillionKmers: rustCoreTimingAvailable && totalKmers > 0
+                            ? rounded(sum((profile) => profile.aggregationRustMs ?? 0) * 1_000_000 / totalKmers)
+                            : null,
+                        wasmMemoryBytes: data.wasmMemoryBytes,
+                        note: "Extraction and aggregation overlap; worker-time totals are not additive wall time.",
+                    });
                     finish(undefined, { ...data, invalidated: false, alignmentDownloadError: null });
                     return;
                 }
@@ -596,6 +907,24 @@ export default {
                     }
                     pendingResults.set(extracted.sampleIndex, extracted);
                     extractedCount += 1;
+                    const receivedAtEpochMs = epochNowMs();
+                    lastExtractionReceivedAtEpochMs = receivedAtEpochMs;
+                    const profile = alignmentProfiles.get(extracted.sampleIndex);
+                    if (profile) {
+                        profile.extractedAtEpochMs = receivedAtEpochMs;
+                        profile.kmerCount = extracted.packedKmers.length / wordWidth;
+                        profile.packedKmerBytes = extracted.packedKmers.byteLength;
+                        profile.extractionQueueMs = Math.max(
+                            0,
+                            extracted.workerStartedAtEpochMs - profile.scheduledAtEpochMs,
+                        );
+                        profile.wasmWaitMs = extracted.wasmWaitMs;
+                        profile.extractionCallMs = extracted.extractionCallMs;
+                        profile.extractionReturnMs = Math.max(
+                            0,
+                            receivedAtEpochMs - extracted.workerFinishedAtEpochMs,
+                        );
+                    }
                     console.info("[ska-align] Extracted sample", {
                         runId,
                         sample: extracted.sampleName,
@@ -603,6 +932,8 @@ export default {
                         sampleTotal: baseIndex + (samples?.length ?? 0),
                         kmerCount: extracted.packedKmers.length / wordWidth,
                         elapsedMs: extracted.elapsedMs,
+                        wasmWaitMs: extracted.wasmWaitMs,
+                        extractionCallMs: extracted.extractionCallMs,
                     });
                     commit("recordAlignmentProgress", {
                         stage: "extracting",

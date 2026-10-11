@@ -6,6 +6,7 @@ interface ExtractSampleMessage {
     runId: number;
     sampleIndex: number;
     sampleName: string;
+    scheduledAtEpochMs: number;
     firstFile: File;
     secondFile: File | null;
     k: number;
@@ -35,8 +36,12 @@ ctx.onmessage = async (evt: MessageEvent<ExtractSampleMessage>) => {
     if (!(data instanceof Object) || !data.extractSample) return;
 
     const startedAt = performance.now();
+    const workerStartedAtEpochMs = performance.timeOrigin + startedAt;
     try {
+        const wasmWaitStartedAt = performance.now();
         const wasm = await loadWasm();
+        const wasmWaitMs = performance.now() - wasmWaitStartedAt;
+        const extractionStartedAt = performance.now();
         const packedKmers: Uint32Array = wasm.extract_alignment_sample(
             data.firstFile,
             data.secondFile,
@@ -49,13 +54,18 @@ ctx.onmessage = async (evt: MessageEvent<ExtractSampleMessage>) => {
             data.min_qual,
             data.qual_filter,
         );
+        const workerFinishedAt = performance.now();
         ctx.postMessage({
             type: "sampleExtracted",
             runId: data.runId,
             sampleIndex: data.sampleIndex,
             sampleName: data.sampleName,
             packedKmers,
-            elapsedMs: Math.round(performance.now() - startedAt),
+            wasmWaitMs,
+            extractionCallMs: workerFinishedAt - extractionStartedAt,
+            workerStartedAtEpochMs,
+            workerFinishedAtEpochMs: performance.timeOrigin + workerFinishedAt,
+            elapsedMs: Math.round(workerFinishedAt - startedAt),
         }, [packedKmers.buffer as ArrayBuffer]);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

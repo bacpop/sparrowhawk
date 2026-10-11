@@ -29,6 +29,59 @@ interface TransmissionGraphData {
 
 type SkaModule = typeof import("@/pkg_ska");
 
+export interface AggregationFineProfile {
+    schemaVersion: number;
+    sampledEntries: number;
+    totalEntries: number;
+    skippedBlocks: number;
+    scratchPreparationMs: number;
+    diagnosticWallMs: number;
+    monomorphicAppendMs: number;
+    siteTransitionMs: number;
+    polymorphicUpdateMs: number;
+    newGroupCreationMs: number;
+    distanceAccumulationMs: number;
+    monomorphicEntries: number;
+    transitionEntries: number;
+    polymorphicEntries: number;
+    newSiteEntries: number;
+    distanceGroups: number;
+    distanceIds: number;
+}
+
+const AGGREGATION_PROFILE_SCHEMA_VERSION = 3;
+const AGGREGATION_PROFILE_VALUES = 28;
+const aggregationProfileIndex = {
+    rustCoreMs: 0,
+    unpackEntryMs: 1,
+    hashLookupMs: 2,
+    sampledBlockMs: 3,
+    sampledEntries: 4,
+    totalEntries: 5,
+    sampledUpdateEntries: 6,
+    sampleIntervalEntries: 7,
+    sampleBlockEntries: 8,
+    sampledLookupHits: 9,
+    resizeBlockMs: 10,
+    resizeBlocks: 11,
+    schemaVersion: 12,
+    monomorphicAppendMs: 13,
+    siteTransitionMs: 14,
+    polymorphicUpdateMs: 15,
+    newGroupCreationMs: 16,
+    distanceAccumulationMs: 17,
+    monomorphicEntries: 18,
+    transitionEntries: 19,
+    polymorphicEntries: 20,
+    newSiteEntries: 21,
+    distanceGroups: 22,
+    distanceIds: 23,
+    scratchPreparationMs: 24,
+    diagnosticWallMs: 25,
+    replaySampledEntries: 26,
+    skippedReplayBlocks: 27,
+} as const;
+
 export class Mapper {
     worker: Worker;
     wasm: SkaModule | null;
@@ -43,6 +96,7 @@ export class Mapper {
     private alignmentRc = false;
     private alignmentFrozen = false;
     private pendingAlignmentExport: Uint8Array | null = null;
+    private profileSchemaWarningShown = false;
 
     constructor(worker: Worker) {
         this.worker = worker;
@@ -107,6 +161,7 @@ export class Mapper {
 
     async beginAlignment(runId: number, fileNames: string[], k: number, rc: boolean, append: boolean): Promise<void> {
         this.activeAlignmentRunId = runId;
+        const setupStartedAt = performance.now();
         let candidate: AlignData | null = null;
         let planAccepted = false;
         try {
@@ -136,7 +191,12 @@ export class Mapper {
             this.pendingAlignmentExport = null;
             this.completedAlignmentRunId = null;
             this.alignmentStartAt = performance.now();
-            this.worker.postMessage({ alignmentPlan: true, runId, samples });
+            this.worker.postMessage({
+                alignmentPlan: true,
+                runId,
+                samples,
+                setupElapsedMs: performance.now() - setupStartedAt,
+            });
         } catch (error) {
             if (candidate && candidate !== this.AlignData) candidate.free();
             if (this.activeAlignmentRunId === runId) {
@@ -151,12 +211,86 @@ export class Mapper {
         sampleIndex: number,
         sampleName: string,
         packedKmers: Uint32Array,
+        postedAtEpochMs: number,
     ): void {
         if (this.activeAlignmentRunId !== runId || this.AlignData === null) return;
 
         try {
-            this.AlignData.add_sample_words(sampleIndex, sampleName, packedKmers);
-            this.worker.postMessage({ alignmentSampleAdded: true, runId, sampleIndex });
+            const receivedAt = performance.now();
+            const queueElapsedMs = Math.max(
+                0,
+                performance.timeOrigin + receivedAt - postedAtEpochMs,
+            );
+            const wasmCallStartedAt = performance.now();
+            const rustProfileResult = this.AlignData.add_sample_words(sampleIndex, sampleName, packedKmers);
+            const returnedArray = rustProfileResult instanceof Float64Array ? rustProfileResult : null;
+            const rustProfile = returnedArray?.length === AGGREGATION_PROFILE_VALUES &&
+                returnedArray[aggregationProfileIndex.schemaVersion] === AGGREGATION_PROFILE_SCHEMA_VERSION &&
+                returnedArray.every((value) => Number.isFinite(value) && value >= 0)
+                ? rustProfileResult
+                : null;
+            const hasSampledProfile = rustProfile !== null &&
+                (rustProfile[aggregationProfileIndex.sampledEntries] > 0 ||
+                    rustProfile[aggregationProfileIndex.totalEntries] === 0);
+            if (!rustProfile && !this.profileSchemaWarningShown) {
+                console.warn("[ska-align] Internal profile unavailable: rebuild the SKA WASM package to match this frontend.", {
+                    expectedVersion: AGGREGATION_PROFILE_SCHEMA_VERSION,
+                    expectedValues: AGGREGATION_PROFILE_VALUES,
+                    returnedValues: returnedArray?.length ?? null,
+                    returnedVersion: returnedArray?.[aggregationProfileIndex.schemaVersion] ?? null,
+                });
+                this.profileSchemaWarningShown = true;
+            }
+            // Coarse Rust timing is also available from older arrays or scalar
+            // returns; never interpret their remaining fields as this schema.
+            const returnedRustCoreElapsedMs = returnedArray
+                ? returnedArray[aggregationProfileIndex.rustCoreMs]
+                : Number(rustProfileResult);
+            const phaseMs = (index: number) => rustProfile?.[index] ?? Number.NaN;
+            const rustCoreElapsedMs = Number.isFinite(returnedRustCoreElapsedMs) && returnedRustCoreElapsedMs >= 0
+                ? returnedRustCoreElapsedMs
+                : null;
+            const aggregationFineProfile: AggregationFineProfile | null = rustProfile ? {
+                schemaVersion: phaseMs(aggregationProfileIndex.schemaVersion),
+                sampledEntries: phaseMs(aggregationProfileIndex.replaySampledEntries),
+                totalEntries: phaseMs(aggregationProfileIndex.totalEntries),
+                skippedBlocks: phaseMs(aggregationProfileIndex.skippedReplayBlocks),
+                scratchPreparationMs: phaseMs(aggregationProfileIndex.scratchPreparationMs),
+                diagnosticWallMs: phaseMs(aggregationProfileIndex.diagnosticWallMs),
+                monomorphicAppendMs: phaseMs(aggregationProfileIndex.monomorphicAppendMs),
+                siteTransitionMs: phaseMs(aggregationProfileIndex.siteTransitionMs),
+                polymorphicUpdateMs: phaseMs(aggregationProfileIndex.polymorphicUpdateMs),
+                newGroupCreationMs: phaseMs(aggregationProfileIndex.newGroupCreationMs),
+                distanceAccumulationMs: phaseMs(aggregationProfileIndex.distanceAccumulationMs),
+                monomorphicEntries: phaseMs(aggregationProfileIndex.monomorphicEntries),
+                transitionEntries: phaseMs(aggregationProfileIndex.transitionEntries),
+                polymorphicEntries: phaseMs(aggregationProfileIndex.polymorphicEntries),
+                newSiteEntries: phaseMs(aggregationProfileIndex.newSiteEntries),
+                distanceGroups: phaseMs(aggregationProfileIndex.distanceGroups),
+                distanceIds: phaseMs(aggregationProfileIndex.distanceIds),
+            } : null;
+            const wasmCallElapsedMs = performance.now() - wasmCallStartedAt;
+            this.worker.postMessage({
+                alignmentSampleAdded: true,
+                runId,
+                sampleIndex,
+                queueElapsedMs,
+                wasmCallElapsedMs,
+                rustCoreElapsedMs,
+                aggregationInnerTimingAvailable: hasSampledProfile,
+                aggregationUnpackEntryMs: phaseMs(aggregationProfileIndex.unpackEntryMs),
+                aggregationHashLookupMs: phaseMs(aggregationProfileIndex.hashLookupMs),
+                aggregationSampledBlockMs: phaseMs(aggregationProfileIndex.sampledBlockMs),
+                aggregationFineProfile,
+                aggregationProfileSampledEntries: phaseMs(aggregationProfileIndex.sampledEntries),
+                aggregationProfileTotalEntries: phaseMs(aggregationProfileIndex.totalEntries),
+                aggregationProfileSampledUpdateEntries: phaseMs(aggregationProfileIndex.sampledUpdateEntries),
+                aggregationProfileSampleInterval: phaseMs(aggregationProfileIndex.sampleIntervalEntries),
+                aggregationProfileSampleBlockEntries: phaseMs(aggregationProfileIndex.sampleBlockEntries),
+                aggregationProfileSampledLookupHits: phaseMs(aggregationProfileIndex.sampledLookupHits),
+                aggregationResizeBlockMs: phaseMs(aggregationProfileIndex.resizeBlockMs),
+                aggregationResizeBlocks: phaseMs(aggregationProfileIndex.resizeBlocks),
+            });
         } catch (error) {
             this.reportAlignmentError(runId, error);
         }
@@ -167,8 +301,15 @@ export class Mapper {
         if (this.activeAlignmentRunId !== runId || alignData === null) return;
 
         try {
-            const results: AlignResult = JSON.parse(alignData.finish_alignment());
+            const finishStartedAt = performance.now();
+            const finishJson = alignData.finish_alignment();
+            const finishAlignmentMs = performance.now() - finishStartedAt;
+            const parseStartedAt = performance.now();
+            const results: AlignResult = JSON.parse(finishJson);
+            const finishResultParseMs = performance.now() - parseStartedAt;
+            const csvStartedAt = performance.now();
             const distancesCsvGzip = alignData.get_distances_csv_gzip();
+            const distancesCsvGzipMs = performance.now() - csvStartedAt;
             const distancesCsvGzipBytes = distancesCsvGzip.byteLength;
             const elapsedMs = Math.round(performance.now() - this.alignmentStartAt);
             this.worker.postMessage({
@@ -182,6 +323,9 @@ export class Mapper {
                 k: this.alignmentK,
                 rc: this.alignmentRc,
                 distances_csv_gzip: distancesCsvGzip,
+                finishAlignmentMs,
+                finishResultParseMs,
+                distancesCsvGzipMs,
                 elapsedMs,
                 wasmMemoryBytes: this.memoryBytes(),
             }, [distancesCsvGzip.buffer as ArrayBuffer]);

@@ -34,6 +34,7 @@ interface AlignmentSampleMessage {
     sampleIndex: number;
     sampleName: string;
     packedKmers: Uint32Array;
+    postedAtEpochMs: number;
 }
 
 interface AlignmentFinishMessage {
@@ -90,7 +91,13 @@ ctx.onmessage = (evt: MessageEvent<WorkerMessage>) => {
             void mapper.beginAlignment(data.runId, data.fileNames, data.k, data.rc, data.append);
         } else if ('addAlignmentSample' in evt.data && evt.data.addAlignmentSample) {
             const data = evt.data as AlignmentSampleMessage;
-            mapper.addAlignmentSample(data.runId, data.sampleIndex, data.sampleName, data.packedKmers);
+            mapper.addAlignmentSample(
+                data.runId,
+                data.sampleIndex,
+                data.sampleName,
+                data.packedKmers,
+                data.postedAtEpochMs,
+            );
         } else if ('finishAlignment' in evt.data && evt.data.finishAlignment) {
             const data = evt.data as AlignmentFinishMessage;
             mapper.finishAlignment(data.runId);
