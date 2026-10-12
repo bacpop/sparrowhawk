@@ -41,7 +41,7 @@ export class Mapper {
     private alignmentK: number | null = null;
     private alignmentRc = false;
     private alignmentFrozen = false;
-    private pendingAlignmentExport: Uint8Array | null = null;
+    private alignmentExportPartSize: number | null = null;
 
     constructor(worker: Worker) {
         this.worker = worker;
@@ -132,7 +132,7 @@ export class Mapper {
                 this.alignmentK = k;
                 this.alignmentRc = rc;
             }
-            this.pendingAlignmentExport = null;
+            this.alignmentExportPartSize = null;
             this.completedAlignmentRunId = null;
             this.alignmentStartAt = performance.now();
             this.worker.postMessage({ alignmentPlan: true, runId, samples });
@@ -178,7 +178,6 @@ export class Mapper {
                 newick: results.newick,
                 alignmentAvailable: results.alignmentAvailable,
                 alignmentFrozen: false,
-                alignment_gzip: null,
                 k: this.alignmentK,
                 rc: this.alignmentRc,
                 distances_csv_gzip: distancesCsvGzip,
@@ -199,24 +198,84 @@ export class Mapper {
         }
     }
 
-    exportAlignment(runId: number, requestId: number): void {
+    beginAlignmentExport(runId: number, requestId: number, samplesPerPart: number): void {
         try {
             if (this.completedAlignmentRunId !== runId || !this.AlignData) {
                 throw new Error("The requested alignment dataset is no longer available.");
             }
+            if (!Number.isInteger(samplesPerPart) || samplesPerPart < 1) {
+                throw new Error("The requested alignment export part size is invalid.");
+            }
+            this.AlignData.begin_alignment_export(samplesPerPart);
             this.alignmentFrozen = true;
-            console.info("[ska-align] Obtaining alignment...", { runId, requestId });
-            const bytes = this.pendingAlignmentExport ?? this.AlignData.export_alignment_gzip();
-            this.pendingAlignmentExport = bytes;
-            const byteLength = bytes.byteLength;
-            this.worker.postMessage({ alignmentDownload: true, runId, requestId, bytes }, [bytes.buffer as ArrayBuffer]);
-            this.pendingAlignmentExport = null;
-            console.info("[ska-align] Alignment export completed", { runId, requestId, byteLength, wasmMemoryBytes: this.memoryBytes() });
+            this.alignmentExportPartSize = samplesPerPart;
+            console.info("[ska-align] Started batched alignment export", { runId, requestId, samplesPerPart });
+            this.nextAlignmentExportChunk(runId, requestId);
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            console.error("[ska-align] Alignment export failed", { runId, requestId, error });
-            this.worker.postMessage({ alignmentDownloadError: true, runId, requestId, message });
+            this.reportAlignmentExportError(runId, requestId, error);
         }
+    }
+
+    nextAlignmentExportChunk(runId: number, requestId: number): void {
+        try {
+            if (this.completedAlignmentRunId !== runId || !this.AlignData || this.alignmentExportPartSize === null) {
+                throw new Error("No resumable alignment export is available.");
+            }
+            const alignData = this.AlignData;
+            const bytes = alignData.next_alignment_export_chunk();
+            const samplesProcessed = alignData.alignment_export_samples_processed();
+            const partComplete = alignData.alignment_export_part_complete();
+            const complete = alignData.alignment_export_complete();
+            this.worker.postMessage({
+                alignmentDownloadChunk: true,
+                runId,
+                requestId,
+                bytes,
+                samplesProcessed,
+                partComplete,
+                complete,
+                wasmMemoryBytes: this.memoryBytes(),
+            }, [bytes.buffer as ArrayBuffer]);
+            if (complete) {
+                this.alignmentExportPartSize = null;
+                console.info("[ska-align] Alignment output generated", { runId, requestId, samplesProcessed, wasmMemoryBytes: this.memoryBytes() });
+            }
+        } catch (error) {
+            this.reportAlignmentExportError(runId, requestId, error);
+        }
+    }
+
+    cancelAlignmentExport(runId: number, requestId: number): void {
+        if (this.completedAlignmentRunId !== runId || !this.AlignData) return;
+        this.AlignData.cancel_alignment_export();
+        this.alignmentExportPartSize = null;
+        this.worker.postMessage({ alignmentExportCancelled: true, runId, requestId });
+    }
+
+    finishAlignmentExport(runId: number, requestId: number): void {
+        try {
+            if (this.completedAlignmentRunId !== runId || !this.AlignData) {
+                throw new Error("The requested alignment dataset is no longer available.");
+            }
+            this.AlignData.finish_alignment_export();
+            this.alignmentExportPartSize = null;
+            this.worker.postMessage({ alignmentExportFinished: true, runId, requestId });
+        } catch (error) {
+            this.reportAlignmentExportError(runId, requestId, error);
+        }
+    }
+
+    private reportAlignmentExportError(runId: number, requestId: number, error: unknown): void {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[ska-align] Alignment export failed", { runId, requestId, error });
+        this.worker.postMessage({ alignmentDownloadError: true, runId, requestId, message });
+    }
+
+    private resetAlignmentExport(): void {
+        if (this.AlignData && this.alignmentExportPartSize !== null) {
+            this.AlignData.cancel_alignment_export();
+        }
+        this.alignmentExportPartSize = null;
     }
 
     cancelAlignment(runId: number): void {
@@ -225,7 +284,7 @@ export class Mapper {
             this.AlignData = null;
             this.completedAlignmentRunId = null;
             this.activeAlignmentRunId = null;
-            this.pendingAlignmentExport = null;
+            this.alignmentExportPartSize = null;
         }
     }
 
@@ -287,6 +346,6 @@ export class Mapper {
         this.activeAlignmentRunId = null;
         this.completedAlignmentRunId = null;
         this.alignmentFrozen = false;
-        this.pendingAlignmentExport = null;
+        this.resetAlignmentExport();
     }
 }

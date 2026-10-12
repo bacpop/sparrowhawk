@@ -16,6 +16,7 @@ import {
     getFilesToProcess,
 } from "@/utils";
 import {listGpuAdapters as probeGpuAdapters} from "@/platform/gpu";
+import type { BinaryFileSink } from "@/platform/files";
 
 // GPU stall watchdog. Progress arrives per batch, so silence means the device is wedged.
 const ESM_STALL_MS = 60_000;
@@ -51,6 +52,94 @@ interface ExtractedAlignmentSample {
     sampleName: string;
     packedKmers: Uint32Array;
     elapsedMs: number;
+}
+
+interface AlignmentExportChunk {
+    // The worker transfers this buffer, so a successful message has ArrayBuffer backing.
+    bytes: Uint8Array<ArrayBuffer>;
+    samplesProcessed: number;
+    partComplete: boolean;
+    complete: boolean;
+}
+
+function requestAlignmentExportChunk(
+    worker: Worker,
+    runId: number,
+    requestId: number,
+    start: boolean,
+    samplesPerPart?: number,
+    onProgress?: (progress: import("@/types").AlignmentProgress) => void,
+): Promise<AlignmentExportChunk> {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (error?: string, chunk?: AlignmentExportChunk) => {
+            if (settled) return;
+            settled = true;
+            worker.removeEventListener("message", onMessage);
+            worker.removeEventListener("error", onError);
+            if (error) reject(new Error(error));
+            else resolve(chunk!);
+        };
+        const onMessage = (event: MessageEvent) => {
+            const data = event.data;
+            if (data?.alignmentProgress?.runId === runId && data.alignmentProgress.stage === "obtaining-alignment") {
+                onProgress?.(data.alignmentProgress);
+                return;
+            }
+            if (data?.runId !== runId || data?.requestId !== requestId) return;
+            if (data.alignmentDownloadError) {
+                finish(String(data.message ?? "Alignment export failed."));
+            } else if (data.alignmentDownloadChunk) {
+                if (!(data.bytes instanceof Uint8Array)) {
+                    finish("The alignment worker returned an invalid output chunk.");
+                    return;
+                }
+                finish(undefined, {
+                    bytes: data.bytes as Uint8Array<ArrayBuffer>,
+                    samplesProcessed: Number(data.samplesProcessed),
+                    partComplete: data.partComplete === true,
+                    complete: data.complete === true,
+                });
+            }
+        };
+        const onError = (event: ErrorEvent) => finish(event.message || "Alignment export worker failed.");
+        worker.addEventListener("message", onMessage);
+        worker.addEventListener("error", onError);
+        try {
+            if (start) worker.postMessage({ beginAlignmentExport: true, runId, requestId, samplesPerPart });
+            else worker.postMessage({ nextAlignmentExportChunk: true, runId, requestId });
+        } catch (error) {
+            finish(error instanceof Error ? error.message : String(error));
+        }
+    });
+}
+
+function finishAlignmentExport(worker: Worker, runId: number, requestId: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const finish = (error?: string) => {
+            worker.removeEventListener("message", onMessage);
+            worker.removeEventListener("error", onError);
+            if (error) reject(new Error(error));
+            else resolve();
+        };
+        const onMessage = (event: MessageEvent) => {
+            const data = event.data;
+            if (data?.runId !== runId || data?.requestId !== requestId) return;
+            if (data.alignmentDownloadError) {
+                finish(String(data.message ?? "Alignment export failed."));
+            } else if (data.alignmentExportFinished) {
+                finish();
+            }
+        };
+        const onError = (event: ErrorEvent) => finish(event.message || "Alignment export worker failed.");
+        worker.addEventListener("message", onMessage);
+        worker.addEventListener("error", onError);
+        try {
+            worker.postMessage({ finishAlignmentExport: true, runId, requestId });
+        } catch (error) {
+            finish(error instanceof Error ? error.message : String(error));
+        }
+    });
 }
 
 function clearEsmWatchdog(): void {
@@ -650,63 +739,128 @@ export default {
         }); // Big promise
     },
 
-    async getAlignmentDownload(context: ActionContext<RootState, RootState>): Promise<Uint8Array> {
+    async streamAlignmentExport(
+        context: ActionContext<RootState, RootState>,
+        payload: { sink: BinaryFileSink },
+    ): Promise<void> {
         const { state, commit } = context;
         const result = state.allResults_ska.alignResults[0];
         const worker = state.workerState.worker_ska;
 
-        if (skaBusy(state)) throw new Error("Wait for the current SKA operation to finish.");
-        if (!worker || !result?.aligned || !result.alignmentAvailable) throw new Error("No alignment is available for download.");
+        const abortSink = async (reason: string) => {
+            try { await payload.sink.abort(reason); } catch { /* the sink may already be closed */ }
+        };
+        if (skaBusy(state)) {
+            await abortSink("Wait for the current SKA operation to finish.");
+            throw new Error("Wait for the current SKA operation to finish.");
+        }
+        if (!worker || !result?.aligned || !result.alignmentAvailable) {
+            await abortSink("No alignment is available for download.");
+            throw new Error("No alignment is available for download.");
+        }
+        const total = result.names?.length ?? 0;
+        if (total < 3) {
+            await abortSink("At least three completed samples are required for alignment export.");
+            throw new Error("At least three completed samples are required for alignment export.");
+        }
 
-        console.info("[ska-align] Obtaining alignment...");
-
-        commit("setAlignmentFrozen");
         commit("setAlignmentDownloadError", null);
         commit("recordAlignmentProgress", { stage: "obtaining-alignment", sampleIndex: null, sampleTotal: null, sampleName: null, runId: result.runId });
         commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: "active" });
-
-        // In case we've got it already...
-        if (result.alignment_gzip) {
-            commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: "complete" });
-            return result.alignment_gzip;
-        }
         const runId = result.runId;
-        const requestId = ++skaRequestCounter;
-
         commit("setObtainingAlignmentState", true);
-        return new Promise<Uint8Array>((resolve, reject) => {
+        let started = false;
+        let exportComplete = false;
+        let saved = false;
+        try {
+            commit("setAlignmentFrozen");
+            while (!exportComplete) {
+                const requestId = ++skaRequestCounter;
+                const chunk = await requestAlignmentExportChunk(
+                    worker,
+                    runId,
+                    requestId,
+                    !started,
+                    total,
+                    (progress) => commit("recordAlignmentProgress", progress),
+                );
+                started = true;
+                await payload.sink.write(chunk.bytes);
+                exportComplete = chunk.complete;
+                if (!exportComplete) continue;
+                await payload.sink.close();
+                await finishAlignmentExport(worker, runId, ++skaRequestCounter);
+                saved = true;
+                commit("setAlignmentExportComplete");
+                commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: "complete" });
+                return;
+            }
+            throw new Error("The alignment export ended without a complete output.");
+        } catch (error) {
+            try { worker.postMessage({ cancelAlignmentExport: true, runId, requestId: ++skaRequestCounter }); }
+            catch { /* the worker may already have stopped */ }
+            commit("setAlignmentDownloadError", error instanceof Error ? error.message : String(error));
+            commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: "interrupted" });
+            try { await payload.sink.abort(error instanceof Error ? error.message : String(error)); } catch { /* the sink may already be closed */ }
+            throw error;
+        } finally {
+            commit("setObtainingAlignmentState", false);
+            if (!saved) commit("setAlignmentFrozen");
+        }
+    },
 
-            const finish = (bytes?: Uint8Array, error?: string) => {
-                worker.removeEventListener("message", onMessage);
-                worker.removeEventListener("error", onError);
-                commit("setObtainingAlignmentState", false);
-                commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: error ? "interrupted" : "complete" });
+    async getAlignmentExportPart(
+        context: ActionContext<RootState, RootState>,
+        payload: { samplesPerPart: number; start: boolean },
+    ): Promise<Blob> {
+        const { state, commit } = context;
+        const result = state.allResults_ska.alignResults[0];
+        const worker = state.workerState.worker_ska;
+        if (skaBusy(state)) throw new Error("Wait for the current SKA operation to finish.");
+        if (!worker || !result?.aligned || !result.alignmentAvailable) throw new Error("No alignment is available for download.");
+        if (!Number.isInteger(payload.samplesPerPart) || payload.samplesPerPart < 1) throw new Error("Invalid alignment part size.");
 
-                if (error) { commit("setAlignmentDownloadError", error); reject(new Error(error)); }
-                else { commit("cacheAlignmentDownload", { runId, bytes }); resolve(bytes!); }
-            };
-
-            const onMessage = (event: MessageEvent) => {
-                const data = event.data;
-                if (data?.alignmentProgress?.runId === runId && data.alignmentProgress.stage === "obtaining-alignment") {
-                    commit("recordAlignmentProgress", data.alignmentProgress);
-                    return;
+        const runId = result.runId;
+        const chunks: Uint8Array<ArrayBuffer>[] = [];
+        commit("setAlignmentDownloadError", null);
+        commit("recordAlignmentProgress", { stage: "obtaining-alignment", sampleIndex: null, sampleTotal: result.names?.length ?? null, sampleName: null, runId });
+        commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: "active" });
+        commit("setObtainingAlignmentState", true);
+        commit("setAlignmentFrozen");
+        let started = !payload.start;
+        let partComplete = false;
+        try {
+            while (!partComplete) {
+                const chunk = await requestAlignmentExportChunk(
+                    worker,
+                    runId,
+                    ++skaRequestCounter,
+                    !started,
+                    payload.samplesPerPart,
+                    (progress) => commit("recordAlignmentProgress", progress),
+                );
+                started = true;
+                chunks.push(chunk.bytes);
+                partComplete = chunk.partComplete;
+                if (!partComplete) continue;
+                const blob = new Blob(chunks, { type: "application/gzip" });
+                if (chunk.complete) {
+                    await finishAlignmentExport(worker, runId, ++skaRequestCounter);
+                    commit("setAlignmentExportComplete");
                 }
-                if (data?.runId !== runId || data.requestId !== requestId) return;
-                if (data.alignmentDownloadError) finish(undefined, String(data.message));
-                else if (data.alignmentDownload) {
-                    if (!(data.bytes instanceof Uint8Array)) finish(undefined, "Invalid alignment download buffer.");
-                    else finish(data.bytes);
-                }
-            };
-
-            const onError = (event: ErrorEvent) => finish(undefined, event.message || "Alignment export worker failed.");
-
-            worker.addEventListener("message", onMessage);
-            worker.addEventListener("error", onError);
-            try { worker.postMessage({ exportAlignment: true, runId, requestId }); }
-            catch (error) { finish(undefined, error instanceof Error ? error.message : String(error)); }
-        });
+                commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: "complete" });
+                return blob;
+            }
+            throw new Error("The alignment export part ended without a complete output.");
+        } catch (error) {
+            try { worker.postMessage({ cancelAlignmentExport: true, runId, requestId: ++skaRequestCounter }); }
+            catch { /* the worker may already have stopped */ }
+            commit("setAlignmentDownloadError", error instanceof Error ? error.message : String(error));
+            commit("setAlignmentStageStatus", { stage: "obtaining-alignment", status: "interrupted" });
+            throw error;
+        } finally {
+            commit("setObtainingAlignmentState", false);
+        }
     },
 
     async processCluster(context: ActionContext<RootState, RootState>, payload: { snp_threshold: number }) {

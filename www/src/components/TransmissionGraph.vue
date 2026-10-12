@@ -26,6 +26,7 @@ import { defineComponent, ref, watch, onMounted, onBeforeUnmount, computed, Prop
 import * as d3 from "d3";
 import { Button } from "@/components/ui/button";
 import type { TransmissionGraphNode, TransmissionGraphLink } from "@/types";
+import { transmissionClusterColor } from "@/utils/transmissionClusterColors";
 
 interface LayoutNode extends TransmissionGraphNode, d3.SimulationNodeDatum {}
 
@@ -72,16 +73,12 @@ export default defineComponent({
     let resizeObserver: ResizeObserver | null = null;
     let resizeFrame: number | null = null;
 
-    const palette = d3.schemeTableau10.concat(d3.schemePastel1 as readonly string[]);
-
     const clusterIds = computed(() => {
       const ids = new Set(props.nodes.map(n => n.cluster));
       return Array.from(ids).sort((a, b) => a - b);
     });
 
-    function clusterColor(clusterId: number): string {
-      return palette[clusterId % palette.length];
-    }
+    const clusterColor = transmissionClusterColor;
 
     function hasFinitePositions(): boolean {
       return layoutNodes.some(node => Number.isFinite(node.x) && Number.isFinite(node.y));

@@ -243,7 +243,7 @@ export default {
     },
 
     setAligned(state: RootState, input: Alignment) {
-        state.allResults_ska.alignResults[0] = { ...input };
+        state.allResults_ska.alignResults[0] = { ...input, alignmentExportComplete: false };
         state.allResults_ska.clusterResults = null;
         state.allResults_ska.transmissionGraph = null;
     },
@@ -252,14 +252,14 @@ export default {
         if (result) {
             result.aligned = false;
             result.alignmentAvailable = false;
-            result.alignment_gzip = null;
+            result.alignmentExportComplete = false;
             result.distances_csv_gzip = new Uint8Array();
             result.invalidated = true;
         } else {
             state.allResults_ska.alignResults[0] = {
                 aligned: false, names: [], newick: "", runId: 0, k: 31, rc: false,
                 alignmentAvailable: false, alignmentFrozen: false, invalidated: true,
-                alignmentDownloadError: null, alignment_gzip: null, distances_csv_gzip: new Uint8Array(),
+                alignmentExportComplete: false, alignmentDownloadError: null, distances_csv_gzip: new Uint8Array(),
             };
         }
         state.allResults_ska.clusterResults = null;
@@ -272,15 +272,14 @@ export default {
         const result = state.allResults_ska.alignResults[0];
         if (result) result.alignmentFrozen = true;
     },
+    setAlignmentExportComplete(state: RootState) {
+        const result = state.allResults_ska.alignResults[0];
+        if (result) result.alignmentExportComplete = true;
+    },
     setAlignmentDownloadError(state: RootState, message: string | null) {
         const result = state.allResults_ska.alignResults[0];
         if (result) result.alignmentDownloadError = message;
     },
-    cacheAlignmentDownload(state: RootState, input: { runId: number; bytes: Uint8Array }) {
-        const result = state.allResults_ska.alignResults[0];
-        if (result?.runId === input.runId) result.alignment_gzip = input.bytes;
-    },
-
     setSkaMappingError(state: RootState, msg: string) { state.allResults_ska.error = msg; },
     setSkaAlignError(state: RootState, msg: string)   { state.allResults_ska.error = msg; },
 

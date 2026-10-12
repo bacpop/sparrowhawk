@@ -46,8 +46,27 @@ interface AlignmentCancelMessage {
     runId: number;
 }
 
-interface AlignmentExportMessage {
-    exportAlignment: boolean;
+interface AlignmentExportStartMessage {
+    beginAlignmentExport: boolean;
+    runId: number;
+    requestId: number;
+    samplesPerPart: number;
+}
+
+interface AlignmentExportNextMessage {
+    nextAlignmentExportChunk: boolean;
+    runId: number;
+    requestId: number;
+}
+
+interface AlignmentExportCancelMessage {
+    cancelAlignmentExport: boolean;
+    runId: number;
+    requestId: number;
+}
+
+interface AlignmentExportFinishMessage {
+    finishAlignmentExport: boolean;
     runId: number;
     requestId: number;
 }
@@ -72,7 +91,8 @@ interface ResetMessage {
 
 type WorkerMessage = RefMessage | MapMessage | AlignmentStartMessage | AlignmentSampleMessage |
     AlignmentFinishMessage | AlignmentCancelMessage | ClusterMessage | TransmissionClusterMessage |
-    AlignmentExportMessage | ResetMessage;
+    AlignmentExportStartMessage | AlignmentExportNextMessage | AlignmentExportCancelMessage |
+    AlignmentExportFinishMessage | ResetMessage;
 
 const ctx: Worker = self as unknown as Worker;
 const mapper = new Mapper(ctx);
@@ -97,9 +117,18 @@ ctx.onmessage = (evt: MessageEvent<WorkerMessage>) => {
         } else if ('cancelAlignment' in evt.data && evt.data.cancelAlignment) {
             const data = evt.data as AlignmentCancelMessage;
             mapper.cancelAlignment(data.runId);
-        } else if ('exportAlignment' in evt.data && evt.data.exportAlignment) {
-            const data = evt.data as AlignmentExportMessage;
-            mapper.exportAlignment(data.runId, data.requestId);
+        } else if ('beginAlignmentExport' in evt.data && evt.data.beginAlignmentExport) {
+            const data = evt.data as AlignmentExportStartMessage;
+            mapper.beginAlignmentExport(data.runId, data.requestId, data.samplesPerPart);
+        } else if ('nextAlignmentExportChunk' in evt.data && evt.data.nextAlignmentExportChunk) {
+            const data = evt.data as AlignmentExportNextMessage;
+            mapper.nextAlignmentExportChunk(data.runId, data.requestId);
+        } else if ('cancelAlignmentExport' in evt.data && evt.data.cancelAlignmentExport) {
+            const data = evt.data as AlignmentExportCancelMessage;
+            mapper.cancelAlignmentExport(data.runId, data.requestId);
+        } else if ('finishAlignmentExport' in evt.data && evt.data.finishAlignmentExport) {
+            const data = evt.data as AlignmentExportFinishMessage;
+            mapper.finishAlignmentExport(data.runId, data.requestId);
         } else if ('cluster' in evt.data && evt.data.cluster) {
             const data = evt.data as ClusterMessage;
             mapper.cluster(data.snp_threshold, data.runId, data.requestId);

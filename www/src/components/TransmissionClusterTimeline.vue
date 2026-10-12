@@ -6,8 +6,19 @@
 import { defineComponent, PropType } from "vue";
 import type { MetadataRow } from "@/types";
 import { buildSampleMetadataIndex } from "@/utils/transmissionMetadata";
+import { transmissionClusterColor } from "@/utils/transmissionClusterColors";
 // @ts-ignore - plotly.js-dist doesn't have types
 import Plotly from 'plotly.js-dist';
+
+const MIN_MARKER_DIAMETER = 8;
+const MAX_MARKER_DIAMETER = 36;
+
+function markerDiameter(cases: number, maximumCases: number): number {
+  if (maximumCases <= 1) return MIN_MARKER_DIAMETER;
+  const relativeCases = (cases - 1) / (maximumCases - 1);
+  return MIN_MARKER_DIAMETER + (MAX_MARKER_DIAMETER - MIN_MARKER_DIAMETER)
+    * Math.sqrt(Math.max(0, Math.min(1, relativeCases)));
+}
 
 interface ClusterRow {
   name: string;
@@ -89,6 +100,7 @@ export default defineComponent({
       }
 
       const clusters = [...new Set(data.map(d => d.cluster))].sort((a, b) => a - b);
+      const maximumCases = data.reduce((maximum, point) => Math.max(maximum, point.cases), 1);
       const traces: object[] = [];
 
       for (const cl of clusters) {
@@ -102,8 +114,7 @@ export default defineComponent({
           y: ys,
           type: 'scatter',
           mode: 'lines',
-          line: { color: 'grey', width: 1.8 },
-          opacity: 0.75,
+          line: { color: transmissionClusterColor(cl), width: 1.8 },
           showlegend: false,
           hoverinfo: 'skip',
         });
@@ -115,9 +126,10 @@ export default defineComponent({
           type: 'scatter',
           mode: 'markers',
           marker: {
-            size: points.map(p => p.cases * 5),
+            size: points.map(p => markerDiameter(p.cases, maximumCases)),
             sizemode: 'diameter',
             sizeref: 1,
+            color: transmissionClusterColor(cl),
             showscale: false,
           },
           text: points.map(p => p.text),

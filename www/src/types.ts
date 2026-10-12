@@ -54,9 +54,9 @@ export interface Alignment {
     rc: boolean
     alignmentAvailable: boolean
     alignmentFrozen: boolean
+    alignmentExportComplete?: boolean
     invalidated: boolean
     alignmentDownloadError: string | null
-    alignment_gzip: Uint8Array | null
     distances_csv_gzip: Uint8Array
     elapsedMs?: number
     wasmMemoryBytes?: number

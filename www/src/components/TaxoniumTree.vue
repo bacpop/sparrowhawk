@@ -25,6 +25,7 @@
     import Taxonium from 'taxonium-component';
     import type { Dict, MetadataRow, TreeResult } from '@/types';
     import { adjustClusterAssignments, buildSampleMetadataIndex } from '@/utils/transmissionMetadata';
+    import { buildTaxoniumClusterColorMapping } from '@/utils/transmissionClusterColors';
 
 
     export default defineComponent({
@@ -74,8 +75,9 @@
           };
           const defaultColorByField = hasTipMapping.value && tree.names.some(name => clusters.value?.[name] != null)
             ? 'meta_Cluster' : 'None';
-          return { sourceData, configDict: { defaultColorByField },
-            signature: JSON.stringify([tree.newick, metadataTsv.value, defaultColorByField]) };
+          const colorMapping = buildTaxoniumClusterColorMapping(Object.values(clusters.value ?? {}));
+          return { sourceData, configDict: { defaultColorByField, colorMapping },
+            signature: JSON.stringify([tree.newick, metadataTsv.value, defaultColorByField, colorMapping]) };
         });
 
         // This is Taxonium stuff, that uses React

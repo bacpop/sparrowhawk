@@ -2,6 +2,65 @@ function hasElectronSave(): boolean {
     return typeof window !== "undefined" && typeof window.electronAPI?.saveFile === "function";
 }
 
+export interface BinaryFileSink {
+    write(chunk: Uint8Array): Promise<void>;
+    close(): Promise<void>;
+    abort(reason?: string): Promise<void>;
+}
+
+interface BrowserSaveHandle {
+    createWritable(): Promise<{
+        write(chunk: Uint8Array): Promise<void>;
+        close(): Promise<void>;
+        abort(reason?: unknown): Promise<void>;
+    }>;
+}
+
+type SavePickerWindow = Window & {
+    showSaveFilePicker?: (options: {
+        suggestedName: string;
+        types: Array<{description: string; accept: Record<string, string[]>}>;
+    }) => Promise<BrowserSaveHandle>;
+};
+
+export function supportsStreamingFileSave(): boolean {
+    return typeof window !== "undefined" && (
+        typeof window.electronAPI?.beginAlignmentSave === "function" ||
+        typeof (window as SavePickerWindow).showSaveFilePicker === "function"
+    );
+}
+
+/** Open the destination from a user gesture, then allow bounded sequential writes. */
+export async function openBinaryFileSink(filename: string, mimeType = "application/gzip"): Promise<BinaryFileSink | null> {
+    if (typeof window === "undefined") throw new Error("File saving is only available in a browser window.");
+
+    if (typeof window.electronAPI?.beginAlignmentSave === "function") {
+        const opened = await window.electronAPI.beginAlignmentSave(filename);
+        if (opened.canceled || !opened.streamId) return null;
+        const streamId = opened.streamId;
+        return {
+            async write(chunk) {
+                await window.electronAPI!.writeAlignmentSave(streamId, toArrayBuffer(chunk));
+            },
+            close: () => window.electronAPI!.finishAlignmentSave(streamId),
+            abort: () => window.electronAPI!.abortAlignmentSave(streamId),
+        };
+    }
+
+    const picker = (window as SavePickerWindow).showSaveFilePicker;
+    if (!picker) return null;
+    const handle = await picker.call(window, {
+        suggestedName: filename,
+        types: [{ description: "Gzipped alignment", accept: { [mimeType]: [".gz"] } }],
+    });
+    const writable = await handle.createWritable();
+    return {
+        write: (chunk) => writable.write(chunk),
+        close: () => writable.close(),
+        abort: (reason) => writable.abort(reason),
+    };
+}
+
 function toUint8Array(content: Uint8Array | ArrayBuffer): Uint8Array {
     return content instanceof Uint8Array ? content : new Uint8Array(content);
 }
@@ -76,6 +135,10 @@ export async function saveBinaryFile(
     }
 
     triggerDownload(new Blob([toArrayBuffer(data)], {type: mimeType}), filename);
+}
+
+export function saveBlobFile(blob: Blob, filename: string): void {
+    triggerDownload(blob, filename);
 }
 
 function describeCause(cause: unknown): string {

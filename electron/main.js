@@ -1,10 +1,13 @@
 const {app, BrowserWindow, dialog, ipcMain, protocol} = require("electron");
 const fs = require("fs/promises");
+const fsStreams = require("fs");
+const {randomUUID} = require("crypto");
 const path = require("path");
 
 const TAXONOMIC_INDEX_ASSET = "inverted_k_17_ss_50.ski";
 const APP_SCHEME = "app";
 const RENDERER_ROOT = path.join(__dirname, "renderer");
+const activeAlignmentSaves = new Map();
 
 // Serve the packaged renderer from app:// instead of file://, so fetch() and workers
 // resolve against a real, non-null origin.
@@ -86,6 +89,63 @@ ipcMain.handle("dialog:save-file", async (_event, {suggestedName, data}) => {
 
     await fs.writeFile(result.filePath, Buffer.from(new Uint8Array(data)));
     return {canceled: false, filePath: result.filePath};
+});
+
+ipcMain.handle("dialog:begin-alignment-save", async (event, {suggestedName}) => {
+    const result = await dialog.showSaveDialog({defaultPath: suggestedName});
+    if (result.canceled || !result.filePath) return {canceled: true};
+
+    const stream = fsStreams.createWriteStream(result.filePath, {flags: "w"});
+    await new Promise((resolve, reject) => {
+        stream.once("open", resolve);
+        stream.once("error", reject);
+    });
+    const streamId = randomUUID();
+    activeAlignmentSaves.set(streamId, {stream, filePath: result.filePath, sender: event.sender});
+    return {canceled: false, streamId};
+});
+
+function getAlignmentSave(event, streamId) {
+    const save = activeAlignmentSaves.get(streamId);
+    if (!save || save.sender !== event.sender) throw new Error("Alignment save stream is unavailable.");
+    return save;
+}
+
+async function discardAlignmentSave(streamId, save) {
+    activeAlignmentSaves.delete(streamId);
+    save.stream.destroy();
+    await fs.unlink(save.filePath).catch(() => {});
+}
+
+ipcMain.handle("dialog:write-alignment-save", async (event, {streamId, data}) => {
+    const save = getAlignmentSave(event, streamId);
+    try {
+        await new Promise((resolve, reject) => {
+            save.stream.write(Buffer.from(new Uint8Array(data)), (error) => error ? reject(error) : resolve());
+        });
+    } catch (error) {
+        await discardAlignmentSave(streamId, save);
+        throw error;
+    }
+});
+
+ipcMain.handle("dialog:finish-alignment-save", async (event, {streamId}) => {
+    const save = getAlignmentSave(event, streamId);
+    try {
+        await new Promise((resolve, reject) => {
+            save.stream.once("error", reject);
+            save.stream.end(resolve);
+        });
+        activeAlignmentSaves.delete(streamId);
+    } catch (error) {
+        await discardAlignmentSave(streamId, save);
+        throw error;
+    }
+});
+
+ipcMain.handle("dialog:abort-alignment-save", async (event, {streamId}) => {
+    const save = getAlignmentSave(event, streamId);
+    await discardAlignmentSave(streamId, save);
 });
 
 ipcMain.handle("asset:read-taxonomic-index", async () => {
