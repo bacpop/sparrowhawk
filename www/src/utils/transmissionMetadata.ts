@@ -84,6 +84,15 @@ export function buildSampleMetadataIndex(sampleNames: string[], metadataRows: Me
     return { rowsBySample, ambiguousSamples, hasMetadata: metadataRows.length > 0 };
 }
 
+// Rust gives each unlinked sample its own cluster, so size-1 raw clusters are exactly the samples
+// with no link at the threshold. Use raw results: a location split must not create singletons.
+export function singletonSampleNames(clusterResults: Dict<number> | null): Set<string> {
+    const sizes = new Map<number, number>();
+    for (const cluster of Object.values(clusterResults ?? {})) sizes.set(cluster, (sizes.get(cluster) ?? 0) + 1);
+    return new Set(Object.entries(clusterResults ?? {})
+        .filter(([, cluster]) => sizes.get(cluster) === 1).map(([name]) => name));
+}
+
 export function adjustClusterAssignments(
     clusterResults: Dict<number> | null,
     metadataIndex: SampleMetadataIndex,

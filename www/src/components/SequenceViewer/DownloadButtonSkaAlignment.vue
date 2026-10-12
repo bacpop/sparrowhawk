@@ -13,11 +13,11 @@
             <Button :disabled="isBusy || isDownloading || (alignmentExportComplete && !currentPartBlob)" class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadCurrentPart">
               <Loader2 v-if="isDownloading" class="w-4 h-4 mr-2 animate-spin" />
               <Download v-else class="w-4 h-4 mr-2" />
-              {{ totalParts > 1 ? `Download alignment (${partLabel(currentPartIndex)})` : 'Download alignment' }}
+              {{ totalParts > 1 ? `.aln.gz (${partLabel(currentPartIndex)})` : '.aln.gz' }}
             </Button>
             <Button v-if="totalParts > 1 && hasNextPart" :disabled="isBusy || isDownloading || !currentPartBlob" class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadNextPart">
               <Download class="w-4 h-4 mr-2" />
-              Download alignment ({{ partLabel(currentPartIndex + 1) }})
+              .aln.gz ({{ partLabel(currentPartIndex + 1) }})
             </Button>
           </template>
         </div>

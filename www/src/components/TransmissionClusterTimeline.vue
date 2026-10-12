@@ -23,6 +23,7 @@ function markerDiameter(cases: number, maximumCases: number): number {
 interface ClusterRow {
   name: string;
   cluster: number;
+  singleton?: boolean;
 }
 
 interface PreparedPoint {
@@ -51,7 +52,9 @@ export default defineComponent({
     preparedData(): PreparedPoint[] {
       const metadataIndex = buildSampleMetadataIndex(this.clusterRows.map(row => row.name), this.metadataRows);
       const joined: { cluster: number; date: string }[] = [];
+      // The index covers every sample so ID ambiguity is judged as in the table; singletons are only skipped here.
       for (const row of this.clusterRows) {
+        if (row.singleton) continue;
         const meta = metadataIndex.rowsBySample.get(row.name);
         if (meta?.date) {
           joined.push({ cluster: row.cluster, date: meta.date });

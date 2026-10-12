@@ -24,8 +24,8 @@
     import * as React from 'react';
     import Taxonium from 'taxonium-component';
     import type { Dict, MetadataRow, TreeResult } from '@/types';
-    import { adjustClusterAssignments, buildSampleMetadataIndex } from '@/utils/transmissionMetadata';
-    import { buildTaxoniumClusterColorMapping } from '@/utils/transmissionClusterColors';
+    import { adjustClusterAssignments, buildSampleMetadataIndex, singletonSampleNames } from '@/utils/transmissionMetadata';
+    import { buildTaxoniumClusterColorMapping, SINGLETON_LABEL } from '@/utils/transmissionClusterColors';
 
 
     export default defineComponent({
@@ -44,6 +44,7 @@
         // These will change whenever the arguments change, it's equivalent to put them when you define a website in the "computed" section
         const metadataIndex = computed(() => buildSampleMetadataIndex(props.tree?.names ?? [], props.metadataRows));
         const clusters      = computed(() => adjustClusterAssignments(props.clusterResults, metadataIndex.value, props.enableLocationMatching));
+        const singletons    = computed(() => singletonSampleNames(props.clusterResults));
         const hasTipMapping = computed(() => {
           const tree = props.tree;
           const tips = tree?.treeTipNames;
@@ -58,7 +59,8 @@
           const rows = props.tree.names.map((name, i) => {
             const metadata = metadataIndex.value.rowsBySample.get(name);
             const cluster = clusters.value?.[name];
-            return [props.tree!.treeTipNames![i], cluster == null ? '' : `Cluster ${cluster}`,
+            const label = cluster == null ? '' : singletons.value.has(name) ? SINGLETON_LABEL : `Cluster ${cluster}`;
+            return [props.tree!.treeTipNames![i], label,
               name, metadata?.date ?? '', metadata?.location ?? ''].map(clean).join('\t');
           });
           return ['Sample\tCluster\tOriginal sample\tDate\tLocation', ...rows].join('\n');
@@ -75,7 +77,8 @@
           };
           const defaultColorByField = hasTipMapping.value && tree.names.some(name => clusters.value?.[name] != null)
             ? 'meta_Cluster' : 'None';
-          const colorMapping = buildTaxoniumClusterColorMapping(Object.values(clusters.value ?? {}));
+          const colorMapping = buildTaxoniumClusterColorMapping(Object.entries(clusters.value ?? {})
+            .filter(([name]) => !singletons.value.has(name)).map(([, id]) => id));
           return { sourceData, configDict: { defaultColorByField, colorMapping },
             signature: JSON.stringify([tree.newick, metadataTsv.value, defaultColorByField, colorMapping]) };
         });

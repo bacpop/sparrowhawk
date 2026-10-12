@@ -20,18 +20,25 @@
           <tr v-for="row in clusterTableRows" :key="row.name"
               class="border-t border-gray-100 hover:bg-gray-50">
             <td class="px-3 py-2 font-mono truncate max-w-xs">{{ row.name }}</td>
-            <td class="px-3 py-2">{{ row.cluster }}</td>
+            <td class="px-3 py-2" :class="{ 'text-gray-400': row.singleton }">
+              {{ row.cluster }}<span v-if="row.singleton"> (singleton)</span>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="mt-4 h-[500px]">
+    <p v-if="singletonCount > 0" class="mt-4 text-sm text-gray-500">
+      {{ singletonCount }} sample(s) without links at this SNP threshold are omitted from the graph and timeline;
+      they are shown in grey in the tree.
+    </p>
+    <div v-if="transmissionGraphNodes.length" class="mt-4 h-[500px]">
       <TransmissionGraph
         :nodes="transmissionGraphNodes"
         :links="transmissionGraphLinks"
       />
     </div>
+    <p v-else class="mt-4 text-sm text-gray-500">No samples are linked at the selected SNP threshold.</p>
 
     <div v-if="hasTimelineMatches" class="mt-6">
       <h3 class="text-sm font-medium text-gray-600 mb-2">Cluster timeline</h3>
@@ -41,7 +48,7 @@
       />
     </div>
     <p v-else-if="metadataRows.length > 0" class="mt-6 text-sm text-gray-500">
-      No metadata rows with matching sample IDs and dates were found for the cluster timeline.
+      No linked samples with matching metadata IDs and dates were found for the cluster timeline.
     </p>
   </div>
 </template>
@@ -50,7 +57,7 @@
 import { defineComponent, PropType } from "vue";
 import TransmissionGraph from "@/components/TransmissionGraph.vue";
 import TransmissionClusterTimeline from "@/components/TransmissionClusterTimeline.vue";
-import { buildSampleMetadataIndex, adjustClusterAssignments } from "@/utils/transmissionMetadata";
+import { buildSampleMetadataIndex, adjustClusterAssignments, singletonSampleNames } from "@/utils/transmissionMetadata";
 import type { SampleMetadataIndex } from "@/utils/transmissionMetadata";
 import { saveTextFile } from "@/platform/files";
 import type { Dict, MetadataRow, TransmissionGraphData } from "@/types";
@@ -94,28 +101,33 @@ export default defineComponent({
     adjustedClusterResults(): Record<string, number> | null {
       return adjustClusterAssignments(this.clusterResults, this.metadataIndex, this.enableLocationMatching);
     },
-    clusterTableRows(): { name: string; cluster: number }[] {
+    singletonNames(): Set<string> {
+      return singletonSampleNames(this.clusterResults);
+    },
+    singletonCount(): number {
+      return this.singletonNames.size;
+    },
+    clusterTableRows(): { name: string; cluster: number; singleton: boolean }[] {
       const results = this.adjustedClusterResults;
       if (!results) {
         return [];
       }
       return Object.entries(results)
-        .map(([name, cluster]) => ({ name, cluster }))
+        .map(([name, cluster]) => ({ name, cluster, singleton: this.singletonNames.has(name) }))
         .sort((a, b) => a.cluster - b.cluster || a.name.localeCompare(b.name));
     },
     hasTimelineMatches(): boolean {
-      return this.clusterTableRows.some(row => Boolean(this.metadataIndex.rowsBySample.get(row.name)?.date));
+      return this.clusterTableRows.some(row =>
+        !row.singleton && Boolean(this.metadataIndex.rowsBySample.get(row.name)?.date));
     },
     transmissionGraphNodes() {
-      const nodes = this.transmissionGraph?.nodes ?? [];
       const adjusted = this.adjustedClusterResults;
-      if (!adjusted) {
-        return nodes;
-      }
-      return nodes.map((node) => ({
-        ...node,
-        cluster: adjusted[node.id] ?? node.cluster,
-      }));
+      return (this.transmissionGraph?.nodes ?? [])
+        .filter((node) => !this.singletonNames.has(node.id))
+        .map((node) => ({
+          ...node,
+          cluster: adjusted?.[node.id] ?? node.cluster,
+        }));
     },
     transmissionGraphLinks() {
       return this.transmissionGraph?.links ?? [];
