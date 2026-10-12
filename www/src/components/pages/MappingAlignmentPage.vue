@@ -911,18 +911,12 @@ export default defineComponent({
         preparing: "Preparing samples",
         extracting: "Extracting split k-mers",
         distances: "Computing distances and adding samples",
-        "compressing-sites": "Compressing site groups",
         "obtaining-alignment": "Obtaining alignment...",
         "tree-distances": "Preparing tree distances",
         tree: "Building tree",
         exporting: "Preparing results",
       };
       const label = labels[progress.stage];
-      if (progress.stage === "compressing-sites") {
-        const total = progress.sitesTotal ?? 0;
-        const percent = total ? Math.round(100 * (progress.sitesProcessed ?? 0) / total) : 100;
-        return `${label} (${percent}%)`;
-      }
       if (progress.sampleIndex !== null && progress.sampleTotal !== null) {
         return `${label} (${progress.sampleIndex}/${progress.sampleTotal})`;
       }

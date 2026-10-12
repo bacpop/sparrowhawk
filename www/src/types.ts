@@ -268,7 +268,7 @@ export interface ReadsPreprocessing {
 
 export type AlignmentStage =
     | "loading" | "preparing" | "extracting"
-    | "distances" | "compressing-sites" | "obtaining-alignment"
+    | "distances" | "obtaining-alignment"
     | "tree-distances" | "tree" | "exporting";
 
 export interface AlignmentProgress {
@@ -277,9 +277,6 @@ export interface AlignmentProgress {
     sampleTotal: number | null;
     sampleName: string | null;
     runId?: number;
-    sitesProcessed?: number;
-    sitesTotal?: number;
-    complete?: boolean;
 }
 
 export type AlignmentStageStatus = "active" | "complete" | "interrupted";

@@ -42,14 +42,12 @@ export default {
     recordAlignmentProgress(state: RootState, progress: AlignmentProgress) {
         const log = state.processingState.alignmentLog;
         const existingIndex = log.findIndex((entry) => entry.stage === progress.stage);
-        const compressionStatus = progress.stage === "compressing-sites"
-            ? (progress.complete ? "complete" : "active") : null;
         if (existingIndex === -1) {
-            log.push({ ...progress, status: compressionStatus ?? "active" });
+            log.push({ ...progress, status: "active" });
         } else {
             log.splice(existingIndex, 1, {
                 ...progress,
-                status: compressionStatus ?? log[existingIndex].status,
+                status: log[existingIndex].status,
             });
         }
     },
