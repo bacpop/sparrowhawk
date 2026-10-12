@@ -857,7 +857,7 @@ export default defineComponent({
       const alignment = this.allResults_ska.alignResults[0];
       if (!this.hasAlignmentResults || alignment?.elapsedMs == null) return "";
       let line = `${alignment.names?.length ?? 0} sample(s) aligned · ${formatDuration(alignment.elapsedMs)}`;
-      if (alignment.wasmMemoryBytes != null) line += ` · peak WebAssembly memory ${formatBytes(alignment.wasmMemoryBytes)}`;
+      if (alignment.wasmMemoryBytes != null) line += ` · peak WebAssembly memory (aggregator worker) ${formatBytes(alignment.wasmMemoryBytes)}`;
       return line;
     },
     // Convert mapping results to MSA format for the viewer
@@ -911,12 +911,18 @@ export default defineComponent({
         preparing: "Preparing samples",
         extracting: "Extracting split k-mers",
         distances: "Computing distances and adding samples",
+        "compressing-sites": "Compressing site groups",
         "obtaining-alignment": "Obtaining alignment...",
         "tree-distances": "Preparing tree distances",
         tree: "Building tree",
         exporting: "Preparing results",
       };
       const label = labels[progress.stage];
+      if (progress.stage === "compressing-sites") {
+        const total = progress.sitesTotal ?? 0;
+        const percent = total ? Math.round(100 * (progress.sitesProcessed ?? 0) / total) : 100;
+        return `${label} (${percent}%)`;
+      }
       if (progress.sampleIndex !== null && progress.sampleTotal !== null) {
         return `${label} (${progress.sampleIndex}/${progress.sampleTotal})`;
       }
