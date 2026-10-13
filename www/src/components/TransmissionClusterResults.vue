@@ -28,20 +28,22 @@
       </table>
     </div>
 
-    <p v-if="singletonCount > 0" class="mt-4 text-sm text-gray-500">
-      {{ singletonCount }} sample(s) without links at this SNP threshold are omitted from the graph and timeline;
-      they are shown in grey in the tree.
-    </p>
-    <div v-if="transmissionGraphNodes.length" class="mt-4 h-[500px]">
+    <h2 class="mt-6 mb-2 text-base font-medium">Network graph</h2>
+    <div v-if="transmissionGraphNodes.length" class="h-[500px]">
       <TransmissionGraph
         :nodes="transmissionGraphNodes"
         :links="transmissionGraphLinks"
-      />
+      >
+        <template v-if="singletonCount > 0" #toolbar-note>
+          {{ singletonCount }} sample(s) without links at this SNP threshold are omitted from the graph and timeline;
+          they are shown in grey in the tree.
+        </template>
+      </TransmissionGraph>
     </div>
-    <p v-else class="mt-4 text-sm text-gray-500">No samples are linked at the selected SNP threshold.</p>
+    <p v-else class="text-sm text-gray-500">No samples are linked at the selected SNP threshold.</p>
 
     <div v-if="hasTimelineMatches" class="mt-6">
-      <h3 class="text-sm font-medium text-gray-600 mb-2">Cluster timeline</h3>
+      <h2 class="text-base font-medium mb-2">Cluster timeline</h2>
       <TransmissionClusterTimeline
         :clusterRows="clusterTableRows"
         :metadataRows="metadataRows"

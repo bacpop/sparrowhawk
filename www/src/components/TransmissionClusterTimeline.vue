@@ -10,6 +10,14 @@ import { transmissionClusterColor } from "@/utils/transmissionClusterColors";
 // @ts-ignore - plotly.js-dist doesn't have types
 import Plotly from 'plotly.js-dist';
 
+const BASE_HEIGHT = 300;
+const CROWDED_CLUSTERS = 32;
+
+// Linear growth from 1x at 32 clusters up to 2x at 64 or more.
+function timelineHeight(clusterCount: number): number {
+  return Math.round(BASE_HEIGHT * Math.min(2, Math.max(1, clusterCount / CROWDED_CLUSTERS)));
+}
+
 const MIN_MARKER_DIAMETER = 8;
 const MAX_MARKER_DIAMETER = 36;
 
@@ -148,6 +156,7 @@ export default defineComponent({
         showlegend: false,
         font: { family: 'IBM Plex Sans' },
         autosize: true,
+        height: timelineHeight(clusters.length),
         margin: { t: 30, r: 20 },
       };
 

@@ -145,7 +145,7 @@
         :enableLocationMatching="enableLocationMatching"
       />
       <section v-if="hasTransmissionStandaloneClusterResults" class="mx-6 mt-6 min-w-0">
-        <h2 class="text-base font-medium mb-2">Tree</h2>
+        <h2 class="text-base font-medium mb-2">Phylogenetic tree</h2>
         <p v-if="transmissionStandalone.treeError" class="mb-2 text-sm text-red-600" role="alert">
           {{ transmissionStandalone.treeError }}
         </p>

@@ -1,7 +1,8 @@
 <template>
   <div class="flex flex-col w-full h-full border border-gray-200 rounded-md bg-white overflow-hidden">
-    <div class="shrink-0 flex justify-end border-b border-gray-200 p-2">
-      <Button type="button" variant="outline" size="sm" :disabled="!canFit" @click="fitGraph">
+    <div class="shrink-0 flex items-center justify-between gap-3 border-b border-gray-200 p-2">
+      <div class="min-w-0 text-sm text-gray-500"><slot name="toolbar-note" /></div>
+      <Button type="button" variant="outline" size="sm" class="shrink-0" :disabled="!canFit" @click="fitGraph">
         Fit graph
       </Button>
     </div>

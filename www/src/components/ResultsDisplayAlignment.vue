@@ -1,6 +1,9 @@
 <template>
-  <TaxoniumTree v-if="tree" :tree="tree" :cluster-results="clusterResults"
-    :metadata-rows="metadataRows" :enable-location-matching="enableLocationMatching" />
+  <section v-if="tree" class="min-w-0">
+    <h2 class="text-base font-medium mb-2">Phylogenetic tree</h2>
+    <TaxoniumTree :tree="tree" :cluster-results="clusterResults"
+      :metadata-rows="metadataRows" :enable-location-matching="enableLocationMatching" />
+  </section>
 </template>
 
 <script lang="ts">
