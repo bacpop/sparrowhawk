@@ -198,7 +198,7 @@ export default defineComponent({
   },
   setup() {
     const store = useStore();
-    const min_gene_fraction: Ref<number> = ref(0.10);
+    const min_gene_fraction: Ref<number> = ref(0.30);
     const min_gene_group_fraction: Ref<number> = ref(0.10);
     const uploadedFileNames: Ref<string[]> = ref([]);
 

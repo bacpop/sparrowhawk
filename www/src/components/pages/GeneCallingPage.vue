@@ -395,7 +395,7 @@ export default defineComponent({
     const closed_ends: Ref<boolean> = ref(false);
     const mask: Ref<boolean> = ref(false);
     const non_sd: Ref<boolean> = ref(false);
-    const min_gene_fraction: Ref<number> = ref(0.10);
+    const min_gene_fraction: Ref<number> = ref(0.30);
     const min_gene_group_fraction: Ref<number> = ref(0.10);
     const tt: Ref<number> = ref(0);
     const maxWorkers = getMaxWorkerThreads();
