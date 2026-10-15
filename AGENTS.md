@@ -78,7 +78,7 @@ Four **git submodules**, per `.gitmodules`:
 
 | Crate | Repo | Branch |
 |---|---|---|
-| `sparrowhawk-asm` | `bacpop/sparrowhawk-asm` | `master` |
+| `sparrowhawk-asm` | `bacpop/sparrowhawk-asm` | `multik-iterative` |
 | `ska.rust` | `bacpop/ska.rust` | `sparrowhawk-dev` |
 | `sketchlib.rust` | `bacpop/sketchlib.rust` | `sparrowhawk-dev` |
 | `sparrowhawk-amr` | `bacpop/sparrowhawk-amr` | `master` |

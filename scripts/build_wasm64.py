@@ -69,6 +69,8 @@ def build(crate: Path, module: str) -> None:
         "-C",
         f"link-arg=--max-memory={WASM64_MAX_MEMORY_BYTES}",
     ]
+    # Not for sparrowhawk: with simd128, fixedbitset 0.5.7 (through petgraph) imports
+    # `core::arch::wasm32` on any wasm target, which does not exist on wasm64.
     if module == "ska":
         rustflags.extend(["-C", "target-feature=+simd128"])
 

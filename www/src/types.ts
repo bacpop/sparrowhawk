@@ -264,6 +264,9 @@ export interface ReadsPreprocessing {
     histo: [];
     used_min_count: number | null;
     elapsedMs?: number;
+    /** The k the spectrum was counted at: in a multi-k run, the ladder's first. */
+    k?: number;
+    multik?: boolean;
 }
 
 export type AlignmentStage =
@@ -297,6 +300,8 @@ export interface ProcessingState {
     isIdentifying: boolean;
     isIdentifyingFiles: Set<string>;  // Track which files are being identified
     assemblyState: string;  // Current state from Sparrowhawk assembly
+    multikLadder: number[];  // Every k of a multi-k run, once known
+    multikStep: { step: number; k: number } | null;  // The multi-k step under way
     isCallingGenes: boolean;
     isCallingGenesFiles: Set<string>;
     geneCallingStep: string;

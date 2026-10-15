@@ -7,7 +7,7 @@ This tab will try to assess what bacterial species correspond to any reads or ge
 
 ## Parameters
 The values in brackets are the default ones:
-- **Min Illumina read quality** \[20\]: integer 0–33; filters nucleotides below this quality score when processing FASTQ reads.
+- **Minimum read quality** \[20\]: integer 0–33; filters nucleotides below this quality score when processing FASTQ reads.
 - **Min counts for k-mer filtering** \[5\]: integer 1–30; only k-mers appearing more than this threshold are used. Analogous to the assembly parameter of the same name.
 - **Proportion of reads** \[1.0\]: a real number between 0 and 1 that allows you to choose what fraction of reads to sample.
 - **Workers** \[4\]: integer 1–8; number of parallel web workers processing files simultaneously. Higher values speed up batch identification but use more memory.

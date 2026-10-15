@@ -10,7 +10,7 @@
 
       <TooltipProvider>
         <div class="flex flex-col gap-4">
-          <div>
+          <div :class="multik ? 'opacity-50' : ''">
             <p class="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger as-child>
@@ -27,9 +27,9 @@
                          v-model="k"
                          :lazy="true"
                          :min="21"
-                         :max="89"
+                         :max="255"
                          :interval="2"
-                         :disabled="isProcessingAny"
+                         :disabled="isProcessingAny || multik"
               />
               <span class="block w-[40px] text-center border border-gray-300 rounded-md text-sm">
                 {{ k }}
@@ -37,17 +37,65 @@
             </div>
           </div>
 
-          <div>
+          <div class="flex flex-row items-center w-full gap-2">
+            <input id="multik" type="checkbox" v-model="multik" :disabled="isProcessingAny"/>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="max-w-xs">Assemble at several k, each seeded with the contigs of the previous one. Slower, and usually more contiguous.</p>
+              </TooltipContent>
+            </Tooltip>
+            <label for="multik">Multi-k (takes longer)</label>
+          </div>
+
+          <div v-if="multik">
+            <label for="ks" class="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="max-w-xs">Odd k values in ascending order, separated by commas. Leave empty for the default ladder: 21, 31, 41, 55, 71 and up to the read length.</p>
+                </TooltipContent>
+              </Tooltip>
+              k values
+            </label>
+            <input id="ks"
+                   type="text"
+                   placeholder="default ladder"
+                   class="w-full border border-gray-300 rounded-md text-sm p-2 active:outline-none focus:outline-none"
+                   v-model.trim="ksText"
+                   :disabled="isProcessingAny">
+          </div>
+
+          <div class="flex flex-row items-center w-full gap-2">
+            <input id="auto_qual" type="checkbox" v-model="auto_qual" :disabled="isProcessingAny"/>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="max-w-xs">Chooses, at each k, the minimum base quality a k-mer must have, from the qualities in the reads (at most 20). When disabled, the minimum read quality below is used as is.</p>
+              </TooltipContent>
+            </Tooltip>
+            <label for="auto_qual">
+              Automatic read quality filtering
+            </label>
+          </div>
+
+          <div v-if="!auto_qual">
             <p class="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Controls the filtering of nucleotides depending on the sequencing error information.</p>
+                  <p class="max-w-xs">K-mers with any base below this quality are not counted.</p>
                 </TooltipContent>
               </Tooltip>
-              Min Illumina read quality
+              Minimum read quality
             </p>
             <div class="flex flex-row items-center w-full gap-2">
               <VueSlider class="flex-grow"
@@ -64,7 +112,22 @@
             </div>
           </div>
 
-          <div :class="do_fit ? 'opacity-50' : ''">
+          <div class="flex flex-row items-center w-full gap-2">
+            <input id="do_fit" type="checkbox" v-model="do_fit" :disabled="isProcessingAny"/>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="max-w-xs">Allows automatic setting of the minimum k-mer count. Memory usage could increase.</p>
+              </TooltipContent>
+            </Tooltip>
+            <label for="do_fit">
+              Automatic minimum count setting
+            </label>
+          </div>
+
+          <div v-if="!do_fit">
             <p class="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger as-child>
@@ -83,27 +146,12 @@
                          :min="infimumMinCount"
                          :max="30"
                          :interval="1"
-                         :disabled="isProcessingAny || do_fit"
+                         :disabled="isProcessingAny"
               />
               <span class="block w-[40px] text-center border border-gray-300 rounded-md text-sm">
                 {{ min_count }}
               </span>
             </div>
-          </div>
-
-          <div class="flex flex-row items-center w-full gap-2">
-            <input id="do_fit" type="checkbox" v-model="do_fit" :disabled="isProcessingAny"/>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p class="max-w-xs">Allows automatic setting of the minimum k-mer count. Memory usage could increase.</p>
-              </TooltipContent>
-            </Tooltip>
-            <label for="do_fit">
-              Automatically set min counts
-            </label>
           </div>
 
           <div class="flex flex-row items-center w-full gap-2">
@@ -113,7 +161,7 @@
                 <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
               </TooltipTrigger>
               <TooltipContent>
-                <p class="max-w-xs">Alternative filtering with significantly lower memory usage. Recommended for non-small reads. Chunking will be disabled.</p>
+                <p class="max-w-xs">Alternative filtering with significantly lower memory usage, at the cost of rare false-positive k-mers. On by default, as in the command-line tool.</p>
               </TooltipContent>
             </Tooltip>
             <label for="do_bloom">
@@ -121,53 +169,25 @@
             </label>
           </div>
 
-          <div class="flex flex-row items-center w-full gap-2">
-            <input id="no_deadend" type="checkbox" v-model="no_deadend" :disabled="isProcessingAny"/>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p class="max-w-xs">Maintains short paths in the graph that would usually be pruned.</p>
-              </TooltipContent>
-            </Tooltip>
-            <label for="no_deadend">
-              Keep dead-ends
-            </label>
-          </div>
-
-          <div class="flex flex-row items-center w-full gap-2">
-            <input id="no_bubble" type="checkbox" v-model="no_bubble" :disabled="isProcessingAny"/>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p class="max-w-xs">Disables simple bubble collapse in the assembly graph.</p>
-              </TooltipContent>
-            </Tooltip>
-            <label for="no_bubble">
-              Do not collapse bubbles
-            </label>
-          </div>
-
-          <div :class="do_bloom ? 'opacity-50' : ''">
-            <label for="csize" class="flex items-center gap-1">
+          <div>
+            <label for="min_contig_length" class="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Info class="w-3.5 h-3.5 text-gray-400 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="max-w-xs">Size of the preprocessing batches. Lowering this value will usually decrease memory usage somewhat.</p>
+                  <p class="max-w-xs">Contigs shorter than this, in nucleotides, are left out of the FASTA output. Contigs of exactly this length are kept.</p>
                 </TooltipContent>
               </Tooltip>
-              Chunk size (zero for no chunking)
+              Minimum contig length
             </label>
-            <input id="csize"
+            <input id="min_contig_length"
                    type="number"
+                   min="0"
+                   step="1"
                    class="w-full border border-gray-300 rounded-md text-sm p-2 active:outline-none focus:outline-none"
-                   v-model.number.trim="csize"
-                   :disabled="do_bloom || isProcessingAny">
+                   v-model.number="min_contig_length"
+                   :disabled="isProcessingAny">
           </div>
 
           <Button @click="doPreProcess()" v-if="readsProcessed" class="max-w-fit mt-2"
@@ -183,8 +203,12 @@
         <template v-if="assemblyErrorType === 'file_count'">
           Assembly requires one or two FASTQ files. Please upload between one and two files and try again.
         </template>
+        <template v-else-if="assemblyErrorType === 'assembler'">
+          The assembler stopped: {{ assemblyErrorMessage }}
+        </template>
         <template v-else>
-          Error found while processing! It is most surely a memory issue: try increasing the chunking, or using a Bloom filter.
+          Error found while processing! It is most surely a memory issue: try a Bloom filter, or a single k.
+          <span v-if="assemblyErrorMessage" class="block mt-1 font-mono text-xs">{{ assemblyErrorMessage }}</span>
         </template>
       </div>
 
@@ -219,6 +243,9 @@
             <span class="font-semibold text-gray-800">
               {{ assemblyPhaseTitle }}
             </span>
+          </div>
+          <div v-if="multikProgress" class="mt-1 ml-6 text-xs font-medium text-gray-800">
+            {{ multikProgress }}
           </div>
           <div v-if="assemblyStepDetails.step" class="mt-2 ml-6">
             <div class="text-xs font-medium text-gray-700">
@@ -312,13 +339,14 @@ export default defineComponent({
     const store = useStore();
     const k: Ref<number> = ref(31);
     const min_count: Ref<number> = ref(5);
+    const auto_qual: Ref<boolean> = ref(true);
     const min_qual: Ref<number> = ref(20);
-    const csize: Ref<number> = ref(150000);
-    const do_bloom: Ref<boolean> = ref(false);
+    const do_bloom: Ref<boolean> = ref(true);
     const do_fit: Ref<boolean> = ref(true);
+    const multik: Ref<boolean> = ref(false);
+    const ksText: Ref<string> = ref("");
     const assemblying: Ref<boolean> = ref(false);
-    const no_bubble: Ref<boolean> = ref(false);
-    const no_deadend: Ref<boolean> = ref(false);
+    const min_contig_length: Ref<number> = ref(500);
     const uploadedFiles: Ref<File[]> = ref([]);
 
     const {
@@ -336,16 +364,19 @@ export default defineComponent({
     }
 
     function doPreProcess(): void {
+      // An emptied or negative field falls back to the CLI's default.
+      const minContig = Number(min_contig_length.value);
       processReads({
         acceptFiles: uploadedFiles.value,
         k: k.value,
         min_count: min_count.value,
-        min_qual: min_qual.value,
-        csize: csize.value,
+        // Automatic filtering sends no floor, so the assembler chooses one, as the CLI without --min-qual.
+        min_qual: auto_qual.value ? null : min_qual.value,
         do_bloom: do_bloom.value,
         do_fit: do_fit.value,
-        no_bubble_collapse: no_bubble.value,
-        no_dead_end_removal: no_deadend.value
+        multik: multik.value,
+        ks: ksText.value.split(",").map((s) => s.trim()).filter((s) => s !== "").map(Number),
+        min_contig_length: Number.isFinite(minContig) && minContig >= 0 ? Math.floor(minContig) : 500
       });
     }
 
@@ -376,12 +407,13 @@ export default defineComponent({
       store,
       k,
       min_count,
+      auto_qual,
       min_qual,
-      csize,
       do_bloom,
       do_fit,
-      no_bubble,
-      no_deadend,
+      multik,
+      ksText,
+      min_contig_length,
       assemblying,
       resetAll,
       doPreProcess,
@@ -415,6 +447,9 @@ export default defineComponent({
     assemblyErrorType(): string {
       return this.store.getters.getErrorType;
     },
+    assemblyErrorMessage(): string {
+      return this.store.getters.getErrorMessage;
+    },
     readsName(): string {
       return this.store.getters.readsName;
     },
@@ -443,8 +478,11 @@ export default defineComponent({
     currentAssemblyState(): string {
       return this.store.getters.assemblyState;
     },
+    multikProgress(): string {
+      return this.store.getters.multikProgress;
+    },
     assemblyPhaseTitle(): string {
-      if (this.isPreprocessingActive) return 'Pre-processing';
+      if (this.isPreprocessingActive) return 'Preprocessing';
       if (this.isAssemblingActive) return 'Assembling';
       return '';
     },
@@ -452,169 +490,67 @@ export default defineComponent({
       const state = this.currentAssemblyState;
       if (!state) return { step: '', detail: '' };
 
-      // Parse preprocessing states
+      // Counting k-mers, for the first k and again for every later k of a multi-k run
       if (state.startsWith('preprocess:')) {
-        // Initialization
         if (state === 'preprocess:start') {
-          return { step: 'Initialising', detail: 'Setting up preprocessing pipeline' };
+          return { step: 'Initialising', detail: 'Setting up the k-mer counting' };
         }
-
-        // Bloom filter preprocessing
-        if (state.includes('bloom')) {
-          if (state === 'preprocess:bloom:start') {
-            return { step: 'Bloom Filter Setup', detail: 'Initialising Bloom filter' };
-          }
-          if (state === 'preprocess:bloom:loop:start') {
-            return { step: 'Reading FASTQ Files', detail: 'Processing paired-end reads with Bloom filter' };
-          }
-          
-          // Progress messages
-          if (state.includes('preprocess:bloom:loop:')) {
-            const parts = state.split(':');
-            if (parts.length >= 4) {
-              const numReads = isNaN(Number(parts[3])) ? 0 : Number(parts[3]);
-              const percentage = parts[4];
-              
-              if (percentage) {
-                return { 
-                  step: 'Reading FASTQ Files',
-                  detail: `Processed ${numReads.toLocaleString()} reads (${percentage}% complete)`
-                };
-              } else {
-                return { 
-                  step: 'Reading FASTQ Files',
-                  detail: `Processed ${numReads.toLocaleString()} reads`
-                };
-              }
-            }
-          }
-          
-          if (state === 'preprocess:bloom:loop:end') {
-            return { step: 'Reading FASTQ Files', detail: 'All reads processed successfully' };
-          }
-          if (state === 'preprocess:bloom:fitting') {
-            return { step: 'Optimising Parameters', detail: 'Fitting k-mer count threshold' };
-          }
-          if (state === 'preprocess:bloom:filtering') {
-            return { step: 'Filtering K-mers', detail: 'Filtering k-mers from dataset' };
-          }
+        if (state === 'preprocess:bulk:start') {
+          return { step: 'Counting k-mers', detail: 'Starting' };
         }
-        
-        // Bulk (no chunk, no bloom) preprocessing
-        else if (state.includes('bulk')) {
-          if (state === 'preprocess:bulk:start') {
-            return { step: 'Bulk Processing Setup', detail: 'Initialising' };
-          }
-          if (state === 'preprocess:bulk:loop:start') {
-            return { step: 'Reading FASTQ Files', detail: 'Processing paired-end reads' };
-          }
-          
-          // Progress messages
-          if (state.includes('preprocess:bulk:loop:')) {
-            const parts = state.split(':');
-            if (parts.length >= 4) {
-              const numReads = (isNaN(Number(parts[3])) ? 0 : Number(parts[3]));
-              const percentage = parts[4];
-              
-              if (percentage) {
-                return { 
-                  step: 'Reading FASTQ Files',
-                  detail: `Processed ${numReads.toLocaleString()} reads (${percentage}% complete)`
-                };
-              } else {
-                return { 
-                  step: 'Reading FASTQ Files',
-                  detail: `Processed ${numReads.toLocaleString()} reads`
-                };
-              }
-            }
-          }
-          
-          if (state === 'preprocess:bulk:loop:end') {
-            return { step: 'Reading FASTQ Files', detail: 'All reads processed successfully' };
-          }
-          if (state === 'preprocess:bulk:sorting') {
-            return { step: 'Sorting K-mers', detail: 'Organising k-mers for efficient filtering' };
-          }
-          if (state === 'preprocess:bulk:fitting') {
-            return { step: 'Optimising Parameters', detail: 'Automatically fitting k-mer count threshold' };
-          }
-          if (state === 'preprocess:bulk:filtering') {
-            return { step: 'Filtering K-mers', detail: 'Removing low-quality k-mers from dataset' };
-          }
+        if (state === 'preprocess:bulk:loop:start') {
+          return { step: 'Reading FASTQ files', detail: 'Reading the first reads' };
         }
-        
-        // Chunked preprocessing
-        else if (state.includes('chunked')) {
-          if (state === 'preprocess:chunked:start') {
-            return { step: 'Chunked Processing Setup', detail: 'Initialising memory-optimised chunked mode' };
-          }
-          if (state === 'preprocess:chunked:fitting') {
-            return { step: 'Optimising Parameters', detail: 'Automatically fitting k-mer count threshold across chunks' };
-          }
-          if (state === 'preprocess:chunked:filtering') {
-            return { step: 'Filtering K-mers', detail: 'Removing low-quality k-mers from chunked dataset' };
-          }
-
-          // Progress messages
-          if (state.includes('preprocess:chunked:loop:')) {
-            const parts = state.split(':');
-            if (parts.length >= 4) {
-              const numReads = isNaN(Number(parts[3])) ? 0 : Number(parts[3]);
-              const percentage = parts[4];
-
-              if (percentage) {
-                return {
-                  step: 'Reading FASTQ Files',
-                  detail: `Processed ${numReads.toLocaleString()} reads (${percentage}% complete)`
-                };
-              } else {
-                return {
-                  step: 'Reading FASTQ Files',
-                  detail: `Processed ${numReads.toLocaleString()} reads`
-                };
-              }
-            }
-          }
+        if (state === 'preprocess:bulk:loop:end') {
+          return { step: 'Reading FASTQ files', detail: 'All reads read' };
         }
-        
-        // Common preprocessing states
-        if (state === 'preprocess:saving') {
-          return { step: 'Saving Data', detail: 'Writing preprocessed k-mers to memory' };
+        // preprocess:bulk:loop:<reads>[:<percent>], the percentage being how far through the files
+        if (state.startsWith('preprocess:bulk:loop:')) {
+          const [, , , reads, percent] = state.split(':');
+          const count = (Number(reads) || 0).toLocaleString();
+          return {
+            step: 'Reading FASTQ files',
+            detail: percent ? `Processed ${count} reads (${percent}%)` : `Processed ${count} reads`,
+          };
+        }
+        if (state === 'preprocess:bulk:fitting') {
+          return { step: 'Choosing the minimum count', detail: 'Fitting the k-mer spectrum' };
+        }
+        if (state === 'preprocess:bulk:filtering') {
+          return { step: 'Filtering k-mers', detail: 'Removing k-mers below the minimum count' };
+        }
+        if (state.startsWith('preprocess:recount:')) {
+          const floor = state.split(':')[2];
+          return { step: 'Recounting k-mers', detail: `At a base-quality floor of ${floor}, as the spectrum asked` };
         }
         if (state === 'preprocess:end') {
-          return { step: 'Complete', detail: 'Preprocessing finished successfully' };
+          return { step: 'Complete', detail: 'Counting finished' };
         }
       }
-      
-      // Parse assembly states
+
       if (state.startsWith('assembly:')) {
-        if (state === 'assembly:start') {
-          return { step: 'Starting Assembly', detail: 'Initialising assembly pipeline' };
-        }
         if (state === 'assembly:create_graph') {
-          return { step: 'Building Graph', detail: 'Creating de Bruijn graph' };
+          return { step: 'Building graph', detail: 'Creating the de Bruijn graph' };
         }
         if (state === 'assembly:correct_graph') {
-          return { step: 'Correcting Graph', detail: 'Processing' };
+          return { step: 'Correcting graph', detail: 'Removing tips, bubbles and erroneous connections' };
         }
         if (state === 'assembly:collapse_graph') {
-          return { step: 'Collapsing Graph', detail: 'Processing' };
+          return { step: 'Collapsing graph', detail: 'Joining unambiguous paths into contigs' };
         }
         if (state === 'assembly:saving') {
-          return { step: 'Saving Results', detail: 'Saving to FASTA format' };
+          return { step: 'Saving results', detail: 'Writing the FASTA output' };
         }
         if (state === 'assembly:end') {
-          return { step: 'Complete', detail: 'Assembly finished successfully' };
+          return { step: 'Complete', detail: 'Assembly finished' };
         }
       }
-      
-      // Initialization
+
       if (state === 'initialised') {
-        return { step: 'Initialised', detail: 'System ready' };
+        return { step: 'Initialised', detail: 'Ready' };
       }
-      
-      // Fallback to raw state if no match
+
+      // Fallback to the raw state if no match
       return { step: state, detail: '' };
     }
   },

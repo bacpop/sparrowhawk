@@ -1,2 +1,4 @@
-[build]
-rustflags = ["-C", "link-args=-zstack-size=8000000"]
+# A target section's rustflags replace [build] rustflags rather than adding to them, so the stack size
+# lives here beside SIMD.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-args=-zstack-size=8000000", "-C", "target-feature=+simd128"]

@@ -36,6 +36,7 @@ jobs:
           NODE_OPTIONS: "--max_old_space_size=8192"
         run: |
           python3 ../scripts/build_wasm64.py --crate rust/ska.rust --module ska
+          python3 ../scripts/build_wasm64.py --crate rust/sparrowhawk-asm --module sparrowhawk
           npm ci
           npm run build
           find dist/ -name '*.map' -delete  # Remove source maps, which are very large

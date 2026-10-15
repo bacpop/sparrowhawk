@@ -47,6 +47,14 @@ export const getters: GetterTree<RootState, RootState> = {
     assemblyState(state: RootState): string {
         return state.processingState.assemblyState;
     },
+    /** Where a multi-k run is along its ladder, for the page's progress box; empty for a single k. */
+    multikProgress(state: RootState): string {
+        const { multikStep, multikLadder } = state.processingState;
+        if (!multikStep) return "";
+        return multikLadder.length > 0
+            ? `Multi-k: step ${multikStep.step} of ${multikLadder.length} (k = ${multikStep.k})`
+            : `Multi-k: step ${multikStep.step} (k = ${multikStep.k}; the ladder is set after this k)`;
+    },
     readsProcessing(state: RootState) {
         return (state.readsFileNames != null && state.allResults.nContigs == null);
     },
@@ -64,6 +72,9 @@ export const getters: GetterTree<RootState, RootState> = {
     },
     getErrorType(state: RootState) {
         return state.errors;
+    },
+    getErrorMessage(state: RootState) {
+        return state.errorMessage;
     },
     readsName(state: RootState) {
         return state.readsFileNames;

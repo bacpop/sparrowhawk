@@ -66,8 +66,18 @@ export default {
     setIdentifyingState(state: RootState, isIdentifying: boolean) {
         state.processingState.isIdentifying = isIdentifying;
     },
+    /** The assembler's progress. A multi-k ladder's list of k and its current step are kept apart,
+     *  so the sub-stage states that follow do not overwrite them. */
     setAssemblyState(state: RootState, assemblyState: string) {
-        state.processingState.assemblyState = assemblyState;
+        if (assemblyState.startsWith("multik:ladder:")) {
+            state.processingState.multikLadder =
+                assemblyState.slice("multik:ladder:".length).split(",").map(Number);
+        } else if (assemblyState.startsWith("multik:step:")) {
+            const [step, k] = assemblyState.slice("multik:step:".length).split(":").map(Number);
+            state.processingState.multikStep = { step, k };
+        } else {
+            state.processingState.assemblyState = assemblyState;
+        }
     },
     resetProcessingState(state: RootState) {
         state.processingState = {
@@ -82,6 +92,8 @@ export default {
             isIdentifying: false,
             isIdentifyingFiles: new Set<string>(),
             assemblyState: '',
+            multikLadder: [],
+            multikStep: null,
             isCallingGenes: false,
             isCallingGenesFiles: new Set<string>(),
             geneCallingStep: '',
@@ -121,7 +133,7 @@ export default {
         state.workerState.workers_esm = workers;
     },
 
-    setPreprocessing(state: RootState, input: { nKmers: number, histo: [], used_min_count: number, elapsedMs?: number }) {
+    setPreprocessing(state: RootState, input: { nKmers: number, histo: [], used_min_count: number, elapsedMs?: number, k?: number, multik?: boolean }) {
         console.log("Preprocessing finished! Saving intermediate information in the state");
         console.log(input.nKmers);
 
@@ -129,6 +141,8 @@ export default {
         state.readsPreprocessing.histo = input.histo;
         state.readsPreprocessing.used_min_count = input.used_min_count;
         state.readsPreprocessing.elapsedMs = input.elapsedMs;
+        state.readsPreprocessing.k = input.k;
+        state.readsPreprocessing.multik = input.multik;
 
     },
 
@@ -164,6 +178,7 @@ export default {
         console.log("Removing errors");
 
         state.errors = "";
+        state.errorMessage = "";
 
     },
 
@@ -171,6 +186,16 @@ export default {
         console.log("Setting memory error in state");
 
         state.errors = "memory";
+
+    },
+
+    /** An error from the assembler's worker: a crash (a WebAssembly trap, most often running out of
+     *  memory) or a rejected input, with its message. */
+    setAssemblerError(state: RootState, input: { error?: string, crashed?: boolean }) {
+        console.log("Setting assembler error in state");
+
+        state.errors = input.crashed === false ? "assembler" : "memory";
+        state.errorMessage = input.error ?? "";
 
     },
 
@@ -182,6 +207,8 @@ export default {
     },
 
     resetAllResults(state: RootState) {
+        state.processingState.multikLadder = [];
+        state.processingState.multikStep = null;
         state.readsFileNames = null;
         state.min_count = 0;
         state.readsPreprocessing = {

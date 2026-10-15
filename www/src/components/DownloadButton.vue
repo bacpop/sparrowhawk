@@ -1,13 +1,13 @@
 <template>
   <div class="flex flex-col gap-2">
     <div class="flex flex-col gap-2">
-      Download Assembly
+      Download assembly
       <Button class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadFASTA">
         .fasta
       </Button>
     </div>
     <div class="flex flex-col gap-2">
-      Download De Bruijn graph
+      Download de Bruijn graph
       <div class="flex flex-row gap-2">
         <Button class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadDOT">
           .dot

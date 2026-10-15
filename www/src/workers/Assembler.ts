@@ -1,9 +1,13 @@
 import type { AssemblyHelper } from "@/pkg";
+import { loadWasmPackage } from "@/wasm/loader";
+import { sparrowhawkPackage } from "@/wasm/packages/sparrowhawk";
 
 interface PreprocessingResult {
     nkmers: number;
     histo: number[];
     used_min_count: number;
+    k: number;
+    multik: boolean;
 }
 
 interface AssemblyResult {
@@ -16,13 +20,21 @@ interface AssemblyResult {
 
 type AsmModule = typeof import("@/pkg");
 
+/** What the page is told when a call fails. A WebAssembly trap (a Rust panic, or memory running out)
+ *  is a crash; anything else is an error the assembler raised on purpose, whose message says why. */
+function failure(error: unknown): { reset: true, error: string, crashed: boolean } {
+    return {
+        reset: true,
+        error: error instanceof Error ? error.message : String(error),
+        crashed: error instanceof WebAssembly.RuntimeError,
+    };
+}
+
 export class Assembler {
     worker: Worker;
     wasm: AsmModule | null;
     helper: AssemblyHelper | null;
     wasmPromise: Promise<AsmModule>;
-    noBubbleCollapse: boolean = false;
-    noDeadEndRemoval: boolean = false;
     wasmMemory: WebAssembly.Memory | null = null;
 
     constructor(worker: Worker) {
@@ -30,14 +42,14 @@ export class Assembler {
         this.helper = null;
         this.wasm = null;
 
-        this.wasmPromise = new Promise((resolve) => {
-            import("@/pkg")
-                .then((w) => {
-                    this.wasm = w;
-                    resolve(w);
-                });
-        });
-        import("@/pkg/index_bg.wasm").then((m) => { this.wasmMemory = m.memory; });
+        this.wasmPromise = loadWasmPackage(sparrowhawkPackage, (notice) => worker.postMessage(notice))
+            .then((loaded) => {
+                this.wasm = loaded.api;
+                this.wasmMemory = loaded.memory ?? null;
+                return loaded.api;
+            });
+        // The caller reports loading failures when it awaits this promise.
+        void this.wasmPromise.catch(() => { /* handled by the requesting operation */ });
     }
 
     waitForWasm(): Promise<AsmModule> {
@@ -54,32 +66,31 @@ export class Assembler {
         k: number,
         verbose: boolean,
         min_count: number,
-        min_qual: number,
-        csize: number,
+        min_qual: number | null,
         do_bloom: boolean,
         do_fit: boolean,
-        no_bubble_collapse: boolean,
-        no_dead_end_removal: boolean
+        multik: boolean,
+        ks: number[],
+        min_contig_length: number
     ): Promise<void> {
-        const wasm = await this.waitForWasm();
         const t0 = performance.now();
-
-        this.noBubbleCollapse = no_bubble_collapse;
-        this.noDeadEndRemoval = no_dead_end_removal;
 
         if (this.helper === null) {
             try {
+                const wasm = await this.waitForWasm();
                 this.helper = wasm.AssemblyHelper.new(
                     k, verbose,
                     min_count, min_qual,
-                    csize, do_bloom, do_fit,
-                    no_bubble_collapse, no_dead_end_removal
+                    do_bloom, do_fit,
+                    min_contig_length
                 );
-                this.helper!.preprocess(file1, file2);
+                if (multik) {
+                    this.helper.set_multik(new Uint32Array(ks));
+                }
+                this.helper.preprocess(file1, file2);
             } catch (error) {
-                console.log("Webassembly error found! Most surely, memory issue.");
                 console.error(error);
-                this.worker.postMessage({ reset: true });
+                this.worker.postMessage(failure(error));
                 return;
             }
         }
@@ -92,6 +103,8 @@ export class Assembler {
             nKmers:         resultsjson.nkmers,
             histo:          resultsjson.histo,
             used_min_count: resultsjson.used_min_count,
+            k:              resultsjson.k,
+            multik:         resultsjson.multik,
             elapsedMs:      Math.round(performance.now() - t0),
         });
     }
@@ -99,7 +112,13 @@ export class Assembler {
     async assemble(): Promise<void> {
         console.log("Initiating assembly from worker");
         const t0 = performance.now();
-        this.helper!.assemble();
+        try {
+            this.helper!.assemble();
+        } catch (error) {
+            console.error(error);
+            this.worker.postMessage(failure(error));
+            return;
+        }
 
         console.log("Assembly finished");
         const resultsjson: AssemblyResult = JSON.parse(this.helper!.get_assembly());
@@ -116,7 +135,9 @@ export class Assembler {
         });
     }
 
+    /** Free the helper now: it holds a whole counted k, which would otherwise wait for the GC. */
     resetAll(): void {
+        this.helper?.free();
         this.helper = null;
     }
 }

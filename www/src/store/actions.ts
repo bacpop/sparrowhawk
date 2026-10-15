@@ -152,15 +152,15 @@ export default {
         acceptFiles: Array<File>,
         k: number,
         min_count: number,
-        min_qual: number,
-        csize: number,
+        min_qual: number | null,
         do_bloom: boolean,
         do_fit: boolean,
-        no_bubble_collapse: boolean,
-        no_dead_end_removal: boolean
+        multik: boolean,
+        ks: number[],
+        min_contig_length: number
     }) {
         const {commit, state} = context;
-        console.log("Going to upload reads and assemble with k = " + payload.k + " min_count = " + payload.min_count + " min_qual = " + payload.min_qual + " csize = " + payload.csize + " do_bloom = " + payload.do_bloom)
+        console.log("Going to upload reads and assemble with k = " + payload.k + " min_count = " + payload.min_count + " min_qual = " + payload.min_qual + " multik = " + payload.multik + " ks = " + payload.ks + " do_bloom = " + payload.do_bloom)
         console.log("Checking number of uploaded files...")
         if (state.workerState.worker) {
             if (payload.acceptFiles.length > 0 && payload.acceptFiles.length < 3) {
@@ -189,11 +189,11 @@ export default {
                     min_qual: payload.min_qual,
                     k: payload.k,
                     verbose: true,
-                    csize: payload.csize,
                     do_bloom: payload.do_bloom,
                     do_fit: payload.do_fit,
-                    no_bubble_collapse: payload.no_bubble_collapse,
-                    no_dead_end_removal: payload.no_dead_end_removal
+                    multik: payload.multik,
+                    ks: payload.ks,
+                    min_contig_length: payload.min_contig_length
                 });
 
                 state.workerState.worker.onmessage = (messageData) => {
@@ -215,11 +215,13 @@ export default {
                                 histo: messageData.data.histo,
                                 used_min_count: messageData.data.used_min_count,
                                 elapsedMs: messageData.data.elapsedMs,
+                                k: messageData.data.k,
+                                multik: messageData.data.multik,
                             });
                         } else {
                             // Something wrong has happened
                             console.log("Error found during processing, resetting all.");
-                            commit("setMemoryError");
+                            commit("setAssemblerError", messageData.data);
                             commit("resetAllResults");
                         }
                     }
@@ -258,6 +260,13 @@ export default {
                 // Clear assembling state
                 commit("setAssemblingState", false);
                 commit("setAssemblyState", "");
+
+                if (!("ncontigs" in messageData.data)) {
+                    console.log("Error found during assembly, resetting all.");
+                    commit("setAssemblerError", messageData.data);
+                    commit("resetAllResults");
+                    return;
+                }
 
                 commit("setAssembly", {
                     ncontigs: messageData.data.ncontigs,

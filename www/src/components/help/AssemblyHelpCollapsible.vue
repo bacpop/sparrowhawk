@@ -53,31 +53,27 @@
             <dl class="space-y-3">
               <div>
                 <dt class="font-medium text-gray-900">k</dt>
-                <dd class="ml-4">Most important factor, controls the size of subsequences used in the algorithm. It is an odd integer that should be between ~21 up until 255 (currently until 89). By default, 31.</dd>
+                <dd class="ml-4">Most important factor, controls the size of subsequences used in the algorithm. It is an odd integer between 21 and 255. By default, 31.</dd>
               </div>
               <div>
-                <dt class="font-medium text-gray-900">Minimum Illumina read quality</dt>
-                <dd class="ml-4">The quality of the input fastq files, it is an integer from zero to 33. By default, 20.</dd>
+                <dt class="font-medium text-gray-900">Multi-k</dt>
+                <dd class="ml-4">Assembles at several k in turn, each seeded with the contigs of the previous one, instead of at the single k above. Leave the k values empty for the default ladder (21, 31, 41, 55, 71, and up to the read length), or give odd values in ascending order, separated by commas. Slower, and usually more contiguous. Off by default.</dd>
               </div>
               <div>
-                <dt class="font-medium text-gray-900">Minimum counts for k-mer filtering</dt>
-                <dd class="ml-4">Another integer for a filtering step, by default 5.</dd>
+                <dt class="font-medium text-gray-900">Automatic read quality filtering / Minimum read quality</dt>
+                <dd class="ml-4">On by default: at each k, the assembler chooses the minimum base quality a k-mer must have from the qualities in the reads, at most 20. Disable it to set the minimum read quality yourself, an integer from 0 to 33 (by default 20), used as is.</dd>
               </div>
               <div>
-                <dt class="font-medium text-gray-900">Automatically set the minimum counts for k-mer filtering</dt>
-                <dd class="ml-4">This box does what it says, it automatically disables the slider for the minimum counts. Memory usage could increase.</dd>
+                <dt class="font-medium text-gray-900">Automatic minimum count setting / Min counts for k-mer filtering</dt>
+                <dd class="ml-4">On by default: the minimum count a k-mer needs is fitted from the k-mer spectrum, separately for each k. Disable it to set the minimum count yourself (by default 5). Memory usage could increase.</dd>
               </div>
               <div>
                 <dt class="font-medium text-gray-900">Use Bloom filter for preprocessing</dt>
-                <dd class="ml-4">Recommended for non-small read files. This box disables chunking automatically, removing the previous text box.</dd>
+                <dd class="ml-4">Counts k-mers with much less memory, at the cost of rare false-positive k-mers. On by default, as in the command-line tool.</dd>
               </div>
               <div>
-                <dt class="font-medium text-gray-900">Keep dead-ends / Do not collapse bubbles</dt>
-                <dd class="ml-4">The last two options are booleans that modify two parameters from the algorithm. They do not affect the rest of the parameters.</dd>
-              </div>
-              <div>
-                <dt class="font-medium text-gray-900">Chunk processing size (set zero for no chunking)</dt>
-                <dd class="ml-4">A value to be put, by default 150000, anything inputted should be a positive integer (including zero).</dd>
+                <dt class="font-medium text-gray-900">Minimum contig length</dt>
+                <dd class="ml-4">Contigs shorter than this many nucleotides are left out of the FASTA output; contigs of exactly this length are kept. By default, 500.</dd>
               </div>
             </dl>
           </TabsContent>

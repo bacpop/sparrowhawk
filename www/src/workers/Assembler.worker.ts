@@ -7,12 +7,12 @@ interface PreprocessMessage {
     k: number;
     verbose: boolean;
     min_count: number;
-    min_qual: number;
-    csize: number;
+    min_qual: number | null;
     do_bloom: boolean;
     do_fit: boolean;
-    no_bubble_collapse: boolean;
-    no_dead_end_removal: boolean;
+    multik: boolean;
+    ks: number[];
+    min_contig_length: number;
 }
 
 interface AssembleMessage {
@@ -40,11 +40,11 @@ ctx.onmessage = (evt: MessageEvent<WorkerMessage>) => {
                 data.verbose,
                 data.min_count,
                 data.min_qual,
-                data.csize,
                 data.do_bloom,
                 data.do_fit,
-                data.no_bubble_collapse,
-                data.no_dead_end_removal
+                data.multik,
+                data.ks,
+                data.min_contig_length
             );
         } else if ('assemble' in evt.data && evt.data.assemble) {
             console.log("Trying to assemble!");

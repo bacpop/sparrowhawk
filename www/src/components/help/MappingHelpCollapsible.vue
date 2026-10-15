@@ -70,7 +70,7 @@
                 <dd class="ml-4">Controls the size of the subsequences (k-mers) used to process the reads or assemblies. Similar to that of the assembly, but in this case only up until 63.</dd>
               </div>
               <div>
-                <dt class="font-medium text-gray-900">Minimum Illumina read quality</dt>
+                <dt class="font-medium text-gray-900">Minimum read quality</dt>
                 <dd class="ml-4">The quality of the input fastq files, it is an integer from zero to 33. By default, 20.</dd>
               </div>
               <div>

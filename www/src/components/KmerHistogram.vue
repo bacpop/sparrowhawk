@@ -1,9 +1,13 @@
 <template>
-  <div v-bind:class="queryPreprocessed && !isAssembling ? 'isVisible my-6 border-t border-t-gray-200 pt-6' : 'notVisible'">
+  <div :class="showPlot ? 'my-6 border-t border-t-gray-200 pt-6' : 'hidden'">
     <div ref="plotElement"
          id="plotElement"
          class="w-full">
     </div>
+    <p v-if="readsPreprocessing.multik" class="mx-6 mt-2 text-sm text-gray-500">
+      Multi-k: this is the spectrum of the ladder's first k ({{ readsPreprocessing.k }}). The later k values
+      are counted during the assembly, and are not plotted.
+    </p>
   </div>
 </template>
 
@@ -50,7 +54,7 @@ export default defineComponent({
         },
       }];
       const chartLayout = {
-        title: {text: "k-mer spectrum"},
+        title: {text: this.readsPreprocessing.k ? `k-mer spectrum (k = ${this.readsPreprocessing.k})` : "k-mer spectrum"},
         font: {
           family: "IBM Plex Sans",
         },
@@ -92,6 +96,9 @@ export default defineComponent({
     isAssembling(): boolean {
       return this.store.getters.isAssembling;
     },
+    showPlot(): boolean {
+      return this.queryPreprocessed && !this.isAssembling;
+    },
   },
 
   mounted(): void {
@@ -101,12 +108,17 @@ export default defineComponent({
   },
 
   watch: {
-    queryPreprocessed: {
-      handler(): void {
-        console.log("Trying to do something...");
-        this.renderChart();
+    // After the DOM update, so the plot is drawn into a visible element of known width. Clearing the
+    // results removes the plot rather than drawing an empty one.
+    showPlot: {
+      handler(show: boolean): void {
+        if (show) {
+          this.renderChart();
+        } else if (!this.queryPreprocessed) {
+          Plotly.purge(this.plotElement as HTMLDivElement);
+        }
       },
-      deep: true,
+      flush: 'post',
     },
   }
 });

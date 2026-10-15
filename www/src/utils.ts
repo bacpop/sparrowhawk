@@ -21,6 +21,7 @@ export const emptyState = (): RootState => ({
     wasmRuntimeStatus: {},
     readsFileNames: null,
     errors: "",
+    errorMessage: "",
     min_count: 0,
     refSet: null,
 
@@ -126,6 +127,8 @@ export const emptyState = (): RootState => ({
         isIdentifying: false,
         isIdentifyingFiles: new Set<string>(),
         assemblyState: '',
+        multikLadder: [],
+        multikStep: null,
         isCallingGenes: false,
         isCallingGenesFiles: new Set<string>(),
         geneCallingStep: '',

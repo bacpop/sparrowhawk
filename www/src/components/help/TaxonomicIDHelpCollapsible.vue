@@ -43,7 +43,7 @@
           <TabsContent value="parameters">
             <dl class="space-y-3">
               <div>
-                <dt class="font-medium text-gray-900">Minimum Illumina read quality</dt>
+                <dt class="font-medium text-gray-900">Minimum read quality</dt>
                 <dd class="ml-4">The quality of the input fastq files, it is an integer from zero to 33. By default, 20.</dd>
               </div>
               <div>

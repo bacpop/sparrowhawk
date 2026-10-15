@@ -1,7 +1,7 @@
 [submodule "rust/sparrowhawk-asm"]
 	path = rust/sparrowhawk-asm
 	url  = https://github.com/bacpop/sparrowhawk-asm.git
-	branch = master
+	branch = multik-iterative
 
 [submodule "rust/ska.rust"]
 	path = rust/ska.rust
@@ -21,4 +21,4 @@
 [submodule "rust/mandrake"]
 	path = rust/mandrake
 	url = https://github.com/bacpop/mandrake.rust.git
-	branch = main
+	branch = sparrowhawk-dev

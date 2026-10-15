@@ -235,6 +235,7 @@ export default defineComponent({
 
     if (window.Worker) {
       const worker = new WorkerAssembler();
+      observeWasmRuntime(worker, (notice) => this.store.commit('recordWasmRuntimeStatus', notice));
       this.store.commit('SET_WORKER', worker);
     } else {
       throw new Error("WebWorkers are not supported by this web browser.");

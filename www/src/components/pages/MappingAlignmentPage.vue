@@ -81,7 +81,7 @@
                   <p class="max-w-xs">Controls the filtering of nucleotides depending on the sequencing error information.</p>
                 </TooltipContent>
               </Tooltip>
-              Min Illumina read quality
+              Minimum read quality
             </p>
             <div class="flex flex-row items-center w-full gap-2">
               <VueSlider class="flex-grow"

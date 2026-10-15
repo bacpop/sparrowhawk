@@ -10,6 +10,8 @@ export interface RootState {
     refSet: string | null,
     allResults_ska: AllResultsSka,
     errors: string,
+    /** The assembler's own message for its error, when it gave one. */
+    errorMessage: string,
     min_count: number,
     allResults_sketchlib: AllResultsSketchlib,
     allResults_orphos: AllResultsOrphos,

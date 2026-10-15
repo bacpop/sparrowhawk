@@ -36,20 +36,21 @@ Rust expresses compilation targets using the standard `<arch>-<vendor>-<os>` tri
 | Target                       | Status in Rust | Notes                                                                                              |
 | ---------------------------- | -------------- | -------------------------------------------------------------------------------------------------- |
 | `wasm32-unknown-unknown`     | Tier 2         | No OS abstraction; the standard target for browser-facing wasm. Used by this project.             |
-| `wasm64-unknown-unknown`     | Tier 3         | 64-bit address space (Memory64 proposal); support in `wasm-bindgen` and `wasm-pack` is in active development but not yet released (see below). |
+| `wasm64-unknown-unknown`     | Tier 3         | 64-bit address space (Memory64 proposal); needs nightly Rust, and `wasm-bindgen` 0.2.120 or later. Used by this project where the browser supports it (see below). |
 <!-- | `wasm32-wasip1`              | Tier 2         | Targets the WASI (WebAssembly System Interface) preview 1; adds a POSIX-like layer.               | -->
 <!-- | `wasm32-wasip2`              | Tier 2         | Targets WASI preview 2, based on the Component Model.                                              | -->
 
-For browser-facing Rust code combined with `wasm-bindgen` and `wasm-pack`, **`wasm32-unknown-unknown` is the only practical choice**. It provides no operating system layer whatsoever — no file I/O, no threading primitives, no environment variables — which is both its strength (minimal, portable binary) and a source of constraints discussed in the [Limitations](#limitations) section.
+For browser-facing Rust code combined with `wasm-bindgen` and `wasm-pack`, **`wasm32-unknown-unknown` is the baseline**, and every tool must build for it. It provides no operating system layer whatsoever — no file I/O, no threading primitives, no environment variables — which is both its strength (minimal, portable binary) and a source of constraints discussed in the [Limitations](#limitations) section.
 
 ### A note on wasm64
 
-The `wasm64-unknown-unknown` target, corresponding to the WebAssembly Memory64 proposal, would allow modules to address more than 4 GiB of linear memory. This is potentially very relevant for bioinformatics tools operating on large reference genomes or graphs. However, as of the time of writing, toolchain support is still in progress and has not yet landed in a stable release:
+The `wasm64-unknown-unknown` target, corresponding to the WebAssembly Memory64 proposal, lets modules address more than 4 GiB of linear memory. This is very relevant for bioinformatics tools operating on large reference genomes or graphs, and this project uses it for `ska.rust` and `sparrowhawk-asm`:
 
-- `wasm-bindgen`: PR [#5004](https://github.com/wasm-bindgen/wasm-bindgen/pull/5004) — "Add wasm64/memory64 support for `wasm64-unknown-unknown` target" — is open and pending review. It was filed in February 2026 and closes the two underlying tracking issues ([#4436](https://github.com/wasm-bindgen/wasm-bindgen/issues/4436) and [#4499](https://github.com/wasm-bindgen/wasm-bindgen/issues/4499)).
-- `wasm-pack`: open issue [#1464](https://github.com/drager/wasm-pack/issues/1464), with a companion PR [#1553](https://github.com/drager/wasm-pack/pull/1553) linked from the `wasm-bindgen` PR above.
+- **Toolchain:** `wasm-bindgen` supports the target from 0.2.120, which `scripts/build_wasm64.py` checks for. The target is Tier 3, so it needs nightly Rust and `-Z build-std`, with the `rust-src` component installed.
+- **Building:** `scripts/build_wasm64.py --crate <crate> --module <name>` builds with cargo and runs `wasm-bindgen --target web` directly, without `wasm-pack`, into `www/public/pkg_wasm64/<name>/`. It sets the module's maximum memory to 16 GiB.
+- **Loading:** `www/src/wasm/loader.ts` tries the wasm64 package first and falls back to the usual `wasm-pack` wasm32 package in browsers without Memory64. `WasmRuntimeWarnings.vue` tells the user when that happens, since the fallback keeps the 4 GiB limit.
 
-Until both PRs are merged and released, `wasm32-unknown-unknown` remains the only usable target for browser-facing Rust with `wasm-pack`. Memory-intensive computations must be structured to fit within the 4 GiB linear memory limit, and the interface between Rust and JavaScript should be designed accordingly.
+A tool that must also run on the wasm32 fallback still has to keep its memory within 4 GiB there, and the interface between Rust and JavaScript should be designed accordingly.
 
 ---
 
@@ -650,7 +651,7 @@ WebAssembly in the browser is a capable environment, but it imposes real constra
 
 ### Memory cap
 
-`wasm32` modules have a maximum linear memory of **4 GiB**. This is a hard constraint for tools that load large reference genomes or full-resolution pangenome graphs into memory. Strategies include streaming and chunked processing, or restricting input sizes in the web interface. The forthcoming `wasm64` target would lift this restriction, and toolchain support is actively being developed (see [Available Targets](#available-targets)), but it has not yet landed in a stable release of the Rust/Web interfacing libraries we are considering in this guide.
+`wasm32` modules have a maximum linear memory of **4 GiB**. This is a hard constraint for tools that load large reference genomes or full-resolution pangenome graphs into memory. Strategies include streaming and chunked processing, or restricting input sizes in the web interface. The `wasm64` target lifts this restriction in browsers that support Memory64, with a nightly toolchain (see [A note on wasm64](#a-note-on-wasm64)); the wasm32 fallback keeps it.
 
 ### Call stack depth
 
@@ -668,11 +669,11 @@ Common workarounds: replace the offending crate with a pure-Rust alternative; re
 
 ### SIMD and advanced CPU instructions
 
-The WebAssembly SIMD proposal (`wasm32` SIMD128) is now widely supported in major browsers, but it is **not the same instruction set as x86 SSE/AVX or ARM NEON**. Code that relies on platform-specific SIMD intrinsics (e.g., via the `packed_simd` or `std::arch` crates targeting x86) will not compile. You can, however, use portable SIMD via the `std::simd` API (nightly) or crates such as `wide`, which will lower to SIMD128 when targeting wasm. Performance from SIMD128 is typically lower than from AVX2/AVX-512 on a desktop CPU.
+The WebAssembly SIMD proposal (`wasm32` SIMD128) is now widely supported in major browsers, but it is **not the same instruction set as x86 SSE/AVX or ARM NEON**. Code that relies on platform-specific SIMD intrinsics (e.g., via the `packed_simd` or `std::arch` crates targeting x86) will not compile. You can, however, use portable SIMD via the `std::simd` API (nightly) or crates such as `wide`, which will lower to SIMD128 when targeting wasm. Performance from SIMD128 is typically lower than from AVX2/AVX-512 on a desktop CPU. We have enabled these instructions when possible in case the compiler is able to use them for automatic vectorisation.
 
 ### No multithreading (by default)
 
-True threading in wasm requires `SharedArrayBuffer`, which is behind cross-origin isolation headers and not universally straightforward to configure. The `rayon` crate does not work out of the box in `wasm32-unknown-unknown`. For parallel workloads, consider Web Workers at the JavaScript level, passing disjoint chunks of data to separate wasm instances. Sharing data at this level is possible with shared memory objects, although it will apply the overall limit of 4MB.
+True threading in wasm requires `SharedArrayBuffer`, which is behind cross-origin isolation headers and not universally straightforward to configure. The `rayon` crate does not work out of the box in `wasm32-unknown-unknown`. For parallel workloads, consider Web Workers at the JavaScript level, passing disjoint chunks of data to separate wasm instances. Sharing data at this level is possible with shared memory objects, although it will apply the overall limit of 4MB. There exists an implementation that depends on using the nightly toolchain, that could be a potential exploration. However, it is not available for wasm64.
 
 ### Performance expectations
 
