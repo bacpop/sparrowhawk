@@ -1,0 +1,14 @@
+{
+  "seqs.faa": {
+    "worstCosine": 1,
+    "maxAbs": 0.00000143
+  },
+  "proteins20.faa": {
+    "worstCosine": 1,
+    "maxAbs": 0.00000143
+  },
+  "UP000000807": {
+    "proteins": 50,
+    "vectors": "bcfb09c5c693a82d0c94e2aac75dea2db7bf30086280c6cba2c4c542024652f6"
+  }
+}

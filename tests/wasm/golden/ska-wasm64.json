@@ -1,0 +1,46 @@
+{
+  "fasta": {
+    "reference": "cdd334fff10e9a4f00b4d815d6985970ee7c5addda0f6d216d2a869ab2a7fce6",
+    "mapped": [
+      {
+        "name": "test_1",
+        "variants": 32,
+        "coverage": 0.72093,
+        "mapped": "4311e2b9f41aab6521da743967515608fa7e14c7ef4ea293ccd0b02c2951dab4",
+        "vcf": "07b1029a35751e60b015300ea1af28066a949f5a588bfa5bdd1cec1bd594d5dc"
+      },
+      {
+        "name": "test_2",
+        "variants": 2,
+        "coverage": 0.627907,
+        "mapped": "259c320ee029798a3c16e05e9b29eba5ab9e7c58bcbf88748a190199401ccbad",
+        "vcf": "c14a46d7a669eed281264644ded311d85c452a3f4782536655c2920d9a952e0d"
+      }
+    ]
+  },
+  "fastq": {
+    "reference": "a402c791757527b58fc43676b4036fd27019d038e5da3d38a3084371de19b859",
+    "mapped": [
+      {
+        "name": "ecoli_window",
+        "variants": 20517,
+        "coverage": 0.933955,
+        "mapped": "317189a47c8b4ebb3457630352a4c8ff5b54542b24aa9f075f579f3e68c3fe1a",
+        "vcf": "32144ba547a0e8f1010282c6ecee8d0ee037211469a6193dcaac835b8083d971"
+      }
+    ]
+  },
+  "alignment": {
+    "samples": 5,
+    "tips": [
+      "test_1",
+      "test_2",
+      "test_3",
+      "test_4",
+      "test_5"
+    ],
+    "length": 32,
+    "alignment": "8405b8d548e80adf9489bfa49f2d8d3bd19c8af6b8b1b46e555006c055e33a42",
+    "distances": "667ca1f3db54a8b7b498b9c728f13be3d8376b374b9730c0bf74dba0b5a280bf"
+  }
+}

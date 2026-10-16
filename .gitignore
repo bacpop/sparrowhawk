@@ -38,5 +38,7 @@ rust/esm-bridge/scripts/__pycache__
 # Local manual wasm64 builds and tools
 .wasm64-build/
 .wasm64-tools/
+# Web-target packages for the WASM checks (scripts/test_wasm.py)
+.wasm-test/
 www/public/pkg_wasm64/
 scripts/__pycache__/

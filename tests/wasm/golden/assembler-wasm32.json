@@ -1,0 +1,10 @@
+{
+  "single": {
+    "contigs": 1,
+    "sha256": "7419539dc0c23fbedfc7b929952476e7ba94b17947b05bf18895599923b794a2"
+  },
+  "multik": {
+    "contigs": 1,
+    "sha256": "7419539dc0c23fbedfc7b929952476e7ba94b17947b05bf18895599923b794a2"
+  }
+}

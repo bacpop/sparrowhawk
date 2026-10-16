@@ -164,7 +164,9 @@ impl OrphosData {
             log::info!("Single mode: analysis pass...");
             let mut cursor2 = Cursor::new(&self.raw_fasta_bytes);
             let mut reader2 = open_fasta(&mut cursor2);
+            let mut record_number = 0;
             while let Some(record) = reader2.next() {
+                record_number += 1;
                 let seqrec = record.expect("Invalid FASTA record");
                 let (id, desc) = seqrec.id_desc().unwrap();
                 let tmpdesc = desc.map(|s| s.to_string());
@@ -177,9 +179,10 @@ impl OrphosData {
                     );
                     continue;
                 }
-                let tmpres = analyser
+                let mut tmpres = analyser
                     .analyze_sequence_bytes_with_training(&tmpvec, tmpid, tmpdesc, training.clone())
                     .expect("Error analysing FASTA record.");
+                number_genes_by_record(&mut tmpres, record_number);
                 append_cds_fasta_records(&tmpres, &tmpvec, &mut self.cds_fasta);
                 all_results.push(tmpres);
             }
@@ -190,7 +193,9 @@ impl OrphosData {
             let mut reader = open_fasta(&mut cursor);
 
             log::info!("Entering while loop (analysing)...");
+            let mut record_number = 0;
             while let Some(record) = reader.next() {
+                record_number += 1;
                 let seqrec = record.expect("Invalid FASTA record");
                 let (id, desc) = seqrec.id_desc().unwrap();
                 let tmpdesc = desc.map(|s| s.to_string());
@@ -203,9 +208,10 @@ impl OrphosData {
                     );
                     continue;
                 }
-                let tmpres = analyser
+                let mut tmpres = analyser
                     .analyze_sequence_bytes(&tmpvec, tmpid, tmpdesc)
                     .expect("Error analysing FASTA record.");
+                number_genes_by_record(&mut tmpres, record_number);
                 append_cds_fasta_records(&tmpres, &tmpvec, &mut self.cds_fasta);
                 all_results.push(tmpres);
             }
@@ -348,6 +354,20 @@ impl AmrAnnotation {
             (self.call_fraction * 1_000_000.0).round() as u64,
             self.diagnostic_matched,
         )
+    }
+}
+
+/// Gene IDs `<record>_<gene>`, as Prodigal numbers them, `record` being the sequence's 1-based position in
+/// the input. Each record is analysed alone, so orphos numbers every record's genes `1_1`, `1_2`…, which
+/// would repeat IDs across records: the GFF must not, and the gene metadata and the AMR annotation look
+/// genes up by ID.
+fn number_genes_by_record(result: &mut OrphosResults, record: usize) {
+    for (index, gene) in result.genes.iter_mut().enumerate() {
+        let identifier = &mut gene.annotation.identifier;
+        let gene_number = identifier
+            .split_once('_')
+            .map_or_else(|| (index + 1).to_string(), |(_, number)| number.to_string());
+        *identifier = format!("{record}_{gene_number}");
     }
 }
 

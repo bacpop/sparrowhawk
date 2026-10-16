@@ -6,7 +6,8 @@
     "serve": "node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js serve",
     "build": "node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js build",
     "build:electron": "cross-env SPARROWHAWK_TARGET=electron node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "test:wasm": "python3 ../scripts/test_wasm.py"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.8",
