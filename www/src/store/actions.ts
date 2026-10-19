@@ -270,10 +270,10 @@ export default {
 
                 commit("setAssembly", {
                     ncontigs: messageData.data.ncontigs,
-                    outfasta: messageData.data.outfasta,
-                    outdot: messageData.data.outdot,
-                    outgfa: messageData.data.outgfa,
-                    outgfav2: messageData.data.outgfav2,
+                    fastaGz: messageData.data.fastaGz,
+                    dotGz: messageData.data.dotGz,
+                    gfaGz: messageData.data.gfaGz,
+                    gfa2Gz: messageData.data.gfa2Gz,
                     elapsedMs: messageData.data.elapsedMs,
                     wasmMemoryBytes: messageData.data.wasmMemoryBytes,
                 });

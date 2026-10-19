@@ -19,16 +19,27 @@ const sortedCanonical = (contigs) => contigs.map(canonical).sort();
 
 // The page's sequence of calls, at the CLI's defaults: Bloom counting, a fitted cutoff, automatic
 // quality floors (no floor given), contigs of 500 nt or more.
-function assemble(api, files, { ks = null, minQual = undefined } = {}) {
+function assemble(api, files, { ks = null, minQual = undefined, minContigLength = 500 } = {}) {
     messages.length = 0;
-    const helper = api.AssemblyHelper.new(31, false, 5, minQual, true, true, 500);
+    const helper = api.AssemblyHelper.new(31, false, 5, minQual, true, true, minContigLength);
     try {
         if (ks) helper.set_multik(new Uint32Array(ks));
         helper.preprocess(...files);
         const info = JSON.parse(helper.get_preprocessing_info());
         helper.assemble();
         const states = messages.filter((m) => m?.assemblyState).map((m) => m.assemblyState);
-        return { info, result: JSON.parse(helper.get_assembly()), states };
+        const result = JSON.parse(helper.get_assembly());
+        assert.deepEqual(Object.keys(result), ["ncontigs"], "assembly JSON should contain metadata only");
+        for (const [field, take] of [
+            ["outfasta", "take_fasta_gz"], ["outdot", "take_dot_gz"],
+            ["outgfa", "take_gfa_gz"], ["outgfav2", "take_gfa2_gz"],
+        ]) {
+            const bytes = helper[take]();
+            result[field] = gunzipSync(bytes).toString("utf8");
+            assert.equal(helper[take]().length, 0, `${take}: the output was handed over twice`);
+            assert.equal(gunzipSync(bytes).toString("utf8"), result[field], `${take}: retained download changed`);
+        }
+        return { info, result, states };
     } finally {
         helper.free();
     }
@@ -66,6 +77,7 @@ function check(label, { info, result, states }, multik) {
         assert.ok(states.some((s) => s.startsWith("multik:ladder:21,31,")), `${label}: the ladder was not posted`);
         assert.ok(states.includes("multik:step:2:31"), `${label}: the ladder never reached its second k`);
     } else {
+        assert.ok(!states.some((s) => s.startsWith("multik:")), `${label}: single-k posted multi-k progress`);
         assert.ok(result.outgfa.startsWith("H\tVN:Z:1.0") && result.outdot.length > 0, `${label}: graph text`);
     }
     return sortedCanonical(contigs);
@@ -110,6 +122,13 @@ for (const directory of values.package) {
     const fixed = assemble(api, gzFiles, { minQual: 25 });
     assert.ok(fixed.result.ncontigs > 0 && !fixed.states.some((s) => s.startsWith("preprocess:recount:")),
         `${target}: a fixed base-quality floor of 25`);
+    const fixedMultik = assemble(api, gzFiles, { ks: [21, 31], minQual: 20 });
+    assert.ok(fixedMultik.result.ncontigs > 0
+        && !fixedMultik.states.some((s) => s.startsWith("preprocess:recount:")),
+    `${target}: multi-k with a fixed base-quality floor of 20`);
+    const empty = assemble(api, gzFiles, { minContigLength: 30_000 });
+    assert.equal(empty.result.ncontigs, 0, `${target}: the length filter should remove every contig`);
+    assert.equal(empty.result.outfasta, "", `${target}: empty FASTA must still be valid gzip`);
     assert.throws(() => assemble(api, gzFiles, { ks: [20] }), /odd number/, `${target}: an even k was accepted`);
     checkProgress(target, api);
     golden(`assembler-${target}`, { single: summary(single), multik: summary(multik) }, values["update-golden"]);

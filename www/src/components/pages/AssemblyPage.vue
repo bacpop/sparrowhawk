@@ -533,7 +533,7 @@ export default defineComponent({
           return { step: 'Building graph', detail: 'Creating the de Bruijn graph' };
         }
         if (state === 'assembly:correct_graph') {
-          return { step: 'Correcting graph', detail: 'Removing tips, bubbles and erroneous connections' };
+          return { step: 'Correcting graph', detail: 'Removing dead ends, bubbles and erroneous connections' };
         }
         if (state === 'assembly:collapse_graph') {
           return { step: 'Collapsing graph', detail: 'Joining unambiguous paths into contigs' };

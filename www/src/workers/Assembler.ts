@@ -11,11 +11,7 @@ interface PreprocessingResult {
 }
 
 interface AssemblyResult {
-    outfasta: string;
     ncontigs: number;
-    outdot: string;
-    outgfa: string;
-    outgfav2: string;
 }
 
 type AsmModule = typeof import("@/pkg");
@@ -114,25 +110,24 @@ export class Assembler {
         const t0 = performance.now();
         try {
             this.helper!.assemble();
+            const resultsjson: AssemblyResult = JSON.parse(this.helper!.get_assembly());
+            const fastaGz = this.helper!.take_fasta_gz();
+            const dotGz = this.helper!.take_dot_gz();
+            const gfaGz = this.helper!.take_gfa_gz();
+            const gfa2Gz = this.helper!.take_gfa2_gz();
+
+            // Transfer the buffers: the main thread keeps the compressed outputs for repeat downloads.
+            this.worker.postMessage({
+                ncontigs: resultsjson.ncontigs,
+                fastaGz, dotGz, gfaGz, gfa2Gz,
+                elapsedMs: Math.round(performance.now() - t0),
+                wasmMemoryBytes: this.memoryBytes(),
+            }, [fastaGz.buffer as ArrayBuffer, dotGz.buffer as ArrayBuffer,
+                gfaGz.buffer as ArrayBuffer, gfa2Gz.buffer as ArrayBuffer]);
         } catch (error) {
             console.error(error);
             this.worker.postMessage(failure(error));
-            return;
         }
-
-        console.log("Assembly finished");
-        const resultsjson: AssemblyResult = JSON.parse(this.helper!.get_assembly());
-
-        console.log("Posting output as message");
-        this.worker.postMessage({
-            outfasta: resultsjson.outfasta,
-            ncontigs: resultsjson.ncontigs,
-            outdot: resultsjson.outdot,
-            outgfa: resultsjson.outgfa,
-            outgfav2: resultsjson.outgfav2,
-            elapsedMs: Math.round(performance.now() - t0),
-            wasmMemoryBytes: this.memoryBytes()
-        });
     }
 
     /** Free the helper now: it holds a whole counted k, which would otherwise wait for the GC. */

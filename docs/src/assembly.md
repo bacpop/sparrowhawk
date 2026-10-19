@@ -5,6 +5,7 @@ Genome assembly consists on recovering a genome (the DNA sequence) from organism
 ## General considerations
 - The assembler has been designed with bacterial genomes (\\( O(10^0-10^1)\\,\text{Mbp} \\)) on mind, so large read files might not be work properly with it.
 - The aim for its development was for it to be efficient and able to be loaded into a website (using WebAssembly), so it is not the most thorough and detailed genomic assembler. Its performance is overall similar/superior to Velvet, and similar to that of Minia (with single k-value).
+- Downloads are gzip-compressed: the contigs as `.fasta.gz`, and the de Bruijn graph as `.dot.gz`, `.gfa.gz`, or `.gfa2.gz`. The page keeps these compressed files for repeated downloads.
 - The assembler runs as 64-bit WebAssembly[^memory64] in browsers that support it, which lets it use up to 16 GB of memory. Other browsers fall back to the 32-bit build, limited to 4 GB, and the page warns when this happens; there, high-coverage reads or those coming from large-genome species might reach that limit.
 - If you want to run this assembler locally in the command line, you can find more information in [its GitHub repository](https://github.com/bacpop/sparrowhawk-asm).
 

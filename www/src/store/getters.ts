@@ -65,7 +65,7 @@ export const getters: GetterTree<RootState, RootState> = {
         return (state.readsPreprocessing.nKmers != null);
     },
     queryAssembled(state: RootState) {
-        return state.allResults.fastaOutput != "";
+        return state.allResults.fastaGz !== null;
     },
     getErrors(state: RootState) {
         return (state.errors != "");

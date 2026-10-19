@@ -17,5 +17,10 @@ Not covered: host depletion (deacon-bridge); esm-bridge's WebGPU path, as Node h
 embedding coordinates, which are seeded from the clock, so only its counts and shapes are checked.
 
 The assembler's check also takes `--native-single` and `--native-multik`, contigs from
-`sparrowhawk-asm build rust/sparrowhawk-asm/tests/data/ecoli_window_{1,2}.fastq.gz --threads 2
+`sparrowhawk-asm rust/sparrowhawk-asm/tests/data/ecoli_window_{1,2}.fastq.gz --threads 2
 --no-graphs --no-histo` (with `-k 31` for the first), and reports whether the browser builds match them.
+
+The assembler check decompresses its four gzip downloads. It compares the FASTA's contigs with the
+goldens; for single-k, it checks only that the DOT and GFA files have a header and are not empty. It also
+checks that the output getters hand each buffer over only once, and covers fixed quality floors and empty
+FASTA output.

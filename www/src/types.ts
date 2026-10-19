@@ -20,10 +20,10 @@ export interface WorkerState {
 
 export interface AllResults {
     nContigs: number | null;
-    fastaOutput: string;
-    dotOutput: string;
-    gfaOutput: string;
-    gfav2Output: string;
+    fastaGz: Uint8Array | null;
+    dotGz: Uint8Array | null;
+    gfaGz: Uint8Array | null;
+    gfa2Gz: Uint8Array | null;
     elapsedMs?: number;
     wasmMemoryBytes?: number;
 }

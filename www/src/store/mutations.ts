@@ -148,20 +148,20 @@ export default {
 
     setAssembly(state: RootState, input: {
         ncontigs: number,
-        outfasta: string,
-        outdot: string,
-        outgfa: string,
-        outgfav2: string,
+        fastaGz: Uint8Array,
+        dotGz: Uint8Array,
+        gfaGz: Uint8Array,
+        gfa2Gz: Uint8Array,
         elapsedMs?: number,
         wasmMemoryBytes?: number
     }) {
         console.log("Assembly finished! Saving contigs as fasta in the state");
 
         state.allResults.nContigs = input.ncontigs;
-        state.allResults.fastaOutput = input.outfasta;
-        state.allResults.dotOutput = input.outdot;
-        state.allResults.gfaOutput = input.outgfa;
-        state.allResults.gfav2Output = input.outgfav2;
+        state.allResults.fastaGz = input.fastaGz;
+        state.allResults.dotGz = input.dotGz;
+        state.allResults.gfaGz = input.gfaGz;
+        state.allResults.gfa2Gz = input.gfa2Gz;
         state.allResults.elapsedMs = input.elapsedMs;
         state.allResults.wasmMemoryBytes = input.wasmMemoryBytes;
 
@@ -218,10 +218,10 @@ export default {
         }
         state.allResults = {
             nContigs: null,
-            fastaOutput: "",
-            dotOutput: "",
-            gfaOutput: "",
-            gfav2Output: "",
+            fastaGz: null,
+            dotGz: null,
+            gfaGz: null,
+            gfa2Gz: null,
         };
 
         if (state.workerState.worker) {

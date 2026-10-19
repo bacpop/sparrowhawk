@@ -29,8 +29,8 @@
             <p>
               You can then "upload" them (though actually
               you are just loading them into your computer's memory), starting the assembly process. At the end, you can
-              "download" (from memory) the final configs in FASTA format, as well as the intermediate de Bruijn graph in
-              different formats. You can check the documentation for more information on what the different parameters do.
+              "download" (from memory) the final contigs as gzipped FASTA, as well as the intermediate de Bruijn graph in
+              different gzipped formats. You can check the documentation for more information on what the different parameters do.
             </p>
 
             <div>

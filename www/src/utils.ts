@@ -33,10 +33,10 @@ export const emptyState = (): RootState => ({
 
     allResults: {
         nContigs: null,
-        fastaOutput: "",
-        dotOutput: "",
-        gfaOutput: "",
-        gfav2Output: "",
+        fastaGz: null,
+        dotGz: null,
+        gfaGz: null,
+        gfa2Gz: null,
     },
 
     allResults_ska: {

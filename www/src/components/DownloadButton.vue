@@ -3,20 +3,20 @@
     <div class="flex flex-col gap-2">
       Download assembly
       <Button class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadFASTA">
-        .fasta
+        .fasta.gz
       </Button>
     </div>
     <div class="flex flex-col gap-2">
       Download de Bruijn graph
       <div class="flex flex-row gap-2">
         <Button class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadDOT">
-          .dot
+          .dot.gz
         </Button>
         <Button class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadGFA">
-          .gfa
+          .gfa.gz
         </Button>
         <Button class="max-w-fit cursor-pointer" variant="outline" size="sm" @click="downloadGFAv2">
-          .gfa2
+          .gfa2.gz
         </Button>
       </div>
     </div>
@@ -28,7 +28,7 @@ import {defineComponent, Ref} from "vue";
 import {useState} from "vuex-composition-helpers";
 import type {AllResults} from "@/types";
 import {Button} from "@/components/ui/button";
-import {saveTextFile} from "@/platform/files";
+import {saveBinaryFile} from "@/platform/files";
 
 export default defineComponent({
   name: 'DownloadButton',
@@ -44,16 +44,16 @@ export default defineComponent({
   },
   methods: {
     async downloadFASTA(): Promise<void> {
-      await saveTextFile(this.allResults.fastaOutput, "assembly.fasta", "text/x-fasta");
+      if (this.allResults.fastaGz) await saveBinaryFile(this.allResults.fastaGz, "assembly.fasta.gz", "application/gzip");
     },
     async downloadDOT(): Promise<void> {
-      await saveTextFile(this.allResults.dotOutput, "graph.dot", "text/vnd.graphviz");
+      if (this.allResults.dotGz) await saveBinaryFile(this.allResults.dotGz, "graph.dot.gz", "application/gzip");
     },
     async downloadGFA(): Promise<void> {
-      await saveTextFile(this.allResults.gfaOutput, "graph.gfa");
+      if (this.allResults.gfaGz) await saveBinaryFile(this.allResults.gfaGz, "graph.gfa.gz", "application/gzip");
     },
     async downloadGFAv2(): Promise<void> {
-      await saveTextFile(this.allResults.gfav2Output, "graph.gfa2");
+      if (this.allResults.gfa2Gz) await saveBinaryFile(this.allResults.gfa2Gz, "graph.gfa2.gz", "application/gzip");
     },
   }
 });
