@@ -119,7 +119,6 @@ import MandrakePage from "./components/pages/MandrakePage.vue";
 import ResultsDisplayMapping from './components/ResultsDisplayMapping.vue';
 import ResultsDisplayAlignment from './components/ResultsDisplayAlignment.vue';
 import KmerHistogram from './components/KmerHistogram.vue';
-import WorkerAssembler from '@/workers/Assembler.worker';
 import WorkerMapper from '@/workers/Mapper.worker';
 import WorkerDepleter from '@/workers/Depleter.worker';
 import "@fontsource/ibm-plex-sans";
@@ -234,9 +233,7 @@ export default defineComponent({
     console.log("Loading wasm modules in workers...")
 
     if (window.Worker) {
-      const worker = new WorkerAssembler();
-      observeWasmRuntime(worker, (notice) => this.store.commit('recordWasmRuntimeStatus', notice));
-      this.store.commit('SET_WORKER', worker);
+      this.store.dispatch('spawnAssemblerWorker');
     } else {
       throw new Error("WebWorkers are not supported by this web browser.");
     }

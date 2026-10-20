@@ -17,12 +17,15 @@ interface AssemblyResult {
 type AsmModule = typeof import("@/pkg");
 
 /** What the page is told when a call fails. A WebAssembly trap (a Rust panic, or memory running out)
- *  is a crash; anything else is an error the assembler raised on purpose, whose message says why. */
+ *  or the engine's call stack running out (Firefox's InternalError, Chromium's RangeError) is a crash,
+ *  after which the instance is unusable; anything else is an error the assembler raised on purpose,
+ *  whose message says why. */
 function failure(error: unknown): { reset: true, error: string, crashed: boolean } {
     return {
         reset: true,
         error: error instanceof Error ? error.message : String(error),
-        crashed: error instanceof WebAssembly.RuntimeError,
+        crashed: error instanceof WebAssembly.RuntimeError || error instanceof RangeError
+            || (error instanceof Error && error.name === "InternalError"),
     };
 }
 
@@ -132,7 +135,11 @@ export class Assembler {
 
     /** Free the helper now: it holds a whole counted k, which would otherwise wait for the GC. */
     resetAll(): void {
-        this.helper?.free();
+        try {
+            this.helper?.free();
+        } catch {
+            // After a crash the helper stays borrowed and cannot be freed; the page replaces this worker.
+        }
         this.helper = null;
     }
 }

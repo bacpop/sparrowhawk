@@ -1,5 +1,6 @@
 import {ActionContext} from "vuex";
 import {RootState} from "@/store/state";
+import WorkerAssembler from '@/workers/Assembler.worker';
 import WorkerSketcher from '@/workers/Sketcher.worker';
 import WorkerCaller from '@/workers/Caller.worker';
 import WorkerAmrDetector from '@/workers/AmrDetector.worker';
@@ -159,7 +160,7 @@ export default {
         ks: number[],
         min_contig_length: number
     }) {
-        const {commit, state} = context;
+        const {commit, dispatch, state} = context;
         console.log("Going to upload reads and assemble with k = " + payload.k + " min_count = " + payload.min_count + " min_qual = " + payload.min_qual + " multik = " + payload.multik + " ks = " + payload.ks + " do_bloom = " + payload.do_bloom)
         console.log("Checking number of uploaded files...")
         if (state.workerState.worker) {
@@ -223,6 +224,7 @@ export default {
                             console.log("Error found during processing, resetting all.");
                             commit("setAssemblerError", messageData.data);
                             commit("resetAllResults");
+                            if (messageData.data.crashed) void dispatch("spawnAssemblerWorker");
                         }
                     }
                 };
@@ -236,7 +238,7 @@ export default {
     },
 
     async doTheAssembly(context: ActionContext<RootState, RootState>) {
-        const {commit, state} = context;
+        const {commit, dispatch, state} = context;
         console.log("Assemblying reads...")
         if (state.workerState.worker) {
             console.log("Assemblying...");
@@ -265,6 +267,7 @@ export default {
                     console.log("Error found during assembly, resetting all.");
                     commit("setAssemblerError", messageData.data);
                     commit("resetAllResults");
+                    if (messageData.data.crashed) void dispatch("spawnAssemblerWorker");
                     return;
                 }
 
@@ -279,6 +282,16 @@ export default {
                 });
             };
         }
+    },
+
+    /** Start the assembler worker, replacing any previous one: a crash leaves its WebAssembly
+     *  instance unusable, and each worker caches its own. */
+    async spawnAssemblerWorker(context: ActionContext<RootState, RootState>) {
+        const {commit, state} = context;
+        state.workerState.worker?.terminate();
+        const worker = new WorkerAssembler();
+        observeWasmRuntime(worker, (notice) => commit("recordWasmRuntimeStatus", notice));
+        commit("SET_WORKER", worker);
     },
 
     async resetAllResults(context: ActionContext<RootState, RootState>) {
