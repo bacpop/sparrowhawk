@@ -11,6 +11,13 @@ interface MapResult {
     "VCF": string;
 }
 
+// One mapping sample, as `pair_input_files` returns it.
+interface MapSample {
+    label: string;
+    firstFileIndex: number;
+    secondFileIndex: number | null;
+}
+
 interface AlignResult extends TreeResult {
     alignmentAvailable: boolean;
 }
@@ -79,7 +86,18 @@ export class Mapper {
         });
     }
 
-    map(file: File, revReadFile: File | null, proportion_reads: number, min_count: number, min_qual: number, qual_filter: number): void {
+    // Pairs and names the files in Rust, so that the store and the results use the same sample names.
+    async mapBatch(files: File[], proportion_reads: number, min_count: number, min_qual: number, qual_filter: number): Promise<void> {
+        const wasm = await this.waitForWasm();
+        const samples: MapSample[] = JSON.parse(wasm.pair_input_files(files.map((file) => file.name)));
+        this.worker.postMessage({ mapPlan: true, names: samples.map((sample) => sample.label) });
+        for (const sample of samples) {
+            const revReads = sample.secondFileIndex === null ? null : files[sample.secondFileIndex];
+            this.map(files[sample.firstFileIndex], revReads, sample.label, proportion_reads, min_count, min_qual, qual_filter);
+        }
+    }
+
+    map(file: File, revReadFile: File | null, outname: string, proportion_reads: number, min_count: number, min_qual: number, qual_filter: number): void {
         console.log("Mapping reads to reference with proportion_reads: " + proportion_reads);
         if (this.SkaData === null) {
             throw new Error("SkaRef::map - reference does not exist yet.");
@@ -87,7 +105,6 @@ export class Mapper {
 
         try {
             const t0 = performance.now();
-            const outname = (revReadFile != null) ? file.name.replace(new RegExp("(?:_1)?\\.(?:fa|fna|fasta|fq|fnq|fastq)(?:\\.gz)?" + String.fromCharCode(36)), "") : file.name;
             const results: MapResult = JSON.parse(this.SkaData.map(file, revReadFile, proportion_reads, min_count, min_qual, qual_filter, outname));
 
             this.worker.postMessage({
@@ -100,7 +117,7 @@ export class Mapper {
                 wasmMemoryBytes: this.memoryBytes(),
             });
         } catch {
-            this.worker.postMessage({ error: true, message: 'memory' });
+            this.worker.postMessage({ error: true, message: 'memory', name: outname });
         }
     }
 

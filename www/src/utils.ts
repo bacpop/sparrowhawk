@@ -228,9 +228,11 @@ export const getFilesToProcess = (files: Array<File>) => {
                                 if (files[j].name === files[i].name) {
                                     console.log("File " + files[i].name + " has been uploaded at least twice. It will only be processed once.");
                                     tmplist.push(tmpnam); // To prevent multiple processings of same file.
-                                } else {
+                                } else if (files[j].name.replace(regExpWithTwoNumbers, "") === tmpnam &&
+                                           regExpWithTwoOnly.test(files[j].name) !== regExpWithTwoOnly.test(files[i].name)) {
                                     found = true;
-                                    outlist.push([i, j]);
+                                    // Mate 1 first, whatever order the browser listed the files in.
+                                    outlist.push(regExpWithTwoOnly.test(files[i].name) ? [j, i] : [i, j]);
                                     tmplist.push(tmpnam);
                                     break;
                                 }

@@ -348,46 +348,39 @@ export default {
 
         // Set mapping state
         commit("setMappingState", true);
-        const indxlist = getFilesToProcess(payload.acceptFiles);
-
-        console.log(indxlist);
-
-        indxlist.forEach((sublist: Array<number>) => {
-            const messageData: any = {
+        // The worker pairs and names the samples, and announces them before mapping.
+        if (state.workerState.worker_ska) {
+            state.workerState.worker_ska.postMessage({
                 map: true,
-                file: payload.acceptFiles[sublist[0]],
-                revReads: (sublist.length > 1) ? payload.acceptFiles[sublist[1]] : null,
-                sampleName: (sublist.length > 1) ? payload.acceptFiles[sublist[0]].name.replace(regExpWithTwoNumbers, "") : payload.acceptFiles[sublist[0]].name,
+                files: payload.acceptFiles,
                 proportion_reads: payload.proportion_reads,
                 min_count: payload.min_count,
                 min_qual: payload.min_qual,
                 qual_filter: payload.qual_filter
-            };
-            // Track this file as being mapped
-            commit("addMappingFile", messageData.sampleName);
-            commit("addQueryFileMap", messageData.sampleName);
-            if (state.workerState.worker_ska) {
-                state.workerState.worker_ska.postMessage(messageData);
-                state.workerState.worker_ska.onmessage = (message) => {
-                    if (message.data.alignmentError || message.data.clusterError || message.data.alignmentDownloadError) return;
-                    if (!("nb_variants" in message.data) && !message.data.error) return;
-                    if (message.data.error) {
-                        commit("setSkaMappingError", message.data.message ?? "generic");
-                        commit("removeMappingFile", messageData.sampleName);
-                        return;
+            });
+            state.workerState.worker_ska.onmessage = (message) => {
+                if (message.data.alignmentError || message.data.clusterError || message.data.alignmentDownloadError) return;
+                if (message.data.mapPlan) {
+                    for (const name of message.data.names) {
+                        commit("addMappingFile", name);
+                        commit("addQueryFileMap", name);
                     }
-                    console.log("Mapping variants: " + message.data.nb_variants);
-                    console.log("Mapping coverage: " + message.data.coverage);
+                    return;
+                }
+                if (!("nb_variants" in message.data) && !message.data.error) return;
+                if (message.data.error) {
+                    commit("setSkaMappingError", message.data.message ?? "generic");
+                    if (message.data.name) commit("removeMappingFile", message.data.name);
+                    return;
+                }
+                console.log("Mapping variants: " + message.data.nb_variants);
+                console.log("Mapping coverage: " + message.data.coverage);
 
-                    // Remove this file from mapping set
-                    commit("removeMappingFile", message.data.name);
-                    commit("setMapped", message.data);
-                };
-            }
-
-        });
-
-
+                // Remove this file from mapping set
+                commit("removeMappingFile", message.data.name);
+                commit("setMapped", message.data);
+            };
+        }
     },
 
     async processQueryAlign(context: ActionContext<RootState, RootState>, payload: {

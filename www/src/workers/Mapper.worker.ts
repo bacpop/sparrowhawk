@@ -11,8 +11,7 @@ interface RefMessage {
 
 interface MapMessage {
     map: boolean;
-    file: File;
-    revReads: File | null;
+    files: File[];
     proportion_reads: number;
     min_count: number;
     min_qual: number;
@@ -104,7 +103,7 @@ ctx.onmessage = (evt: MessageEvent<WorkerMessage>) => {
             mapper.set_ref(data.file, data.k, data.rc, data.ambig_mask, data.repeat_mask);
         } else if ('map' in evt.data && evt.data.map) {
             const data = evt.data as MapMessage;
-            mapper.map(data.file, data.revReads, data.proportion_reads, data.min_count, data.min_qual, data.qual_filter);
+            void mapper.mapBatch(data.files, data.proportion_reads, data.min_count, data.min_qual, data.qual_filter);
         } else if ('alignStart' in evt.data && evt.data.alignStart) {
             const data = evt.data as AlignmentStartMessage;
             void mapper.beginAlignment(data.runId, data.fileNames, data.k, data.rc, data.append);
