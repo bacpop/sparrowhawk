@@ -189,11 +189,6 @@
                    v-model.number="min_contig_length"
                    :disabled="isProcessingAny">
           </div>
-
-          <Button @click="doPreProcess()" v-if="readsProcessed" class="max-w-fit mt-2"
-                  variant="outline" size="sm">
-            Re-process
-          </Button>
         </div>
       </TooltipProvider>
     </div>
@@ -416,7 +411,6 @@ export default defineComponent({
       min_contig_length,
       assemblying,
       resetAll,
-      doPreProcess,
       doAss,
       getRootPropsReads,
       getInputPropsReads,

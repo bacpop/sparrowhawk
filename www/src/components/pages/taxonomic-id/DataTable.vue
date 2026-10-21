@@ -44,8 +44,9 @@ const table = useVueTable({
 
 <template>
     <div class="rounded-md border overflow-hidden">
-        <Table>
-            <TableHeader>
+        <!-- One box scrolls both ways, so its horizontal scrollbar stays in view and the header can stick. -->
+        <Table container-class="max-h-96">
+            <TableHeader class="sticky top-0 z-10 bg-background shadow-[inset_0_-1px_0_var(--border)]">
                 <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
                     <TableHead v-for="header in headerGroup.headers" :key="header.id">
                         <FlexRender

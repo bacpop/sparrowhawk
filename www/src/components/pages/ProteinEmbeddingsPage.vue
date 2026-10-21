@@ -231,9 +231,7 @@
           <div class="text-sm text-gray-500 truncate mb-2">
             {{ summaryLine }}
           </div>
-          <div class="max-h-96 overflow-y-auto">
-            <DataTable :columns="tableColumns" :data="tableData" />
-          </div>
+          <DataTable :columns="tableColumns" :data="tableData" />
         </div>
       </div>
     </div>
