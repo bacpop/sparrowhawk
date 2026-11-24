@@ -19,6 +19,12 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
+      # The wasm-pack version used locally and by CI, so every build uses the same one; without
+      # it, the webpack plugin installs whatever npm's latest wasm-pack is.
+      - uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: v0.15.0
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "rust -> target"

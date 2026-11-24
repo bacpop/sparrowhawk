@@ -1,79 +1,151 @@
 name: Electron release
 
 on:
-  push:
-    tags: ["v*"]
-  workflow_dispatch:
+  release:
+    types: [published]
+  workflow_dispatch:   # test builds: files are kept as run artifacts only
 
 permissions:
-  contents: write
+  contents: read
+
+# Never cancel a release build half-way.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  # The renderer (www/dist-electron) is the same on every OS, so the Rust is compiled once.
+  renderer:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: true
+          submodules: recursive   # mandrake needs its nested sketchlib.rust
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly   # wasm64 packages
+        with:
+          components: rust-src
+
+      - uses: dtolnay/rust-toolchain@stable    # installed last, so it is the default
         with:
           targets: wasm32-unknown-unknown
 
+      # Pinned: unpinned, this action falls back to wasm-pack 0.9.1 (GitHub's API redirects the
+      # moved rustwasm/wasm-pack), whose old wasm-opt rejects the assembler's and ska's builds.
       - uses: jetli/wasm-pack-action@v0.4.0
-
-      - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            rust/sparrowhawk-asm
-            rust/ska.rust
-            rust/sketchlib.rust
-            rust/sparrowhawk-amr
-            rust/orphos-bridge
-            rust/deacon-bridge
-            rust/esm-bridge
+          version: v0.15.0
 
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          package-manager-cache: true
           cache: npm
-          cache-dependency-path: |
-            www/package-lock.json
-            electron/package-lock.json
+          cache-dependency-path: www/package-lock.json
+
+      # The same wasm64 builds as cf_deploy.yaml, into www/public/pkg_wasm64/, which the
+      # renderer build copies into dist-electron.
+      - name: wasm64 packages
+        run: |
+          python3 scripts/build_wasm64.py --crate rust/ska.rust --module ska
+          python3 scripts/build_wasm64.py --crate rust/sparrowhawk-asm --module sparrowhawk
 
       - name: Install renderer dependencies
         working-directory: www
         run: npm ci
 
+      - name: Build renderer
+        working-directory: www
+        run: npm run build:electron
+
+      # The app falls back to wasm32 silently when these are missing, so fail the build instead.
+      - name: Check the wasm64 packages are in the renderer
+        run: |
+          for module in sparrowhawk ska; do
+            for file in index.js index_bg.wasm; do
+              test -s "www/dist-electron/pkg_wasm64/$module/$file" \
+                || { echo "::error::missing www/dist-electron/pkg_wasm64/$module/$file"; exit 1; }
+            done
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: renderer
+          path: www/dist-electron
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    name: package (${{ matrix.target }})
+    needs: renderer
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: linux-x64, platform: --linux }
+          - { os: windows-2025, target: win-x64,   platform: --win }
+          - { os: macos-15,     target: mac-arm64, platform: --mac }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6   # no submodules: only electron/ is needed
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: electron/package-lock.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: renderer
+          path: www/dist-electron
+
       - name: Install electron dependencies
         working-directory: electron
         run: npm ci
 
-      - name: Build renderer
-        working-directory: electron
-        run: npm run build:renderer
+      # A release tag v0.2.0 gives version 0.2.0; a manual run gives 0.0.0-dev.<run number>.
+      - name: Version
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = release ]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
 
+      # Targets and architectures come from electron/package.json: AppImage x64, NSIS x64,
+      # and dmg arm64. Unsigned: there is no signing certificate.
       - name: Package
         working-directory: electron
-        run: npx electron-builder --publish never
+        shell: bash
+        run: npx electron-builder ${{ matrix.platform }} --publish never -c.extraMetadata.version="$VERSION"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: sparrowhawk-${{ matrix.os }}
+          name: sparrowhawk-${{ matrix.target }}
           path: |
             electron/dist/*.AppImage
-            electron/dist/*.dmg
             electron/dist/*.exe
+            electron/dist/*.dmg
+          if-no-files-found: error
 
-      - uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/v')
+  release:
+    needs: package
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # attach files to the release
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          files: |
-            electron/dist/*.AppImage
-            electron/dist/*.dmg
-            electron/dist/*.exe
+          pattern: sparrowhawk-*
+          merge-multiple: true
+          path: dist
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
