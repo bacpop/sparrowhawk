@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Always cancel a superseded run, on main too: these runs are long and expensive.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check --manifest-path rust/orphos-bridge/Cargo.toml
+      - run: cargo fmt --check --manifest-path rust/esm-bridge/Cargo.toml
+      - run: cargo fmt --check --manifest-path rust/deacon-bridge/Cargo.toml
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust/orphos-bridge -> target
+            rust/esm-bridge -> target
+            rust/deacon-bridge -> target
+      - run: cargo clippy --manifest-path rust/orphos-bridge/Cargo.toml --all-targets -- -D warnings
+      - run: cargo clippy --manifest-path rust/esm-bridge/Cargo.toml --all-targets -- -D warnings
+      - run: cargo clippy --manifest-path rust/deacon-bridge/Cargo.toml --target wasm32-unknown-unknown -- -D warnings
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/deacon-bridge -> target
+      # orphos-bridge and esm-bridge are built by the test and wasm jobs.
+      - name: deacon-bridge (wasm32)
+        run: cargo check --manifest-path rust/deacon-bridge/Cargo.toml --target wasm32-unknown-unknown
+
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # octocov's PR comment
+      actions: read          # octocov reads the default branch's report
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust/orphos-bridge -> target
+            rust/esm-bridge -> target
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: orphos-bridge tests, with coverage
+        run: cargo llvm-cov --manifest-path rust/orphos-bridge/Cargo.toml --all-targets --lcov --output-path orphos-bridge.lcov.info
+      # esm-bridge's three GPU tests (tests/fidelity.rs, #[ignore = "requires a GPU"]) are not
+      # included: GitHub's standard runners have no GPU, so `cargo test` skips them, as ignored.
+      - name: esm-bridge tests (CPU), with coverage
+        run: cargo llvm-cov --manifest-path rust/esm-bridge/Cargo.toml --all-targets --lcov --output-path esm-bridge.lcov.info
+      - name: Coverage report
+        uses: k1LoW/octocov-action@v1
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: www/package-lock.json
+      - run: npm ci
+        working-directory: www
+      # vue-cli-service lint fixes files by default; CI must only report.
+      - run: npx vue-cli-service lint --no-fix
+        working-directory: www
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install mdBook   # the same install as docs_deploy.yaml
+        run: |
+          tag=$(curl -s https://api.github.com/repos/rust-lang/mdbook/releases/latest | jq -r .tag_name)
+          curl -sSL "https://github.com/rust-lang/mdbook/releases/download/${tag}/mdbook-${tag}-x86_64-unknown-linux-gnu.tar.gz" | tar -xz -C /usr/local/bin
+      - run: mdbook build
+        working-directory: docs
+
+  wasm:
+    name: wasm (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { module: sparrowhawk, crate: rust/sparrowhawk-asm, wasm64: true }
+          - { module: ska,         crate: rust/ska.rust,        wasm64: true }
+          - { module: sketchlib,   crate: rust/sketchlib.rust,  wasm64: false }
+          - { module: amr,         crate: rust/sparrowhawk-amr, wasm64: false }
+          - { module: orphos,      crate: rust/orphos-bridge,   wasm64: false }
+          - { module: esm,         crate: rust/esm-bridge,      wasm64: false }
+          - { module: mandrake,    crate: rust/mandrake,        wasm64: false }
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive   # mandrake needs its nested sketchlib.rust
+      - if: matrix.wasm64
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - uses: dtolnay/rust-toolchain@stable   # installed last, so it is the default
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: jetli/wasm-pack-action@v0.4.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24   # memory64, for the wasm64 packages
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.module }}
+          workspaces: |
+            ${{ matrix.crate }} -> target
+            rust/sparrowhawk-amr -> target
+            . -> .wasm64-build/${{ matrix.module }}
+      - if: matrix.wasm64
+        uses: actions/cache@v4
+        with:
+          path: .wasm64-tools
+          key: wasm64-tools-${{ hashFiles(format('{0}/Cargo.lock', matrix.crate)) }}
+      - name: Build and check
+        run: python3 scripts/test_wasm.py --only ${{ matrix.module }}

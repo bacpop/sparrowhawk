@@ -62,6 +62,8 @@ export async function loadPackage(directory) {
 export function golden(name, observed, update) {
     const path = join(REPO, "tests", "wasm", "golden", `${name}.json`);
     if (update || !existsSync(path)) {
+        assert.ok(update || !process.env.CI,
+            `${path} is missing; record it locally with --update-golden and commit it`);
         mkdirSync(dirname(path), { recursive: true });
         writeFileSync(path, `${JSON.stringify(observed, null, 2)}\n`);
         report(`RECORDED ${path}`);
