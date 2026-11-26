@@ -17,7 +17,7 @@ Sparrowhawk is a WebAssembly toolkit for analysis of bacterial genomes including
 
 ## Documentation
 
-Docs are here: https://sparrowhawk-docs.bacpop.org
+Docs, including a development guide for WebAssembly methods, are here: https://sparrowhawk-docs.bacpop.org .
 
 ## WebAssembly?
 
@@ -42,11 +42,31 @@ For fans and haters of backronyms: **S**peedy **P**rivate **AR**chitecture **R**
 
 - [Víctor Rodríguez Bouza](https://github.com/vrbouza)
 - [John Lees](https://github.com/johnlees)
+- [Johanna H. von Wachsmann](https://github.com/johannahelene)
 - [Bede Constantinides](https://github.com/bede/)
 - [Luca Nesterenko](https://github.com/lucanest/)
 - [Erikson Odih](https://github.com/Erkison)
 - [Andrea Epifani](https://github.com/andyepx)
 - [Antoine Andreoletti](https://github.com/apollis44)
+
+## Citation
+
+Sparrohawk's preprint is published on [bioRxiv (2026.11.18.767565)](https://www.biorxiv.org/content/10.64898/2026.11.18.767565). You may use the following bibtex entry:
+
+```bibtex
+@article{rodriguez-bouza2026sparrowhawk,
+        author    = {Rodr{\'\i}guez-Bouza, V{\'\i}ctor and von Wachsmann, Johanna H. and Constantinides, Bede and Andr{\'e}oletti, Antoine and Odih, Erkison E. and Nesterenko, Luca and Gupta, Vikas and Lees, John A.},
+        title     = {{Sparrowhawk}: harnessing {WebAssembly} for private microbial genomics, and beyond},
+        journal   = {bioRxiv},
+        year      = {2026},
+        month     = nov,
+        eid       = {2026.11.18.767565},
+        doi       = {10.64898/2026.11.18.767565},
+        url       = {https://www.biorxiv.org/content/10.64898/2026.11.18.767565v1},
+        publisher = {Cold Spring Harbor Laboratory},
+        note      = {Preprint}
+}
+```
 
 <br>
 <br>
