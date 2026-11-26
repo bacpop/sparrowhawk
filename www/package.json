@@ -1,6 +1,11 @@
 {
   "name": "sparrowhawk",
-  "version": "0.1.1",
+  "version": "0.2.0",
+  "description": "Sparrowhawk: private bacterial genomics in your browser and desktop",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bacpop/sparrowhawk.git"
+  },
   "private": true,
   "scripts": {
     "serve": "node --max-old-space-size=8192 node_modules/@vue/cli-service/bin/vue-cli-service.js serve",
