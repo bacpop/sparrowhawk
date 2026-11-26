@@ -95,7 +95,7 @@ We have created a [guide](https://sparrowhawk-docs.bacpop.org/wasm_guide) that d
 
 
 ## Installation
-Development has been done only on x86_64 GNU/Linux-based systems, and most surely will probably stay that way (i.e. no other systems have been tested). To use it you will need to have [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed, as well as a working Rust installation (check the [official Rust website](https://rust-lang.org/tools/install/) for information on how to get it) and then download and install the required packages as follows (for example, to get the v0.1.2 version)
+Development has been done only on x86_64 GNU/Linux-based systems, and most surely will probably stay that way, although different systems have been explored with its usage via the website. To use it you will need to have [NPM](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) installed, as well as a working Rust installation (check the [official Rust website](https://rust-lang.org/tools/install/) for information on how to get it) and then download and install the required packages as follows (for example, to get the v0.1.2 version)
 
 ```
 git clone --branch v0.1.2 --recurse-submodules https://github.com/bacpop/sparrowhawk.git
