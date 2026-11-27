@@ -1,5 +1,4 @@
-# Scoped to wasm32 — unlike rust/orphos-bridge/.cargo/config.toml, which sets [build]
-# rustflags globally — so native smoke tests and `cargo test` are unaffected.
+# Scoped to wasm32, so native smoke tests and `cargo test` are unaffected.
 [target.wasm32-unknown-unknown]
 rustflags = [
     # burn-onnx generates deeply nested forward() bodies; the 1 MB default is not enough.

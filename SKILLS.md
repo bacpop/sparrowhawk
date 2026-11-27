@@ -9,11 +9,14 @@ A complete playbook for a computational tool that runs entirely in the browser: 
 Rust algorithm compiled to WebAssembly, driven from a Web Worker, presented as a
 Vue page.
 
-**This document is self-contained.** Everything needed to act is here.
+**This document is self-contained.** Everything needed to act is here. Parts
+I–III work for any project; Part IV adds what the sparrowhawk repository
+expects when the tool goes into it rather than into a site of its own.
 
-Three parts. **Part I** gets a correct Rust library, natively, with no wasm and no
+Four parts. **Part I** gets a correct Rust library, natively, with no wasm and no
 Vue. **Part II** puts it in a browser. **Part III** is reference — long code
 blocks and tables, consulted on demand, kept out of the way of the steps.
+**Part IV** is the checklist for adding the tool to sparrowhawk itself.
 
 **§2 is the skill.** Once you can tell a right answer from a wrong one, everything
 downstream is mechanical. Spend disproportionate effort there.
@@ -113,8 +116,9 @@ Two things change.
 
 **Prefer a bridge crate to a fork.** Depend on upstream by git `rev` in
 `Cargo.toml`, leave it untouched, and skip submodules entirely — there is then
-nothing to keep in step. (This is a deliberate departure from sparrowhawk, which
-vendors forks as submodules.)
+nothing to keep in step. (sparrowhawk does both: its bridges depend on upstream
+by git branch, pinned by a committed `Cargo.lock`, while forks it maintains, such
+as ska and sketchlib, are submodules. A `rev` is the clearer pin.)
 
 **Check first whether upstream already compiles to wasm.** rammap already had a
 working wasm session and a demo page. The real job was not "port it" but "close
@@ -174,19 +178,22 @@ Give the binary **one subcommand per capability** — combine-web has `parse`,
 `yields`, `fit`, `scan`, `impacts`. That is what makes the oracle scriptable and
 gives each capability a natural test.
 
-**Repo layout.** The root holds `rust/` and `www/` and nothing else but config:
+**Repo layout.** For a new project, the root holds `rust/` and `www/` and little
+else but config (sparrowhawk itself also has `docs/`, `electron/`, `scripts/` and
+`tests/`; Part IV):
 
 ```
 rust/<tool>-bridge/          all #[wasm_bindgen] lives here
 ├── src/
 ├── scripts/                 build, compare-native, test harnesses
-└── tests/data/              fixture generators (fixtures generated, not committed)
+└── tests/data/              fixtures, or generators for any too large to commit
 www/                         the Vue app
 ```
 
-Scripts and test data belong **inside the crate**, mirroring `rust/esm-bridge/`;
-put them at the root and it has to be undone later. Commit lockfiles:
-`rust/*/Cargo.lock` and `www/package-lock.json`.
+Scripts and test data for one crate belong **inside the crate**, mirroring
+`rust/esm-bridge/`. Checks that span every crate — sparrowhawk's `scripts/` and
+`tests/wasm/` — are the exception. Commit lockfiles: `rust/*/Cargo.lock` and
+`www/package-lock.json`.
 
 **When the headless phase cannot be made to reproduce:** stop there. A wasm build
 will not fix a wrong answer, and every later layer makes the wrong answer harder
@@ -206,7 +213,8 @@ far more work:
 
 - **Take bytes, never paths.** There is no filesystem.
 - **Bound the working set**, and know what scales with input size versus
-  reference size. The ceiling is 4 GB.
+  reference size. The ceiling is 4 GB on wasm32 (16 GiB on wasm64, at a cost in
+  build complexity; §6).
 - **Design for chunk-level parallelism across workers**, which is what a pool
   gives you; `rayon` does not run here.
 - **Structure work as a loop over records or chunks**, not one monolithic call.
@@ -247,8 +255,12 @@ From here nothing depends on how Part I was reached.
 
 ```bash
 rustup target add wasm32-unknown-unknown
-cargo install wasm-pack
+cargo install wasm-pack --version 0.15.0 --locked
 ```
+
+**Pin wasm-pack**, locally and in CI. Older versions bundle a `wasm-opt` that
+rejects current wasm-bindgen output ("Only 1 table definition allowed in MVP"),
+and some CI actions silently fall back to 0.9.1 when left unpinned.
 
 `wasm-pack` calls cargo, runs `wasm-bindgen` to generate the JS/TS glue,
 optionally runs `wasm-opt`, and emits a `pkg/` with the `.wasm`, a JS module and
@@ -256,17 +268,27 @@ a `.d.ts`.
 
 Use the **default `bundler` target** inside webpack: with
 `experiments.asyncWebAssembly`, a dynamic `import()` instantiates the module, so
-**there is no `init()` call anywhere**. `--out-dir` works fine (wasm-pack 0.15),
-despite older documentation warning it is forwarded to cargo as the nightly-only
-`--artifact-dir` — useful when you want two packages, `--target nodejs` into
-`pkg/` for a Node harness and the bundler build for the app.
+**there is no `init()` call**. A `--target web` package is different: it exports
+a default `init` that must be awaited, which is how Node harnesses and wasm64
+packages are loaded. `--out-dir` works fine (wasm-pack 0.15), despite older
+documentation warning it is forwarded to cargo as the nightly-only
+`--artifact-dir` — useful when you want two packages, a `web` or `nodejs` build
+in a folder of its own for a Node harness, and the bundler build for the app.
+Never point the harness build at the app's own `pkg*` folder.
 
-**`wasm32-unknown-unknown` is the only practical choice.** `wasm64` (Memory64)
-would lift the 4 GB ceiling, but `wasm-bindgen` and `wasm-pack` support is still
-unreleased. Plan to fit in 4 GB.
+**Start with `wasm32-unknown-unknown`, and plan to fit in 4 GB.** wasm64
+(Memory64) works and lifts the ceiling to 16 GiB, but it is a second build path:
+wasm-bindgen 0.2.120 or newer, nightly Rust with `rust-src` and
+`-Z build-std=std,panic_abort`, `wasm-bindgen-cli` instead of wasm-pack, a
+`--target web` package, and a loader that falls back to wasm32 where wasm64
+fails. Dependencies can break on it: under simd128, `fixedbitset` imports
+`core::arch::wasm32`, which does not exist on wasm64. sparrowhawk does all this
+for its assembler and ska, in `scripts/build_wasm64.py` and
+`www/src/wasm/loader.ts`; copy those rather than starting again.
 
 Gate wasm-only code on **`target_family = "wasm"`** — the predicate this platform
-uses, not `target_arch = "wasm32"` and not a cargo feature:
+uses, not a cargo feature, and not `target_arch = "wasm32"`, which silently drops
+the code from a wasm64 build:
 
 ```rust
 #[cfg(target_family = "wasm")]
@@ -276,7 +298,9 @@ pub fn init_panic_hook() { console_error_panic_hook::set_once(); }
 
 See Part III, ***Cargo.toml and `.cargo/config.toml`*** — including the trap that
 a dependency's `.cargo/config.toml` is never inherited, so SIMD flags silently
-vanish and the stack stays at its 1 MB default.
+vanish and the stack stays at its 1 MB default. It also applies only when cargo
+runs from the crate's folder, as wasm-pack does; a build driven from elsewhere,
+such as a wasm64 script, must pass the flags itself.
 
 ### The interface pattern
 
@@ -328,9 +352,11 @@ pub fn finish(&mut self)                   -> Result<Vec<u8>, JsValue> { … }
 
 **For structured results**, `serde-wasm-bindgen` with `#[derive(Serialize)]` and
 `#[serde(rename_all = "camelCase")]` gives native JS objects mirroring your
-TypeScript interfaces one-for-one. No crate here does this yet, so there is no
-in-repo example to copy — the existing ones return JSON strings that JS
-re-parses, which works but is untyped on both sides.
+TypeScript interfaces one-for-one. No sparrowhawk crate does this yet, so there
+is no in-repo example to copy. Its older crates return JSON strings that JS
+re-parses, which works but is untyped on both sides; the newer ones return typed
+arrays (`Vec<f32>` arrives as a `Float32Array`) or small objects built with
+`js_sys`.
 
 **Optimise for speed and measure the result.** A profile of `opt-level = 3`,
 `lto = "fat"`, `strip = "debuginfo"` produced **0.37 MB** in rammap-web, against
@@ -356,16 +382,24 @@ One `WasmPackPlugin` instance per crate, `experiments.asyncWebAssembly` on, and
 `worker-loader` handling `*.worker.{js,ts}`. The complete block is in Part III,
 ***vue.config.js***; two settings in it are traps worth naming here.
 
-**`publicPath` must differ between dev and production.** A relative `"./"` makes
-a production `dist/` work from any subdirectory, but Vue CLI passes the value
-verbatim as the dev server's URL pathname, so `npm run serve` yields malformed
-asset URLs. Use `process.env.NODE_ENV === "production" ? "./" : "/"`.
+**Decide where the site is served from.** If the app loads anything by a
+root-relative URL — large data files in `public/`, a wasm64 package — it can only
+run from a site root: use `publicPath: "/"` and skip the next two traps, as
+sparrowhawk does. Otherwise **`publicPath` must differ between dev and
+production.** A relative `"./"` makes a production `dist/` work from any
+subdirectory, but Vue CLI passes the value verbatim as the dev server's URL
+pathname, so `npm run serve` yields malformed asset URLs. Use
+`process.env.NODE_ENV === "production" ? "./" : "/"`.
 
 **A relative `publicPath` with the default `js` assets directory makes workers
 404 on `js/js/…`.** The document resolves chunks against `dist/`, but a worker
 resolves them against its own location in `dist/js/`, and the chunk filename
 already starts with `js/`. Cure with flat output: `assetsDir: ""` plus explicit
 `output.filename`/`chunkFilename`.
+
+**If the same worker is built twice** — once against a wasm32 package and once
+against a wasm64 one — give `worker-loader` hashed names
+(`filename: "js/[name].[contenthash].worker.js"`), or the two files collide.
 
 **There is no hot reload, deliberately.** Restart `npm run serve` after any
 change, front end included. First start is slow — every crate builds in release
@@ -378,7 +412,8 @@ merely starting with `pkg` survives.
 
 **Done when:**
 
-- [ ] `npm run build` produces a `dist/` that loads from a subdirectory.
+- [ ] `npm run build` produces a `dist/` that loads where it will be deployed —
+      a subdirectory, if you chose a relative `publicPath`.
 - [ ] `npm run serve` boots and the app runs — the command developers actually
       type, and the one usually left untested.
 - [ ] `git status` is clean after a build: every generated `pkg*/` is ignored.
@@ -420,6 +455,8 @@ await new Promise((r) => setTimeout(r, 0));
 **Name progress fields `completed`.** Consumers test completion with
 `if (msg.done)`, so a progress message carrying `done: <count>` reads as truthy
 the moment any work happens and progress is mistaken for a finished run.
+(sparrowhawk's `esm-bridge` predates this rule and still sends `done` as a
+count; do not copy it.)
 
 ### Cancellation, and its real limit
 
@@ -450,7 +487,9 @@ stall a whole static slice.
 **Ordinary workers, each with its own wasm instance — not wasm threads.** Shared
 memory needs `SharedArrayBuffer` and therefore COOP/COEP headers, which break
 plain static hosting. Each worker recompiles the module and holds its own copy of
-the data, so cap the pool; 8 is reasonable.
+the data, so cap the pool: sparrowhawk's `clampWorkerCount()` caps it at
+`navigator.hardwareConcurrency` (12 when unknown), and memory is often the
+tighter limit.
 
 **Expect sub-linear scaling and measure it.** combine-web's parallel stage:
 5.3 s at one worker, 3.3 s at two, 2.8 s at four, 1.9 s at eight — 2.8×, not 8×,
@@ -491,6 +530,11 @@ desktop only); and **blob parts**, coalesced into ~8 MB pieces and assembled at
 the end, which Firefox and Safari take, and which escapes the string cap because
 blob parts spill to disk.
 
+In sparrowhawk, all of this sits behind `www/src/platform/files.ts`
+(`openBinaryFileSink`, `saveTextFile`, `saveBinaryFile`), which opens the sink on
+the main thread and also routes saves through native dialogs in the desktop
+program. Use it rather than the browser APIs directly.
+
 **Plotting** is hand-rolled declarative SVG for anything numeric and precise —
 `computed` scales, module-level layout constants, no imperative drawing. Reach
 for plotly or d3 only for genuinely interactive views. Two traps:
@@ -524,6 +568,9 @@ for plotly or d3 only for genuinely interactive views. Two traps:
 
 **Build a Node harness that mirrors the worker** and diff it against the native
 CLI byte for byte. It is cheap, and it is what catches real bugs.
+sparrowhawk's is `tests/wasm/` (Part IV): a small shim stands in for `File`,
+`FileReaderSync` and `postMessage`, and outputs are compared with committed
+golden files.
 
 **Headless browser testing needs no puppeteer.** Node 22+ ships a `WebSocket`
 client, so about sixty lines drives Chrome over the DevTools Protocol. Drive the
@@ -627,12 +674,16 @@ extern "C" {
 }
 
 #[cfg(target_family = "wasm")]
-pub fn post_state(state: &str) {
+pub(crate) fn post_state(state: &str) {
     let obj = js_sys::Object::new();
     let _ = js_sys::Reflect::set(&obj, &JsValue::from_str("assemblyState"),
                                  &JsValue::from_str(state));
     post_message(&obj.into());
 }
+
+// Natively a no-op, so shared code can call it on every target.
+#[cfg(not(target_family = "wasm"))]
+pub(crate) fn post_state(_state: &str) {}
 ```
 
 ## vue.config.js
@@ -682,9 +733,11 @@ module.exports = defineConfig({
 });
 ```
 
-This block is a **cache** — a copy of a file that exists in the repository. It
-earns its place because this document is used in repositories where that file
-does not exist yet.
+This block is a **starting point** for a new project. It is not a copy of
+sparrowhawk's `www/vue.config.js`, which differs: `publicPath: "/"` (it loads
+assets from the site root), the default `js/` assets folder with hashed worker
+names, an `outputDir` switch for the desktop build, and one plugin per crate,
+some with `extraArgs`.
 
 ## The worker, driver and pool
 
@@ -716,6 +769,8 @@ ctx.onmessage = (evt: MessageEvent<WorkerMessage>) => {
 `Depleter.ts` — the driver, importing the wasm lazily and keeping the handle:
 
 ```ts
+import type { WasmIndex } from "@/pkg_deacon";
+
 export class Depleter {
     worker: Worker;
     index: WasmIndex | null = null;
@@ -735,15 +790,26 @@ export class Depleter {
 }
 ```
 
+sparrowhawk's drivers also time each run (`elapsedMs`) and read the instance's
+memory (`wasmMemoryBytes`, from an import of `@/pkg_<tool>/index_bg.wasm`); the
+pages show both.
+
 The pool, from `www/src/store/actions.ts`:
 
 ```ts
-async initSketchlibWorkers(context, numWorkers: number) {
-    for (const worker of state.workerState.workers_sketchlib) worker.terminate();
+async initSketchlibWorkers(context: ActionContext<RootState, RootState>, numWorkers: number) {
+    const {commit, state} = context;
+    const workerCount = clampWorkerCount(numWorkers);
+    for (const worker of state.workerState.workers_sketchlib) {
+        worker.terminate();
+    }
+    commit("clearIdentifyWorkerMemory");
     const pool: Worker[] = [];
-    for (let i = 0; i < numWorkers; i++) pool.push(new WorkerSketcher());
+    for (let i = 0; i < workerCount; i++) {
+        pool.push(new WorkerSketcher());
+    }
     commit("SET_WORKERS_SKETCHLIB", pool);
-}
+},
 ```
 
 ## The page
@@ -783,7 +849,7 @@ async initSketchlibWorkers(context, numWorkers: number) {
     </TooltipProvider>
   </div>
 
-  <div class="min-w-0 w-full flex-1">
+  <div class="min-w-0 w-full flex-1 overflow-visible pt-0 md:overflow-hidden md:pt-12">
     <!-- drop zone, status rows, results -->
   </div>
 </div>
@@ -795,7 +861,7 @@ async initSketchlibWorkers(context, numWorkers: number) {
 | A **threads slider** wherever work is parallelised, wired to the pool size | The platform's pools work this way and users look for it |
 | Export buttons in the **action bar at the top** | Results run to several screens and nobody scrolls back |
 | Results **side by side** on wide screens | And widen the page if a split would shrink a plot |
-| A help collapsible per tool with an honest "what this is" tab | Say plainly if it is a re-implementation rather than a port |
+| A help collapsible per tool, with `Overview` and `Parameters` tabs | Say plainly in the overview if it is a re-implementation rather than a port |
 | Progress naming what is happening | A spinner alone is indistinguishable from a hang |
 | Warn in the interface when a result is approximate | A value you could not compute must never read as a real zero |
 
@@ -803,7 +869,7 @@ async initSketchlibWorkers(context, numWorkers: number) {
 
 | Limit | Consequence |
 |---|---|
-| **4 GB linear memory** | Stream or chunk; cap input size in the UI |
+| **4 GB linear memory** (wasm32) | Stream or chunk; cap input size in the UI; wasm64 lifts it to 16 GiB (§6) |
 | **Shallow call stack** | Rewrite deep recursion iteratively, or raise it via `.cargo/config.toml` |
 | **No filesystem** | All input arrives from JS as bytes or strings |
 | **No threads by default** | `rayon` does not run; parallelise with workers |
@@ -826,10 +892,106 @@ allocation-heavy code or anything crossing the JS boundary often.
 
 ---
 
+# Part IV — adding the tool to sparrowhawk itself
+
+Only when the tool goes into the [sparrowhawk](https://github.com/bacpop/sparrowhawk)
+repository rather than a site of its own. Parts I–III still apply in full; this
+is what the repository additionally expects, roughly in the order it comes up.
+Copy from the newest tools — AMR detection (`sparrowhawk-amr`), Embed proteins
+(`esm-bridge`) and Host depletion (`deacon-bridge`) — and read `AGENTS.md` for a
+map of the repository.
+
+## The crate
+
+- [ ] **Where it lives.** A crate maintained in its own repository goes in as a
+      git submodule under `rust/` (`.gitmodules`, cloned with
+      `--recurse-submodules`). A bridge around an upstream library goes in-tree
+      as `rust/<tool>-bridge/`, with `rust/<tool>-bridge/target/*` added to
+      `.gitignore`. Commit its `Cargo.lock`.
+- [ ] **`.cargo/config.toml`** with `+simd128` for `wasm32-unknown-unknown`,
+      plus the stack size if the code recurses deeply (Part III).
+- [ ] **It also builds natively**, unless it is wasm-only by construction like
+      `deacon-bridge`: CI lints and tests in-tree crates natively.
+
+## The build
+
+- [ ] **`www/vue.config.js`**: one more `WasmPackPlugin`, with
+      `outDir: path.resolve(__dirname, "./src/pkg_<tool>")`,
+      `forceMode: "production"`, and `extraArgs` only if the crate needs
+      features.
+- [ ] **`www/.eslintignore`**: add `src/pkg_<tool>`. It lists every generated
+      package by name, while `.gitignore`'s `www/src/pkg*/` glob already covers
+      it.
+- [ ] **Large data** (indexes, weights) goes in `www/public/` and is loaded with
+      `loadAssetBytes()` or `loadAssetBlob()` from `www/src/platform/files.ts`,
+      by root-relative name, so the same code works on the website and in the
+      desktop program.
+
+## The front end
+
+- [ ] **Worker and driver** in `www/src/workers/` (`<Tool>.worker.ts` and
+      `<Tool>.ts`), plus a `declare module '@/workers/<Tool>.worker'` entry in
+      `www/src/workers/workers.d.ts`; without it the import fails type-checking.
+- [ ] **Store.** In `www/src/types.ts`, the `AllResults<Tool>` type and the
+      worker's field in `WorkerState`. In `RootState` (`store/state.ts`),
+      `allResults_<tool>`, **and** its initial value in `emptyState()` in
+      `www/src/utils.ts`. Mutations for the worker (`SET_WORKER(S)_<TOOL>`), the
+      results and their reset; the run action and, for a pool, an
+      `init<Tool>Workers` action modelled on `initSketchlibWorkers`; getters if
+      the page needs derived values.
+- [ ] **Page** in `www/src/components/pages/<Tool>Page.vue` (Part III, *The
+      page*), and a help collapsible in `www/src/components/help/`.
+- [ ] **Navigation in `www/src/App.vue`.** Import and register the page and its
+      `lucide` icon, add a `v-else-if` branch for it, and add an entry to
+      `tabs` (`id`, `sidebar_label`, `label`, `icon`); the `id` is also the URL
+      hash. Start its worker or default pool in `mounted()` if it must be ready
+      when the tab opens.
+- [ ] **Saving** goes through `www/src/platform/files.ts` (`saveTextFile`,
+      `saveBinaryFile`, `openBinaryFileSink`), never a raw download link, so the
+      desktop program gets native save dialogs.
+- [ ] **Run metrics:** the driver returns `elapsedMs` and `wasmMemoryBytes`, as
+      the other pages show.
+
+## wasm64, only if 4 GB is not enough
+
+- [ ] `scripts/build_wasm64.py --crate rust/<crate> --module <tool>` must build
+      it: one `cdylib`, and wasm-bindgen 0.2.120 or newer. SIMD or stack flags go
+      in the script, which ignores the crate's `.cargo/config.toml`.
+- [ ] `www/src/wasm/packages/<tool>.ts`, modelled on `ska.ts`. The driver loads
+      it with `loadWasmPackage()`, and the worker is wrapped with
+      `observeWasmRuntime()` where it is created.
+- [ ] The same `build_wasm64.py` line in `cf_deploy.yaml` and
+      `electron_release.yaml`, and the module in `electron_release.yaml`'s check
+      that the packages reached the renderer.
+
+## Tests and CI
+
+- [ ] **A wasm check.** An entry in `TESTS` in `scripts/test_wasm.py` (crate,
+      check, the same `wasm_pack_args` as `vue.config.js`, `wasm64`, `uses`); a
+      `tests/wasm/<tool>.mjs` built on `browser.mjs`; its inputs in
+      `tests/wasm/data/`, with their origin in `data/README.txt`; and the golden
+      file its first run writes, reviewed and committed.
+- [ ] **CI.** A row in the `wasm` matrix of `.github/workflows/ci.yaml`, whose
+      `module` must match the `TESTS` key. An in-tree crate also goes in the
+      `fmt`, `clippy` and `test` jobs and their `rust-cache` workspaces; its
+      coverage then counts towards `.octocov.yml`'s threshold.
+
+## Documentation
+
+- [ ] A methods page, `docs/src/<tool>.md`, and its line in
+      `docs/src/SUMMARY.md`.
+- [ ] A "What can I do in the <Tool> tab?" entry in `FaqPage.vue`, and a line in
+      the README's feature list.
+
+**Done when:** everything in §10 holds, and `npm run lint`,
+`npm run test:wasm -- --only <tool>` and `mdbook build` (in `docs/`) are green.
+
+---
+
 ## Further reading — not required
 
 - [`docs/src/wasm_guide.md`](docs/src/wasm_guide.md) — the same mechanics written
   for a human reader, with a narrative worked example, notes on wasm64 toolchain
   progress and a section on WebGPU via `wgpu`.
 - [AGENTS.md](AGENTS.md) — this repository specifically: its crates, store,
-  design tokens, CI and gotchas.
+  design tokens, wasm64, the desktop program, CI, tests and gotchas.

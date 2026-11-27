@@ -30,7 +30,9 @@
       </SidebarContent>
       <SidebarFooter>
         <div class="flex flex-col opacity-80">
-          <Button variant="link" size="sm" class="cursor-pointer items-center justify-start p-0"
+          <!-- data-sidebar="menu-button": on mobile, the sidebar sheet closes after a tap on this, as for the tabs -->
+          <Button variant="link" size="sm" data-sidebar="menu-button"
+                  class="cursor-pointer items-center justify-start p-0"
                   @click="changeTab('faq')">
             FAQ
           </Button>

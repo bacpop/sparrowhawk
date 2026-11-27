@@ -207,9 +207,11 @@ Avoid passing very large strings or byte slices across the boundary on every cal
 It is good practice to gate `wasm-bindgen` imports behind a `cfg` attribute so that the crate still compiles and can be tested natively:
 
 ```rust
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 ```
+
+Use `target_family = "wasm"` rather than `target_arch = "wasm32"`: the second silently leaves the code out of a wasm64 build.
 
 This is also a way to have, in the same crate/repository, code that compiles to `x86_64`, and also to WebAssembly, as you can essentially create alternative "versions" of those methods, functions, or crates that need to be updated.
 
@@ -665,7 +667,7 @@ Not every Rust crate compiles to `wasm32-unknown-unknown`. Crates that depend on
 cargo tree --target wasm32-unknown-unknown 2>&1 | grep -E "error|could not"
 ```
 
-Common workarounds: replace the offending crate with a pure-Rust alternative; re-implement only the required subset; or gate the incompatible dependency behind `#[cfg(not(target_arch = "wasm32"))]` and providing a stub for the wasm build.
+Common workarounds: replace the offending crate with a pure-Rust alternative; re-implement only the required subset; or gate the incompatible dependency behind `#[cfg(not(target_family = "wasm"))]` and provide a stub for the wasm build.
 
 ### SIMD and advanced CPU instructions
 
